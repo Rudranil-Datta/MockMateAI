@@ -1,0 +1,24 @@
+{
+  "name": "server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "lint": "oxlint src tests",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "MockMateAI Express API",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "oxlint": "^1.83.0",
+    "supertest": "^7.2.2",
+    "vitest": "^5.0.1"
+  }
+}

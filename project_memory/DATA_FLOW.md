@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document describes how user, resume, interview, answer, feedback, and analytics data moves through the Version 1 application. V1 uses a modular monolith: a React frontend communicates with one Node.js/Express API, which owns MongoDB access and all OpenAI API calls.
+This document describes how user, resume, interview, answer, feedback, and analytics data moves through the Version 1 application. V1 uses a modular monolith: a React frontend communicates with one Node.js/Express API, which owns MongoDB access and all Gemini Developer API calls. A provider interface permits optional future OpenAI support.
 
 ## System Boundary
 
@@ -15,10 +15,27 @@ React frontend
   ▼
 Node.js + Express API
   ├── MongoDB: persistent application data
-  └── OpenAI APIs: question generation, transcription (if used), answer evaluation
+  └── Gemini Developer API: V1 question generation and answer evaluation
 ```
 
-The frontend does not connect directly to MongoDB or OpenAI. API credentials and database connection details remain on the backend.
+The frontend does not connect directly to MongoDB or an AI provider. API credentials and database connection details remain on the backend.
+
+## AI Provider Boundary
+
+```text
+Interview / feedback services
+             │ provider-neutral input
+             ▼
+aiProviderService
+  ├── mockAiProvider (UI/tests)
+  ├── geminiProvider (V1 live provider)
+  └── openaiProvider (optional future adapter)
+             │ validated common output
+             ▼
+MongoDB and frontend response
+```
+
+Each adapter accepts the same question/evaluation input and normalizes its provider response to the common saved feedback shape. Controllers, routes, UI components, and MongoDB documents never read provider-specific SDK objects or model output directly.
 
 ## Core Data Objects
 
@@ -47,7 +64,7 @@ Interview setup
   → validate selected type, level, optional resume ownership
   → create active interview session
   → build minimal question context
-  → call OpenAI question generation
+  → call Gemini question generation
   → validate and save question
   → return question to browser
 
@@ -55,7 +72,7 @@ Answer submission
   → validate session ownership and active question
   → accept typed text OR transcribe validated audio
   → save answer text
-  → call OpenAI evaluation
+  → call Gemini evaluation
   → validate and save structured feedback
   → return feedback to browser
 
@@ -111,13 +128,13 @@ The extracted text is used only as limited, relevant context for that user's que
 3. The backend validates the type and level, and confirms that any resume belongs to the user.
 4. The backend creates an `active` session with its user ID and setup choices.
 5. It builds a minimum necessary AI prompt from interview type, level, optional bounded resume context, and prior session context when applicable.
-6. The backend calls OpenAI to generate the next question.
+6. The backend calls Gemini to generate the next question.
 7. It validates the response, saves the question against the session, and returns the question to the browser.
 
 ```text
 Setup form → POST /api/interviews → validate + create session → MongoDB interviewSessions
                                                        ↓
-                        selected context → OpenAI question generation → validate result
+                        selected context → Gemini question generation → validate result
                                                        ↓
                                    save question in session → question UI
 ```
@@ -128,14 +145,14 @@ Setup form → POST /api/interviews → validate + create session → MongoDB in
 2. The frontend submits the session/question reference and answer to the backend.
 3. The backend authenticates the request, confirms session ownership and active state, and validates the answer.
 4. It saves the answer text with its question/session context.
-5. The backend sends the answer, the relevant question, and limited context to OpenAI for evaluation.
+5. The backend sends the answer, the relevant question, and limited context to Gemini for evaluation.
 6. The backend validates the returned structured feedback before saving it.
 7. The API returns the feedback to the browser, which presents scores, strengths, improvements, and a next-step recommendation.
 
 ```text
 Typed answer → Answer API → ownership/input checks → save answer
                                             ↓
-                question + answer + limited context → OpenAI evaluation
+                question + answer + limited context → Gemini evaluation
                                             ↓
                     validate structured feedback → save → feedback UI
 ```
@@ -181,16 +198,18 @@ Dashboard request → Analytics API → user's completed sessions → aggregate 
 | Resource ownership | Verify the authenticated user owns every requested resume/session/resource. | Denied or not-found response without leaking another user's data. |
 | File uploads | Enforce file type and size limits before storage/processing. | Clear unsupported/oversized-file message. |
 | AI question/evaluation | Apply usage limits, timeouts, response-shape validation, and safe error handling. | Loading state, retry option, or clear failure state; never misleading feedback. |
+| AI quota exhaustion | Map provider quota exhaustion to `429 AI_QUOTA_EXCEEDED`; preserve saved session/answer state and log safe metadata. | Immediate in-app notice that saved work is safe and practice can be retried later; no automatic key rotation or unlimited retry. |
 | Transcription | Validate audio and transcription result before evaluation. | Prompt to retry with a short, clear recording if transcription is unusable. |
 | Persistence | Save only validated application data and surface failures. | Do not claim a response/session was saved when it was not. |
 
 ## Data Minimisation and Privacy Rules
 
-- Send OpenAI only the question, answer, and the smallest relevant context required for generation or evaluation.
+- Send Gemini only the question, answer, and the smallest relevant context required for generation or evaluation. Use synthetic/minimal resume context for free-tier development unless the user has explicitly consented.
 - Keep resume and audio data only when necessary for the demo and configured product behavior; store controlled references rather than duplicate files where possible.
-- Do not expose OpenAI keys, database credentials, password hashes, raw internal errors, or another user's data to the frontend.
+- Do not expose Gemini/OpenAI keys, database credentials, password hashes, raw internal errors, or another user's data to the frontend.
 - Provide a documented retention/removal approach if resume or session deletion is implemented.
 - Treat AI feedback as practice assistance rather than an authoritative assessment.
+- Use the mock adapter for UI development and repeatable tests. Cache only suitable generated questions for a short period; never share cached feedback or resume context across users.
 
 ## API-to-Data Mapping
 

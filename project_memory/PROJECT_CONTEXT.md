@@ -79,7 +79,7 @@ V1 should implement the stated end-to-end practice flow for the three interview 
 | Frontend UI | React.js |
 | Backend server | Node.js and Express.js |
 | Database | MongoDB |
-| AI processing | OpenAI APIs |
+| AI processing | Gemini Developer API for V1; provider abstraction supports optional future OpenAI integration |
 | Technology themes | Artificial Intelligence, Machine Learning, Natural Language Processing, Web Technologies |
 
 ## Practical V1 delivery principles
@@ -90,7 +90,10 @@ V1 should implement the stated end-to-end practice flow for the three interview 
 - Make text answering the dependable baseline; include voice as a constrained V1 path rather than building a full speech platform.
 - Store enough session, answer, score, and feedback data to power the dashboard—no speculative data collection.
 - Validate the complete user journey early: authenticate → select interview → answer → receive feedback → view history.
+- Use Gemini Developer API only through the backend for V1. Treat its free tier as quota-limited and avoid sending complete or sensitive real resumes; use minimal context, synthetic test resumes, or explicit user consent.
+- Build provider-agnostic AI boundaries from the first implementation: Gemini is the V1 adapter and OpenAI may be added later without changing UI, routes, controllers, MongoDB documents, or feature services.
+- Protect free-tier availability with mocked development mode, bounded interview length, duplicate-submit prevention, short-lived question caching, per-user/IP and application-wide request caps, and an honest quota-exhaustion message.
 
 ## Source-derived requirements vs. implementation decisions
 
-The problem, objectives, scope, six modules, working flow, benefits, and named technologies above are derived from the synopsis. The V1 boundaries and delivery principles are implementation decisions introduced to satisfy the stated two-month, student-budget constraint; they do not expand the product feature set.
+The problem, objectives, scope, six modules, working flow, benefits, and named technologies above are derived from the synopsis. The V1 boundaries and delivery principles are implementation decisions introduced to satisfy the stated two-month, student-budget constraint; they do not expand the product feature set. The synopsis names OpenAI APIs; the Gemini-first provider choice is a documented V1 implementation substitution made for budget-constrained prototyping and must be stated honestly in the final report/demo.

@@ -4,7 +4,7 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 
 ## Engineering Standards
 
-- Preserve V1 modular monolith: React client, Node/Express API, MongoDB, backend-only OpenAI. Never add microservices, queues, Kubernetes, or agent/multi-agent orchestration.
+- Preserve V1 modular monolith: React client, Node/Express API, MongoDB, and backend-only Gemini Developer API for V1. An optional future OpenAI adapter uses the same provider interface. Never add microservices, queues, Kubernetes, or agent/multi-agent orchestration.
 - Follow `project_memory/FOLDER_STRUCTURE.md`: separate UI/API wrappers, routes/controllers, services, models/data access, validators, and external integrations. Keep controllers thin and routes declarative.
 - Implement one approved bounded feature at a time. Define UI, API, persistence, validation, error, and test impact before editing. Reuse existing code; do not refactor unrelated code or add unnecessary packages.
 - Validate input before side effects and external/AI output before save/render. Await async work; use finite timeouts, controlled retries, duplicate-request prevention, safe errors, and complete UI loading/success/empty/error/retry states.
@@ -13,7 +13,7 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 - Keep frontend state local unless truly shared. Use clear domain names, focused functions, PascalCase components/classes, camelCase functions/variables, and `is`/`has` boolean names.
 - Follow `project_memory/SECURITY_&_DEPLOYMENT.md`: backend-only secrets, password hashing, HTTPS/exact CORS/auth settings, rate/body limits, safe rendering, strict upload allow-lists/limits/storage/cleanup.
 - Test changed success, validation, ownership, loading, provider failure, retry, persistence, and regression behavior. Mock AI/transcription in repeatable tests; test live flow with bounded use.
-- Use direct controlled AI calls for questions/evaluation: minimum context, structured output, schema/range validation, input/output/session/rate caps. AI feedback is practice assistance, never hiring, emotion diagnosis, or guaranteed truth. Never invent results on provider failure.
+- Use provider-neutral controlled AI calls for questions/evaluation: only adapters call provider SDKs; mock adapter supports UI/tests, Gemini adapter serves V1, and a future OpenAI adapter must pass the same contract. Use minimum context, structured output, schema/range validation, input/output/session/rate caps, duplicate prevention, and safe short-lived question caching. Map quota exhaustion to `AI_QUOTA_EXCEEDED`, preserve work, log safe metadata, and show an in-app notice; never rotate keys or invent results.
 
 ## Caveman Mode
 
@@ -29,7 +29,7 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 - Do not perform broad repository scans, re-read unchanged large files, or load unrelated material without a concrete need.
 - Use smallest sufficient context, tool output, model effort, and action sequence. Use targeted reads/searches, existing contracts/helpers/tests, and batched independent read-only checks. Efficiency never overrides required reads, risk disclosure, approval, validation, or truthful failure reporting.
 - Preserve V1 journey: authenticate; choose DSA/HR/System Design plus level; optional resume; question; text/constrained voice answer; structured feedback; saved completion; dashboard. Text flow remains dependable baseline.
-- Preserve data isolation, backend-only OpenAI, saved feedback/results, and basic analytics. Implement only documented success criteria.
+- Preserve data isolation, backend-only Gemini V1 integration, saved feedback/results, and basic analytics. Implement only documented success criteria.
 - Do not add company-specific preparation, placement integration, payments, recruiting, live video/multi-user interviews, proctoring, anti-cheating, native apps, advanced gamification, agents, microservices, Kubernetes, or distributed systems.
 - Stop and request explicit scope-change approval for conflict with documentation, security, budget, success criteria, or working behavior. Never mark unapproved, untested, partial, blocked, misleading, or regressive work complete.
 
@@ -44,4 +44,4 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 
 ## Code Review Rules
 
-- Flag bypassed authentication/ownership, exposed secrets, frontend OpenAI calls, unvalidated AI persistence, broken core text flow, V1 scope creep, broad unrelated refactors, missing affected tests, unsafe uploads, and unbounded external/AI requests.
+- Flag bypassed authentication/ownership, exposed secrets, frontend AI-provider calls, unvalidated AI persistence, broken core text flow, V1 scope creep, broad unrelated refactors, missing affected tests, unsafe uploads, and unbounded external/AI requests.
