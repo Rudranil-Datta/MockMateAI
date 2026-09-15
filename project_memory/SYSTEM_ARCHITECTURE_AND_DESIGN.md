@@ -2,7 +2,7 @@
 
 ## Architecture goal
 
-Deliver a complete AI-powered interview-practice web application in about two months using the technologies named in the synopsis. The design is intentionally a **modular monolith**: one React frontend, one Node/Express backend, one MongoDB database, and OpenAI APIs called by the backend. This is simpler to build, test, deploy, and explain in a final-year-project viva than microservices or container orchestration.
+Deliver a complete AI-powered interview-practice web application in about two months using the technologies named in the synopsis. The design is intentionally a **modular monolith**: one React frontend, one Node/Express backend, one MongoDB database, and Gemini Developer API called by the backend for V1. A provider interface preserves optional future OpenAI integration without changing product flows. This is simpler to build, test, deploy, and explain in a final-year-project viva than microservices or container orchestration.
 
 ## System context
 
@@ -15,10 +15,10 @@ React.js frontend
   ▼
 Node.js + Express.js backend
   ├── MongoDB (users, resumes, interview sessions, answers, feedback)
-  └── OpenAI APIs (question generation and response evaluation)
+  └── Gemini Developer API (V1 question generation and response evaluation)
 ```
 
-The frontend never exposes the OpenAI API key. It sends requests only to the backend, which validates the user, persists relevant data, builds prompts, calls OpenAI, and returns the result.
+The frontend never exposes an AI-provider API key. It sends requests only to the backend, which validates the user, persists relevant data, builds prompts, calls the configured provider, and returns validated results.
 
 ## V1 component design
 
@@ -38,7 +38,7 @@ Node.js + Express.js API
 ├── Speech/text analysis module
 ├── Feedback module
 ├── Analytics module
-├── OpenAI integration service
+├── AI provider service (Gemini implementation for V1)
 └── MongoDB data-access layer
 
 MongoDB
@@ -65,9 +65,9 @@ MongoDB
 1. User signs in
 2. User selects interview type and optionally uses a resume
 3. Frontend creates an interview session through the API
-4. Backend loads permitted user/resume context and asks OpenAI for a question
+4. Backend loads permitted user/resume context and asks Gemini for a question
 5. User submits a text answer or voice-derived text
-6. Backend stores the answer and asks OpenAI to evaluate it against the question/context
+6. Backend stores the answer and asks Gemini to evaluate it against the question/context
 7. Backend stores structured feedback and returns it to the frontend
 8. At completion, the dashboard reads the user's saved session history
 ```
@@ -125,9 +125,9 @@ Endpoint names are implementation decisions, not synopsis requirements. The team
 
 For a small V1, embedding a short interview's questions, answers, and feedback within `interviewSessions` is often simpler. A separate `answers` collection is appropriate only if it keeps code clearer or sessions are expected to grow substantially.
 
-## OpenAI integration design
+## AI provider integration design
 
-The backend uses a single integration/service layer for all OpenAI calls. It should have two main responsibilities:
+The backend uses a single provider interface, implemented by Gemini for V1. It should have two main responsibilities:
 
 1. Generate an appropriate question from interview type, chosen level, prior session context, and optional resume context.
 2. Evaluate an answer against the question and return concise, structured feedback.
@@ -139,8 +139,29 @@ Practical safeguards:
 - Validate API responses before saving or showing them.
 - Handle failed or slow AI calls with a clear retry/error state in the UI.
 - Use development limits on question generation and answer evaluation to control cost.
+- Validate Gemini's structured response before persistence. An optional future OpenAI adapter must satisfy the same interface and validation contract before use.
+- Keep Gemini free-tier use within configured request quotas. Send minimal or synthetic resume context during development because free-tier data handling may differ from paid services.
 
-The exact OpenAI models, prompts, scoring rubric, speech-to-text route, and file-storage provider are **implementation details to choose during development**. They are not specified by the synopsis and should be selected for reliability, cost, and the team’s available access.
+The exact Gemini model, prompts, scoring rubric, speech-to-text route, and file-storage provider are **implementation details to choose during development**. They should be selected for reliability, cost, quota, privacy, and the team's available access. OpenAI is an optional future provider, not a required deployment-time swap.
+
+### Provider contract and switch strategy
+
+Only `aiProviderService` may select or call an AI SDK. It exposes provider-neutral operations:
+
+```text
+generateQuestion({ interviewType, level, resumeContext, previousQuestions })
+evaluateAnswer({ interviewType, level, question, answerText })
+```
+
+Both the Gemini V1 adapter and an optional future OpenAI adapter must return the same validated question and feedback shapes. Provider-specific prompts, SDK objects, model identifiers, and raw responses must not escape the adapter. The selected adapter is controlled only by `AI_PROVIDER`; changing `gemini` to `openai` is permitted only after the OpenAI adapter passes the shared provider contract tests and deployed smoke tests.
+
+### V1 quota-preservation and notification behavior
+
+- Use a mock adapter for UI development and automated tests; reserve live Gemini requests for integration tests and demonstrations.
+- Cap the defined V1 interview length, prevent duplicate question/evaluation submits, allow no more than one controlled transient retry, and use short-lived cached questions only for the same interview type and level.
+- Enforce per-user, per-IP, and application-wide AI request limits before calling the provider.
+- On provider quota exhaustion (`429 RESOURCE_EXHAUSTED`), do not switch keys or retry indefinitely. Preserve the active session, return the stable `AI_QUOTA_EXCEEDED` API error with retry guidance, log only safe operational metadata, and show an immediate in-app notice to the active user.
+- V1 notification means in-app feedback plus safe server logs. Email, SMS, Slack, or other owner-alert integrations are future work unless separately approved.
 
 ## Voice-answer approach for V1
 
@@ -158,7 +179,7 @@ The project should label the feedback honestly: it evaluates the submitted or tr
 - Protect authenticated API routes and ensure each user can access only their own resumes and sessions.
 - Hash passwords; never store plain-text passwords.
 - Validate input and uploaded file type/size.
-- Keep OpenAI keys and database connection strings out of frontend code and source control.
+- Keep Gemini/OpenAI keys and database connection strings out of frontend code and source control.
 - Retain only the user data needed for the project demonstration and state how a user can remove a resume/session if that feature is implemented.
 
 ## Deployment approach
@@ -171,7 +192,7 @@ Deploy one frontend and one backend application, backed by a managed MongoDB ins
 - Node/Express REST backend with MongoDB persistence.
 - Account authentication.
 - DSA, HR, and System Design interview selection.
-- AI-assisted questions and response feedback through OpenAI APIs.
+- AI-assisted questions and response feedback through Gemini Developer API in V1.
 - Text answers and a limited, working voice-answer path.
 - Resume-informed questions.
 - Saved interview results and a basic analytics dashboard.
@@ -202,9 +223,8 @@ This ordering protects the essential demo flow first. Voice and visual refinemen
 | React.js frontend | React browser application. |
 | Node.js + Express.js backend | Single REST API backend. |
 | MongoDB database | Stores user, resume, session, answer, feedback, and analytics data. |
-| OpenAI APIs | Backend-only question generation and evaluation integration. |
+| OpenAI APIs named in synopsis | Gemini Developer API is the backend-only V1 provider; an optional OpenAI adapter may be added later through the same provider interface. |
 | DSA, HR, System Design | Interview-type selection in session creation. |
 | Voice + text analysis | One shared feedback pipeline with typed or transcribed answer text. |
 | Resume-based questions | Resume extraction/context at interview setup. |
 | Feedback and analytics | Stored structured feedback and dashboard summaries. |
-

@@ -1,6 +1,6 @@
 # Engineering Standards
 
-- Preserve V1's modular monolith: React client, Node/Express API, MongoDB, and backend-only OpenAI. Never add microservices, queues, Kubernetes, or agentic/multi-agent orchestration.
+- Preserve V1's modular monolith: React client, Node/Express API, MongoDB, and backend-only Gemini Developer API for V1. A future OpenAI adapter uses the same provider interface. Never add microservices, queues, Kubernetes, or agentic/multi-agent orchestration.
 - Follow `FOLDER_STRUCTURE.md`: UI/API wrappers, routes/controllers, services, models/data access, validators, and external integrations remain separated. Controllers are thin; services own business/external logic; models own schemas/indexes; routes are declarative.
 - Implement one approved bounded feature at a time. Before editing, define UI, API, persistence, validation, error, and test impact. Reuse existing components/services/validators/utilities/API wrappers; do not refactor unrelated code.
 - Read only target files and direct dependencies. Preserve working behavior and user changes; avoid unnecessary packages; never commit secrets, `.env`, credentials, uploads, or production data.
@@ -13,4 +13,4 @@
 - Use clear domain names, PascalCase components/classes, camelCase functions/variables, `is`/`has` booleans, and action-named handlers. Keep functions focused and comments for non-obvious constraints only.
 - Follow `SECURITY_&_DEPLOYMENT.md`: backend-only secrets, modern password hashing, HTTPS/exact CORS/auth settings, request/rate limits, safe rendering, strict upload allow-lists/limits/storage/cleanup.
 - Test relevant success, validation, ownership, loading, provider-failure, retry, persistence, and regression behavior. Mock AI/transcription for repeatable tests; test live flow with bounded use.
-- Use direct controlled AI calls for questions/evaluation: minimal context, structured output, schema/range validation, input/output/session/rate caps. AI feedback is practice assistance, never hiring, emotion diagnosis, or guaranteed truth. Never invent AI results on failure.
+- Use provider-neutral controlled AI calls: only adapters call provider SDKs; mock supports UI/tests, Gemini serves V1, and future OpenAI must pass the same contract. Use minimal context, structured output, schema/range validation, input/output/session/rate caps, duplicate prevention, and safe short-lived question caching. Map quota exhaustion to `AI_QUOTA_EXCEEDED`, preserve work, log safe metadata, show in-app notice, never rotate keys, and never invent results.

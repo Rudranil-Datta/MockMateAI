@@ -70,7 +70,10 @@ MockMateAI/
 │   │   │   ├── interviewService.js
 │   │   │   ├── feedbackService.js
 │   │   │   ├── analyticsService.js
-│   │   │   ├── openaiService.js
+│   │   │   ├── aiProviderService.js     # Provider selection and shared contract
+│   │   │   ├── geminiProvider.js        # Gemini V1 adapter
+│   │   │   ├── openaiProvider.js        # Optional future adapter; not required in V1
+│   │   │   └── mockAiProvider.js        # Deterministic UI/test development adapter
 │   │   │   └── transcriptionService.js
 │   │   ├── validators/                  # Request schemas and AI-output validation
 │   │   │   ├── authSchemas.js
@@ -103,11 +106,11 @@ MockMateAI/
 
 | Location | Owns | Must not own |
 | --- | --- | --- |
-| `client/src/pages` | Route-level screen composition and user flow | Database access, secrets, OpenAI calls |
+| `client/src/pages` | Route-level screen composition and user flow | Database access, secrets, AI-provider calls |
 | `client/src/api` | Frontend request/response wrappers | Business rules duplicated from backend |
 | `client/src/components` | Reusable UI rendering and local interaction | Direct backend/database logic |
 | `server/src/routes` | Map HTTP method/path to middleware and controller | Substantial business logic |
-| `server/src/controllers` | Translate validated HTTP request to service call and response | OpenAI prompts, database queries scattered across handlers |
+| `server/src/controllers` | Translate validated HTTP request to service call and response | AI prompts, database queries scattered across handlers |
 | `server/src/services` | Interview orchestration, feedback, analytics, integrations | HTTP-specific response formatting |
 | `server/src/models` | MongoDB schema, document validation, indexes | UI/HTTP behavior |
 | `server/src/middlewares` | Cross-cutting auth, upload, validation, and error behavior | Feature-specific orchestration |
@@ -127,7 +130,8 @@ MockMateAI/
 ### Backend
 
 - `middlewares/requireAuth.*`: derive authenticated user identity and attach it to the request.
-- `services/openaiService.*`: the only place that creates OpenAI clients or calls question/evaluation APIs.
+- `services/aiProviderService.*`: the only place that creates Gemini clients or calls question/evaluation APIs. It exposes a provider contract so a future OpenAI adapter can be added without changing controllers or feature services.
+- `services/geminiProvider.*`, `services/openaiProvider.*`, and `services/mockAiProvider.*`: adapters that implement the same `generateQuestion` and `evaluateAnswer` contract. Only `geminiProvider` and `mockAiProvider` are required for V1.
 - `services/transcriptionService.*`: validates/coordinates approved speech-to-text capability; returns usable text or a controlled error.
 - `services/interviewService.*`: enforces session transitions, ownership checks, question limits, and persistence coordination.
 - `services/feedbackService.*`: builds minimal evaluation context and validates structured feedback before saving.
@@ -143,13 +147,15 @@ Use `.env` files locally and deployment environment variables in hosted environm
 PORT=5000
 MONGODB_URI=
 OPENAI_API_KEY=
+AI_PROVIDER=gemini
+GEMINI_API_KEY=
 AUTH_SECRET=
 CLIENT_ORIGIN=http://localhost:5173
 MAX_RESUME_SIZE_BYTES=
 MAX_AUDIO_SIZE_BYTES=
 ```
 
-The frontend may contain only public configuration, such as an API base URL. It must not contain `OPENAI_API_KEY`, `MONGODB_URI`, `AUTH_SECRET`, or any server credential.
+The frontend may contain only public configuration, such as an API base URL. It must not contain `GEMINI_API_KEY`, `OPENAI_API_KEY`, `MONGODB_URI`, `AUTH_SECRET`, or any server credential.
 
 ## Test Layout
 
@@ -164,4 +170,4 @@ The existing root-level Markdown documents may remain at the repository root whi
 
 ## Avoid in V1
 
-Do not create separate microservice repositories, a frontend OpenAI client, a dedicated analytics service, or elaborate infrastructure folders. The above layout is intentionally small enough for a two-month student project while preserving clean separation of concerns.
+Do not create separate microservice repositories, a frontend AI-provider client, a dedicated analytics service, or elaborate infrastructure folders. The above layout is intentionally small enough for a two-month student project while preserving clean separation of concerns.

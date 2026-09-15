@@ -3,7 +3,7 @@
 ## Planning Assumptions
 
 - Duration: **8 weeks / 40 working days** (Monday–Friday). Weekends are reserved for rest, catch-up, or optional polish—not hidden dependencies for the core plan.
-- Team: a small student team working in parallel where practical; all work remains within the documented React, Node/Express, MongoDB, and backend-only OpenAI architecture.
+- Team: a small student team working in parallel where practical; all work remains within the documented React, Node/Express, MongoDB, and backend-only Gemini Developer API V1 architecture.
 - Priority: make the text interview flow work end to end before adding resume, analytics, voice, or visual refinement.
 - Definition of complete: code is implemented, reviewed, manually tested, and linked to its relevant success criterion—not merely started.
 - Daily discipline: update the task board, pull/review changes, run relevant tests, and record blockers before ending the day.
@@ -57,7 +57,7 @@
 | --- | --- | --- |
 | 11 | Implement `InterviewSession` schema with user ownership, type, level, status, embedded questions, and V1 limits. Add indexes from `DATABASE_DESIGN.md`. | Session model validates only DSA, HR, and System Design with allowed levels. |
 | 12 | Build interview setup page: interview-type cards, level selector, form validation, and loading/retry UI. | User can select type and level and submit an interview-start request. |
-| 13 | Implement `openaiService` question-generation operation, prompt builder, output schema validation, timeout, and development usage limit. Use mocked provider tests first. | Service returns a validated question shape or a controlled error. |
+| 13 | Implement provider-neutral `aiProviderService`, deterministic mock adapter, and Gemini question-generation adapter with prompt builder, output schema validation, timeout, cache boundary, and free-tier limits. | Gemini and mock adapters pass the same question contract; no provider SDK code appears outside adapters. |
 | 14 | Implement `POST /api/interviews` and `POST /api/interviews/:id/questions`: ownership checks, session creation/state transitions, question persistence, and question cap. | API creates an active owned session with a persisted first question. |
 | 15 | Connect setup UI to API; build the active-interview question header/progress state; test all three interview types and provider failure/retry behavior. | User can begin DSA, HR, and System Design sessions and see a saved question. |
 
@@ -71,7 +71,7 @@
 | --- | --- | --- |
 | 16 | Build the active-session text answer area, draft preservation, question navigation rules, duplicate-submit prevention, and clear loading UI. | User can enter a non-empty answer without losing it during normal navigation/error states. |
 | 17 | Implement answer persistence and ownership/state checks for `POST /api/interviews/:id/answers`. | Valid text answer is attached to the correct owned active question/session. |
-| 18 | Implement OpenAI evaluation prompt/service, strict structured-feedback schema validation, score range checks, timeout, and safe retry behavior. | Valid feedback has scores, strengths, improvements, and next step; malformed AI output is rejected. |
+| 18 | Implement Gemini evaluation adapter, strict shared-feedback schema validation, score range checks, timeout, `AI_QUOTA_EXCEEDED` mapping, and safe retry behavior. | Valid feedback has scores, strengths, improvements, and next step; malformed AI/quota output preserves user work and is rejected safely. |
 | 19 | Build feedback UI: overall/dimension scores, plain-language labels, strengths, improvements, next action, and assistive-AI disclaimer. | User receives readable feedback after a typed answer. |
 | 20 | Implement session retrieval and completion endpoint/summary calculation; add result page and tests for the entire text path. | User completes a session, reloads it, and sees saved questions, answers, feedback, and summary. |
 
@@ -100,7 +100,7 @@
 | 26 | Implement browser voice capture UI: permission request, recording/stop/re-record, supported-format checks, processing state, and text fallback. | A supported browser records a short response; microphone denial has a clear typed-answer fallback. |
 | 27 | Implement dedicated voice-answer upload/transcription service/route with file validation, timeout, temporary-file cleanup, and transcript validation. | Approved audio becomes usable text or returns a controlled retryable error. |
 | 28 | Connect transcription to the shared answer-evaluation pipeline; store only required audio reference/transcript according to retention decision; test completed voice flow. | User receives the same structured feedback for a voice-derived answer. |
-| 29 | Implement/verify rate limits, AI request caps, question/session caps, request body limits, CORS, security headers, upload quotas, and AI timeout/retry behavior. | Limits are configured, tested, and documented; duplicate requests do not create duplicate evaluations. |
+| 29 | Implement/verify rate limits, AI request caps, question/session caps, safe short-lived question caching, `AI_QUOTA_EXCEEDED` in-app notification, request body limits, CORS, security headers, upload quotas, and AI timeout/retry behavior. | Limits are configured, tested, and documented; quota exhaustion preserves work and notifies the active user; duplicate requests do not create duplicate evaluations. |
 | 30 | Perform a security and reliability review using `SECURITY_&_DEPLOYMENT.md`: ownership attacks, invalid IDs, malformed AI output, dependency outage, extraction/transcription failure, and persistence failure. | Findings are fixed or logged as explicit V1 limitations with user-facing recovery behavior. |
 
 **Week 6 review:** complete one text and one voice session; deliberately trigger key failure states and verify the app remains honest and recoverable.
@@ -146,7 +146,7 @@ Use this cadence every working day to prevent late integration surprises:
 
 - If behind schedule, protect in this order: authentication → text interview creation → typed answer evaluation → saved completion → dashboard history → resume enrichment → voice polish → visual enhancements.
 - Do not add agentic orchestration, company-specific content, live video, payments, mobile apps, proctoring, or advanced gamification during the timeline.
-- A blocked external dependency (OpenAI quota, hosting issue, transcription limitation) must trigger the documented fallback/retry behavior and a same-day escalation within the team; it must not silently stall unrelated work.
+- A blocked external dependency (Gemini quota, hosting issue, transcription limitation) must trigger the documented fallback/retry behavior and a same-day escalation within the team; it must not silently stall unrelated work.
 - Reserve Week 8 for stability. New scope needs an explicit trade-off: remove or defer a lower-priority item first.
 - Track all constraints from `SECURITY_&_DEPLOYMENT.md`, especially rate limits, upload size/type limits, AI quotas/timeouts, provider configuration, and browser microphone compatibility.
 

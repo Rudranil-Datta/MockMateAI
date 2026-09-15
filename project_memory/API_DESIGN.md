@@ -8,7 +8,7 @@
 - Authorization: every resource route verifies that the record belongs to the authenticated user.
 - IDs: MongoDB ObjectIds represented as strings.
 - Timestamps: ISO 8601 UTC strings.
-- The React frontend calls this API only; it never calls MongoDB or OpenAI directly.
+- The React frontend calls this API only; it never calls MongoDB or Gemini directly. Gemini is the V1 backend provider; an optional future OpenAI adapter uses the same service contract.
 
 ## Standard Response Shapes
 
@@ -40,11 +40,26 @@ Use suitable HTTP status codes:
 | `413` | Upload exceeds configured size limit. |
 | `415` | Unsupported upload type. |
 | `422` | Valid request format but unusable content, such as blank transcription. |
-| `429` | Rate or development-usage limit reached. |
+| `429` | Rate or development-usage limit reached. For provider quota exhaustion use `AI_QUOTA_EXCEEDED` and a `Retry-After` header when a safe retry time is known. |
 | `500` | Unexpected server error. |
 | `502` / `504` | Upstream AI service failed or timed out; return a retryable safe message. |
 
 Raw database, provider, and stack errors must not be exposed to clients.
+
+### AI quota exhaustion response
+
+When the configured provider rejects a request because its quota is exhausted, preserve the session/answer state and return:
+
+```json
+{
+  "error": {
+    "code": "AI_QUOTA_EXCEEDED",
+    "message": "AI practice is temporarily unavailable. Your saved work is safe; try again later."
+  }
+}
+```
+
+The frontend presents this message once for the failed action and offers a retry only after user action. The backend must not rotate keys, issue unlimited retries, or fabricate a question/evaluation.
 
 ## Authentication
 
@@ -269,6 +284,6 @@ The endpoint reads only the authenticated user's completed sessions. It returns 
 - Validate all input on the server, regardless of frontend validation.
 - Rate-limit or otherwise cap question generation, evaluations, and uploads during development.
 - Set request timeouts for AI calls and provide clear UI retry states.
-- Keep AI API keys and database credentials only in backend environment variables.
+- Keep Gemini/OpenAI API keys and database credentials only in backend environment variables.
 - Log safe operational identifiers/statuses, not passwords, secrets, or unnecessary resume/answer contents.
 - Label returned evaluation as interview-practice feedback, not an automated hiring determination.

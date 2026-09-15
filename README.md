@@ -34,9 +34,80 @@ git checkout dev
 git pull origin dev
 ```
 
+Install workspace dependencies:
+
+```bash
+npm install
+```
+
+Create local configuration files from the templates. Do not commit these files:
+
+```bash
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+```
+
+Run the application in two terminals:
+
+```bash
+npm run dev:server
+npm run dev:client
+```
+
+The client runs at `http://localhost:5173`; the API health endpoint is
+`http://localhost:5000/health`.
+
+Before submitting work, run:
+
+```bash
+npm run lint
+npm test
+npm run build
+npm run format
+```
+
 ---
 
-## 2. Start Working
+## 2. Using Codex and Caveman
+
+Open Codex from the repository root. Codex automatically reads `AGENTS.md`,
+which contains the project's architecture, security, scope, and daily-work
+rules.
+
+Caveman makes the agent's chat replies shorter while code is being written or
+refactored. It does not change code quality requirements, skip tests, approve
+work, or reduce the need to review changes.
+
+Use these commands in Codex chat:
+
+```text
+/caveman       # Concise full mode
+/caveman lite  # Professional, lightly compressed mode
+/caveman ultra # Most compressed mode
+/caveman off   # Return to normal mode
+```
+
+For this repository, Codex also applies Caveman automatically while writing or
+refactoring code. It must use normal, clear prose when presenting task lists,
+plans, risks, mitigations, reasons, approval requests, security warnings, or
+manual instructions. Project documentation, code comments, commit messages,
+and user-facing application text must remain normal professional English.
+
+### Agent-assisted daily workflow
+
+1. Start in the repository root and pull the latest `dev` branch.
+2. Ask Codex to read `project_memory/IMPLEMENTATION_STATUS.md` and the direct
+   documentation/code relevant to the assigned task.
+3. For implementation work, review the proposed bounded tasks, risks,
+   mitigations, and possible deviations before approving edits.
+4. Use Caveman during coding or refactoring if concise responses help.
+5. Run the required validation commands, review `git diff`, and confirm no
+   `.env` file or secret is staged.
+6. Ask Codex to update `IMPLEMENTATION_STATUS.md` after the day or task is
+   complete. Update another project document only if the implementation changed
+   its documented contract, design, security rule, or scope.
+
+## 3. Start Working
 
 Always get the latest changes before starting:
 
@@ -49,7 +120,7 @@ Work on your assigned part of the project.
 
 ---
 
-## 3. Push Your Changes
+## 4. Push Your Changes
 
 After completing your work:
 
@@ -64,7 +135,7 @@ Your changes will be pushed to the shared `dev` branch.
 
 ---
 
-## 4. Before Pushing
+## 5. Before Pushing
 
 Since everyone works on the same `dev` branch, always pull the latest changes before pushing:
 
@@ -82,7 +153,7 @@ git push origin dev
 
 ---
 
-## 5. Merging into `main`
+## 6. Merging into `main`
 
 Do **not** merge or push directly to `main`.
 
@@ -102,7 +173,7 @@ Team → dev → Pull Request → main
 
 ---
 
-## 6. Important
+## 7. Important
 
 ### Do
 

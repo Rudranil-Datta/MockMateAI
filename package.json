@@ -1,0 +1,24 @@
+{
+  "name": "mockmateai",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build --workspace=client",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --check README.md package.json client/src client/vite.config.js client/package.json server/src server/tests server/package.json",
+    "format:write": "prettier --write README.md package.json client/src client/vite.config.js client/package.json server/src server/tests server/package.json"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
+  }
+}

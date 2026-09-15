@@ -30,19 +30,22 @@ If any required step fails, has no clear recovery state, or does not persist the
 | Voice answers | A user can record/upload a short supported voice response, obtain usable transcription, and receive feedback through the same evaluation flow. | Complete one short voice-answer example; unsupported files, oversized files, and transcription failures show clear errors. |
 | Resume analysis | A user can upload a supported, size-limited resume; usable text is extracted and only used for that user's question context. | Upload a sample resume and show a generated question that reflects relevant resume context. |
 | Feedback | Each evaluated answer returns a predictable structured result: overall score, accuracy, clarity, confidence, strengths, improvements, and a practical next step. | Show feedback for a typed and voice-derived answer; missing/invalid AI output is not presented as valid feedback. |
+| Provider portability | Feature services use only the shared provider contract; Gemini-specific SDK values do not appear in routes, controllers, UI, or saved documents. | Gemini adapter passes shared contract tests; an OpenAI adapter can be added and tested without changing existing endpoints, UI, or MongoDB schema. |
+| AI quota exhaustion | When the provider returns quota exhaustion, the active session is preserved and the user is notified honestly. | Simulate `429 RESOURCE_EXHAUSTED`; verify one in-app `AI_QUOTA_EXCEEDED` notice, safe server log, no key rotation, no fake feedback, and no infinite retry. |
 | Session completion | A user can finish a session and see a saved summary of its questions, answers, feedback, and final score(s). | Complete a session, reload it, and verify the same summary remains available. |
 | Analytics | The dashboard shows the current user's past sessions with interview type, date, scores, and simple progress summaries/trends. | Complete multiple sessions and verify dashboard values match persisted session data. |
 | Error handling | User-facing loading, retry, validation, and failure states exist for AI calls, uploads, authentication, and network/API failures. | Demonstrate at least one controlled failure in each of those paths. |
 
 ## Technical and Security Criteria
 
-- The delivered application uses a React frontend, Node.js/Express REST backend, MongoDB persistence, and OpenAI APIs called only by the backend.
-- OpenAI credentials, database connection strings, and other secrets are held in environment configuration; they are never sent to or embedded in frontend code.
+- The delivered application uses a React frontend, Node.js/Express REST backend, MongoDB persistence, and Gemini Developer API called only by the backend for V1.
+- Gemini credentials, database connection strings, and other secrets are held in environment configuration; they are never sent to or embedded in frontend code. A future OpenAI adapter is optional and must follow the same boundary.
 - Passwords are hashed before storage; plain-text passwords are never logged or stored.
 - Protected API routes verify authentication and ownership before reading or changing data.
 - Inputs are validated server-side. Resume and audio uploads enforce supported type and size limits.
 - Question/feedback requests have development usage limits or safeguards suitable for the project budget.
-- AI responses are validated before persistence and rendering. The UI labels feedback as assistive practice feedback, not a hiring decision or an emotion diagnosis.
+- Mock mode is used for UI development and repeatable tests; live provider calls are limited to integration testing and demonstrations.
+- AI responses are validated before persistence and rendering. Gemini free-tier use is quota-limited; development uses minimal/synthetic resume context or explicit consent for real resume data. The UI labels feedback as assistive practice feedback, not a hiring decision or an emotion diagnosis.
 - The system remains a modular monolith: one frontend, one backend, and one database deployment. Microservices and complex infrastructure are not required.
 
 ## Quality and Demo Criteria
