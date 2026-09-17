@@ -74,13 +74,13 @@ V1 should implement the stated end-to-end practice flow for the three interview 
 
 ## Stated technology stack
 
-| Area | Technology specified in synopsis |
-| --- | --- |
-| Frontend UI | React.js |
-| Backend server | Node.js and Express.js |
-| Database | MongoDB |
-| AI processing | Gemini Developer API for V1; provider abstraction supports optional future OpenAI integration |
-| Technology themes | Artificial Intelligence, Machine Learning, Natural Language Processing, Web Technologies |
+| Area              | Technology specified in synopsis                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| Frontend UI       | React.js                                                                                      |
+| Backend server    | Node.js and Express.js                                                                        |
+| Database          | MongoDB                                                                                       |
+| AI processing     | Gemini Developer API for V1; provider abstraction supports optional future OpenAI integration |
+| Technology themes | Artificial Intelligence, Machine Learning, Natural Language Processing, Web Technologies      |
 
 ## Practical V1 delivery principles
 

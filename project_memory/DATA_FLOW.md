@@ -39,16 +39,16 @@ Each adapter accepts the same question/evaluation input and normalizes its provi
 
 ## Core Data Objects
 
-| Object | Created from | Stored data | Primary owner |
-| --- | --- | --- | --- |
-| User | Signup form | identity, hashed password, profile/level preferences, timestamps | The authenticated user |
-| Auth session/token | Successful login | token/session metadata necessary to authenticate requests | The authenticated user |
-| Resume | Resume upload | user reference, file metadata/storage reference, extracted text, timestamps | The uploading user |
-| Interview session | Interview setup | user reference, type, level, optional resume reference, status, timestamps, questions, answers, feedback, scores | The creating user |
-| Question | AI generation or supported fallback | prompt context/result, order, interview session reference | The session owner |
-| Answer | Text input or voice transcription | answer text, optional voice-file reference, timestamps, question/session reference | The session owner |
-| Feedback | AI evaluation | overall and dimension scores, strengths, improvements, next step | The session owner |
-| Analytics summary | Saved completed sessions | calculated counts, averages, trends, and recent history | The authenticated user |
+| Object             | Created from                        | Stored data                                                                                                      | Primary owner          |
+| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| User               | Signup form                         | identity, hashed password, profile/level preferences, timestamps                                                 | The authenticated user |
+| Auth session/token | Successful login                    | token/session metadata necessary to authenticate requests                                                        | The authenticated user |
+| Resume             | Resume upload                       | user reference, file metadata/storage reference, extracted text, timestamps                                      | The uploading user     |
+| Interview session  | Interview setup                     | user reference, type, level, optional resume reference, status, timestamps, questions, answers, feedback, scores | The creating user      |
+| Question           | AI generation or supported fallback | prompt context/result, order, interview session reference                                                        | The session owner      |
+| Answer             | Text input or voice transcription   | answer text, optional voice-file reference, timestamps, question/session reference                               | The session owner      |
+| Feedback           | AI evaluation                       | overall and dimension scores, strengths, improvements, next step                                                 | The session owner      |
+| Analytics summary  | Saved completed sessions            | calculated counts, averages, trends, and recent history                                                          | The authenticated user |
 
 For a short V1 interview, questions, answers, and feedback may be embedded in `interviewSessions`. If they are separate records, each must retain a session reference and inherit the session's ownership rules.
 
@@ -191,16 +191,16 @@ Dashboard request → Analytics API → user's completed sessions → aggregate 
 
 ## Validation, Failure, and Retry Boundaries
 
-| Point | Backend responsibility | User-facing result |
-| --- | --- | --- |
-| Authentication | Reject missing, expired, or invalid credentials. | Sign-in prompt or clear authorization error. |
-| Request data | Validate allowed interview types, levels, IDs, and non-empty answers. | Field-level or actionable validation message. |
-| Resource ownership | Verify the authenticated user owns every requested resume/session/resource. | Denied or not-found response without leaking another user's data. |
-| File uploads | Enforce file type and size limits before storage/processing. | Clear unsupported/oversized-file message. |
-| AI question/evaluation | Apply usage limits, timeouts, response-shape validation, and safe error handling. | Loading state, retry option, or clear failure state; never misleading feedback. |
-| AI quota exhaustion | Map provider quota exhaustion to `429 AI_QUOTA_EXCEEDED`; preserve saved session/answer state and log safe metadata. | Immediate in-app notice that saved work is safe and practice can be retried later; no automatic key rotation or unlimited retry. |
-| Transcription | Validate audio and transcription result before evaluation. | Prompt to retry with a short, clear recording if transcription is unusable. |
-| Persistence | Save only validated application data and surface failures. | Do not claim a response/session was saved when it was not. |
+| Point                  | Backend responsibility                                                                                               | User-facing result                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication         | Reject missing, expired, or invalid credentials.                                                                     | Sign-in prompt or clear authorization error.                                                                                     |
+| Request data           | Validate allowed interview types, levels, IDs, and non-empty answers.                                                | Field-level or actionable validation message.                                                                                    |
+| Resource ownership     | Verify the authenticated user owns every requested resume/session/resource.                                          | Denied or not-found response without leaking another user's data.                                                                |
+| File uploads           | Enforce file type and size limits before storage/processing.                                                         | Clear unsupported/oversized-file message.                                                                                        |
+| AI question/evaluation | Apply usage limits, timeouts, response-shape validation, and safe error handling.                                    | Loading state, retry option, or clear failure state; never misleading feedback.                                                  |
+| AI quota exhaustion    | Map provider quota exhaustion to `429 AI_QUOTA_EXCEEDED`; preserve saved session/answer state and log safe metadata. | Immediate in-app notice that saved work is safe and practice can be retried later; no automatic key rotation or unlimited retry. |
+| Transcription          | Validate audio and transcription result before evaluation.                                                           | Prompt to retry with a short, clear recording if transcription is unusable.                                                      |
+| Persistence            | Save only validated application data and surface failures.                                                           | Do not claim a response/session was saved when it was not.                                                                       |
 
 ## Data Minimisation and Privacy Rules
 
@@ -213,18 +213,18 @@ Dashboard request → Analytics API → user's completed sessions → aggregate 
 
 ## API-to-Data Mapping
 
-| Endpoint | Input | Reads/writes | Output |
-| --- | --- | --- | --- |
-| `POST /api/auth/signup` | Registration details | Creates user | Safe user/auth response |
-| `POST /api/auth/login` | Login details | Reads user; creates auth state as designed | Safe user/auth response |
-| `GET /api/auth/me` | Auth credential | Reads current user | Safe profile data |
-| `POST /api/resumes` | Auth credential, resume file | Creates resume metadata/extracted text | Upload status and safe metadata |
-| `POST /api/interviews` | Type, level, optional resume ID | Creates session; reads permitted resume; saves question | Session and first question |
-| `POST /api/interviews/:id/questions` | Session ID, auth credential | Reads/updates owned active session; saves next question | Next question |
-| `POST /api/interviews/:id/answers` | Session ID, answer or approved audio | Saves answer/transcript and feedback | Structured feedback |
-| `POST /api/interviews/:id/complete` | Session ID | Updates owned session summary/status | Completed session result |
-| `GET /api/interviews/:id` | Session ID | Reads owned session | Session and result data |
-| `GET /api/analytics/summary` | Auth credential | Reads current user's sessions; calculates summary | Dashboard history and metrics |
+| Endpoint                             | Input                                | Reads/writes                                            | Output                          |
+| ------------------------------------ | ------------------------------------ | ------------------------------------------------------- | ------------------------------- |
+| `POST /api/auth/signup`              | Registration details                 | Creates user                                            | Safe user/auth response         |
+| `POST /api/auth/login`               | Login details                        | Reads user; creates auth state as designed              | Safe user/auth response         |
+| `GET /api/auth/me`                   | Auth credential                      | Reads current user                                      | Safe profile data               |
+| `POST /api/resumes`                  | Auth credential, resume file         | Creates resume metadata/extracted text                  | Upload status and safe metadata |
+| `POST /api/interviews`               | Type, level, optional resume ID      | Creates session; reads permitted resume; saves question | Session and first question      |
+| `POST /api/interviews/:id/questions` | Session ID, auth credential          | Reads/updates owned active session; saves next question | Next question                   |
+| `POST /api/interviews/:id/answers`   | Session ID, answer or approved audio | Saves answer/transcript and feedback                    | Structured feedback             |
+| `POST /api/interviews/:id/complete`  | Session ID                           | Updates owned session summary/status                    | Completed session result        |
+| `GET /api/interviews/:id`            | Session ID                           | Reads owned session                                     | Session and result data         |
+| `GET /api/analytics/summary`         | Auth credential                      | Reads current user's sessions; calculates summary       | Dashboard history and metrics   |
 
 ## Completion Check
 

@@ -15,8 +15,8 @@
     "build": "npm run build --workspace=client",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "format": "prettier --check README.md package.json client/src client/vite.config.js client/package.json server/src server/tests server/package.json",
-    "format:write": "prettier --write README.md package.json client/src client/vite.config.js client/package.json server/src server/tests server/package.json"
+    "format": "prettier --check AGENTS.md README.md package.json client/README.md client/src client/vite.config.js client/package.json server/src server/tests server/package.json project_memory",
+    "format:write": "prettier --write AGENTS.md README.md package.json client/README.md client/src client/vite.config.js client/package.json server/src server/tests server/package.json project_memory"
   },
   "devDependencies": {
     "prettier": "^3.9.6"

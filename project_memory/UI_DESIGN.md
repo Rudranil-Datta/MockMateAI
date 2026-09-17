@@ -42,16 +42,16 @@ Primary navigation for authenticated users: **Dashboard**, **Practice**, **Resum
 
 Use a light, neutral canvas with dark ink text and a single blue or indigo accent. This signals focus and confidence without the anxiety associated with red-heavy testing interfaces.
 
-| Token | Suggested role |
-| --- | --- |
-| Canvas | Very light cool gray/off-white page background |
-| Surface | White cards, dialogs, and input backgrounds |
-| Ink | Near-black/navy text for high contrast |
-| Muted ink | Secondary labels and helper text |
-| Primary | Indigo/blue for main actions, selected states, links |
-| Success | Green for completed/sustained improvement—not the only score signal |
-| Warning | Amber for recoverable attention states |
-| Danger | Red only for destructive actions/errors |
+| Token     | Suggested role                                                      |
+| --------- | ------------------------------------------------------------------- |
+| Canvas    | Very light cool gray/off-white page background                      |
+| Surface   | White cards, dialogs, and input backgrounds                         |
+| Ink       | Near-black/navy text for high contrast                              |
+| Muted ink | Secondary labels and helper text                                    |
+| Primary   | Indigo/blue for main actions, selected states, links                |
+| Success   | Green for completed/sustained improvement—not the only score signal |
+| Warning   | Amber for recoverable attention states                              |
+| Danger    | Red only for destructive actions/errors                             |
 
 Use semantic color tokens rather than hard-coding colors in individual components. Every text/background pair must meet accessible contrast; score meaning must also be expressed with labels and icons/text, not color alone.
 
@@ -65,17 +65,17 @@ Use semantic color tokens rather than hard-coding colors in individual component
 
 ### Reusable components
 
-| Component | Behavior |
-| --- | --- |
-| `AppShell` | Header, navigation, responsive content container. |
-| `PrimaryButton` / `SecondaryButton` | Clear priority, disabled/loading state, keyboard focus. |
-| `Card` | Shared surface for setup choices, question, feedback, and dashboard metrics. |
-| `ProgressIndicator` | Textual “Question 2 of 5” plus visual progress. |
-| `ScoreBadge` | Score, plain-language label, and accessible semantic state. |
-| `FeedbackList` | Strengths, improvements, and next-step sections with icons and text. |
-| `EmptyState` | Explains absent data and gives one direct action. |
-| `InlineAlert` | Contextual success, warning, error, or retry message. |
-| `LoadingState` | Short message/skeleton that signals active work; never an indefinite spinner alone. |
+| Component                           | Behavior                                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `AppShell`                          | Header, navigation, responsive content container.                                   |
+| `PrimaryButton` / `SecondaryButton` | Clear priority, disabled/loading state, keyboard focus.                             |
+| `Card`                              | Shared surface for setup choices, question, feedback, and dashboard metrics.        |
+| `ProgressIndicator`                 | Textual “Question 2 of 5” plus visual progress.                                     |
+| `ScoreBadge`                        | Score, plain-language label, and accessible semantic state.                         |
+| `FeedbackList`                      | Strengths, improvements, and next-step sections with icons and text.                |
+| `EmptyState`                        | Explains absent data and gives one direct action.                                   |
+| `InlineAlert`                       | Contextual success, warning, error, or retry message.                               |
+| `LoadingState`                      | Short message/skeleton that signals active work; never an indefinite spinner alone. |
 
 ## Core Screens
 
@@ -90,7 +90,7 @@ Keep public screens minimal. Use a split or centered layout with a concise value
 
 ### 2. Dashboard
 
-The dashboard should answer: *How am I doing, what should I practise next, and where do I continue?*
+The dashboard should answer: _How am I doing, what should I practise next, and where do I continue?_
 
 ```text
 Good afternoon, Asha                         [Start practice]
@@ -213,16 +213,16 @@ End the session with encouragement and a useful summary.
 
 ## Interaction States
 
-| State | UX requirement |
-| --- | --- |
-| Loading question | Keep selected setup visible; state that a question is being prepared; offer retry after a bounded wait. |
-| Evaluating answer | Prevent duplicate submission, preserve answer text, and show meaningful progress text. |
-| Empty dashboard | Explain there is no history yet and provide Start practice. |
-| Empty resumes | Explain resume is optional and provide upload action. |
-| Permission denied | Explain microphone access and provide typed-answer fallback. |
-| Upload error | Identify unsupported type, size, or extraction issue without technical jargon. |
-| Network/AI error | State that the answer/setup was not lost where true; offer retry and clear next action. |
-| Session expired | Explain the user must sign in again; preserve local draft only if safely implemented. |
+| State             | UX requirement                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| Loading question  | Keep selected setup visible; state that a question is being prepared; offer retry after a bounded wait. |
+| Evaluating answer | Prevent duplicate submission, preserve answer text, and show meaningful progress text.                  |
+| Empty dashboard   | Explain there is no history yet and provide Start practice.                                             |
+| Empty resumes     | Explain resume is optional and provide upload action.                                                   |
+| Permission denied | Explain microphone access and provide typed-answer fallback.                                            |
+| Upload error      | Identify unsupported type, size, or extraction issue without technical jargon.                          |
+| Network/AI error  | State that the answer/setup was not lost where true; offer retry and clear next action.                 |
+| Session expired   | Explain the user must sign in again; preserve local draft only if safely implemented.                   |
 
 ## Responsive Design
 

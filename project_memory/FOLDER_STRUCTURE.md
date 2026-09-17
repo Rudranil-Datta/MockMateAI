@@ -104,17 +104,17 @@ MockMateAI/
 
 ## Responsibility Boundaries
 
-| Location | Owns | Must not own |
-| --- | --- | --- |
-| `client/src/pages` | Route-level screen composition and user flow | Database access, secrets, AI-provider calls |
-| `client/src/api` | Frontend request/response wrappers | Business rules duplicated from backend |
-| `client/src/components` | Reusable UI rendering and local interaction | Direct backend/database logic |
-| `server/src/routes` | Map HTTP method/path to middleware and controller | Substantial business logic |
+| Location                 | Owns                                                          | Must not own                                           |
+| ------------------------ | ------------------------------------------------------------- | ------------------------------------------------------ |
+| `client/src/pages`       | Route-level screen composition and user flow                  | Database access, secrets, AI-provider calls            |
+| `client/src/api`         | Frontend request/response wrappers                            | Business rules duplicated from backend                 |
+| `client/src/components`  | Reusable UI rendering and local interaction                   | Direct backend/database logic                          |
+| `server/src/routes`      | Map HTTP method/path to middleware and controller             | Substantial business logic                             |
 | `server/src/controllers` | Translate validated HTTP request to service call and response | AI prompts, database queries scattered across handlers |
-| `server/src/services` | Interview orchestration, feedback, analytics, integrations | HTTP-specific response formatting |
-| `server/src/models` | MongoDB schema, document validation, indexes | UI/HTTP behavior |
-| `server/src/middlewares` | Cross-cutting auth, upload, validation, and error behavior | Feature-specific orchestration |
-| `server/src/validators` | Request and AI-response shapes | Persistence side effects |
+| `server/src/services`    | Interview orchestration, feedback, analytics, integrations    | HTTP-specific response formatting                      |
+| `server/src/models`      | MongoDB schema, document validation, indexes                  | UI/HTTP behavior                                       |
+| `server/src/middlewares` | Cross-cutting auth, upload, validation, and error behavior    | Feature-specific orchestration                         |
+| `server/src/validators`  | Request and AI-response shapes                                | Persistence side effects                               |
 
 ## Key File Responsibilities
 
@@ -144,7 +144,7 @@ Use `.env` files locally and deployment environment variables in hosted environm
 
 ```text
 # server/.env.example
-PORT=5000
+PORT=4444
 MONGODB_URI=
 OPENAI_API_KEY=
 AI_PROVIDER=gemini

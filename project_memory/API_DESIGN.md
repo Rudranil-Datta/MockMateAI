@@ -28,21 +28,21 @@ Successful responses return their relevant resource in a stable JSON shape. Erro
 
 Use suitable HTTP status codes:
 
-| Status | Meaning |
-| --- | --- |
-| `200` | Successful read/update/action. |
-| `201` | Resource created. |
-| `400` | Invalid request or invalid state transition. |
-| `401` | Missing or invalid authentication. |
-| `403` | Authenticated but not permitted. |
-| `404` | Resource not found (including safely hidden foreign resources). |
-| `409` | Duplicate/conflicting state, such as an existing email. |
-| `413` | Upload exceeds configured size limit. |
-| `415` | Unsupported upload type. |
-| `422` | Valid request format but unusable content, such as blank transcription. |
-| `429` | Rate or development-usage limit reached. For provider quota exhaustion use `AI_QUOTA_EXCEEDED` and a `Retry-After` header when a safe retry time is known. |
-| `500` | Unexpected server error. |
-| `502` / `504` | Upstream AI service failed or timed out; return a retryable safe message. |
+| Status        | Meaning                                                                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `200`         | Successful read/update/action.                                                                                                                             |
+| `201`         | Resource created.                                                                                                                                          |
+| `400`         | Invalid request or invalid state transition.                                                                                                               |
+| `401`         | Missing or invalid authentication.                                                                                                                         |
+| `403`         | Authenticated but not permitted.                                                                                                                           |
+| `404`         | Resource not found (including safely hidden foreign resources).                                                                                            |
+| `409`         | Duplicate/conflicting state, such as an existing email.                                                                                                    |
+| `413`         | Upload exceeds configured size limit.                                                                                                                      |
+| `415`         | Unsupported upload type.                                                                                                                                   |
+| `422`         | Valid request format but unusable content, such as blank transcription.                                                                                    |
+| `429`         | Rate or development-usage limit reached. For provider quota exhaustion use `AI_QUOTA_EXCEEDED` and a `Retry-After` header when a safe retry time is known. |
+| `500`         | Unexpected server error.                                                                                                                                   |
+| `502` / `504` | Upstream AI service failed or timed out; return a retryable safe message.                                                                                  |
 
 Raw database, provider, and stack errors must not be exposed to clients.
 
@@ -98,12 +98,21 @@ Ends the current authenticated session/token context. Returns `204 No Content` o
 Returns the current user's safe profile.
 
 ```json
-{ "user": { "id": "...", "name": "Asha Kumar", "email": "asha@example.com", "profile": { "experienceLevel": "intermediate" } } }
+{
+  "user": {
+    "id": "...",
+    "name": "Asha Kumar",
+    "email": "asha@example.com",
+    "profile": { "experienceLevel": "intermediate" }
+  }
+}
 ```
 
 ## Resumes
 
 ### `POST /api/resumes`
+
+**Planned for Day 21; not implemented yet.**
 
 Uploads a supported resume and extracts usable text.
 
@@ -129,9 +138,13 @@ Reject unsupported or oversized uploads before processing. Do not return extract
 
 ### `GET /api/resumes`
 
+**Planned for Day 23; not implemented yet.**
+
 Returns the authenticated user's resume metadata, newest first. Protected route.
 
 ### `DELETE /api/resumes/:id`
+
+**Planned for Week 5 resume management; not implemented yet.**
 
 Optional but recommended for privacy. Deletes an owned resume under the documented reference/retention policy. Protected route.
 
@@ -181,13 +194,13 @@ Reject completed sessions and enforce the configured V1 question limit.
 
 ### `POST /api/interviews/:id/answers`
 
-Submits a typed answer and returns evaluated feedback.
+Submits a typed answer for an owned active question, then evaluates it through the backend-only provider adapter. The answer is persisted before evaluation. If evaluation fails, the saved answer remains retryable and no feedback is fabricated.
 
 ```json
 // request
 { "questionId": "...", "text": "A stack is LIFO, while a queue is FIFO." }
 
-// 200 response
+// Day 18 200 response
 {
   "answer": { "id": "...", "inputMode": "text", "text": "A stack is LIFO, while a queue is FIFO.", "submittedAt": "2026-09-02T00:00:00.000Z" },
   "feedback": {
@@ -202,9 +215,11 @@ Submits a typed answer and returns evaluated feedback.
 }
 ```
 
-Confirm session/question ownership and active state. Validate non-empty text and all returned feedback fields before saving/returning them.
+Confirm session/question ownership and active state. Validate non-empty text before saving. Reject duplicate answers for a question. Validate every feedback field before atomic persistence. Map quota exhaustion to `AI_QUOTA_EXCEEDED`; timeout, malformed output, and provider failures are retryable and preserve the saved answer.
 
 ### `POST /api/interviews/:id/voice-answers`
+
+**Planned for Day 27; not implemented yet.**
 
 Recommended dedicated voice route for clarity. Validates and transcribes an audio answer, then runs the same evaluation flow.
 
@@ -215,8 +230,21 @@ Recommended dedicated voice route for clarity. Validates and transcribes an audi
 ```json
 // 200 response
 {
-  "answer": { "id": "...", "inputMode": "voice", "text": "Transcribed answer text", "submittedAt": "2026-09-02T00:00:00.000Z" },
-  "feedback": { "overallScore": 80, "accuracyScore": 82, "clarityScore": 78, "confidenceScore": 75, "strengths": [], "improvements": [], "nextStep": "..." }
+  "answer": {
+    "id": "...",
+    "inputMode": "voice",
+    "text": "Transcribed answer text",
+    "submittedAt": "2026-09-02T00:00:00.000Z"
+  },
+  "feedback": {
+    "overallScore": 80,
+    "accuracyScore": 82,
+    "clarityScore": 78,
+    "confidenceScore": 75,
+    "strengths": [],
+    "improvements": [],
+    "nextStep": "..."
+  }
 }
 ```
 
@@ -225,6 +253,39 @@ If implementation instead uses the same answers endpoint, retain these validatio
 ### `GET /api/interviews/:id`
 
 Returns one owned session, including questions, submitted answers, feedback, and summary when present. Protected route.
+
+```json
+// 200 response
+{
+  "interview": {
+    "id": "...",
+    "interviewType": "DSA",
+    "level": "intermediate",
+    "status": "completed",
+    "startedAt": "2026-09-02T00:00:00.000Z",
+    "completedAt": "2026-09-02T00:20:00.000Z",
+    "questions": [
+      {
+        "id": "...",
+        "order": 1,
+        "prompt": "...",
+        "answers": [
+          {
+            "id": "...",
+            "inputMode": "text",
+            "text": "...",
+            "submittedAt": "2026-09-02T00:10:00.000Z",
+            "feedback": { "overallScore": 82 }
+          }
+        ]
+      }
+    ],
+    "summary": { "overallScore": 82 }
+  }
+}
+```
+
+The route returns only safe persisted session fields and applies ownership filtering before reading.
 
 ### `POST /api/interviews/:id/complete`
 
@@ -250,11 +311,13 @@ Completes an owned active session and calculates/saves its summary.
 }
 ```
 
-Reject attempts to complete another user's session or an already completed session unless the endpoint is explicitly designed to be idempotent.
+Requires at least one evaluated answer and no pending evaluation. Rejects attempts to complete another user's session or an already completed session; successful responses include safe persisted questions and answers with the completed summary.
 
 ## Analytics
 
 ### `GET /api/analytics/summary`
+
+**Planned for Day 24; not implemented yet.**
 
 Returns dashboard-ready history and simple aggregated progress for the current user.
 
@@ -268,7 +331,12 @@ Returns dashboard-ready history and simple aggregated progress for the current u
     "averageConfidenceScore": 74
   },
   "recentSessions": [
-    { "id": "...", "interviewType": "DSA", "completedAt": "2026-09-02T00:00:00.000Z", "overallScore": 82 }
+    {
+      "id": "...",
+      "interviewType": "DSA",
+      "completedAt": "2026-09-02T00:00:00.000Z",
+      "overallScore": 82
+    }
   ],
   "trend": [
     { "date": "2026-08-27", "overallScore": 72 },

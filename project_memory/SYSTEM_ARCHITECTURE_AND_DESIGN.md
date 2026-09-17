@@ -50,14 +50,14 @@ MongoDB
 
 ## Six synopsis modules and V1 responsibilities
 
-| Module | V1 responsibility |
-| --- | --- |
-| User Authentication | Register, log in, maintain an authenticated session, and associate data with a user. |
-| Interview Simulation | Let the user select DSA, HR, or System Design; create a session; request questions; advance through a small, defined set of questions. |
-| Speech & Text Analysis | Accept text answers and a simple voice-answer path; obtain usable text for evaluation, then evaluate the answer. |
-| Resume Analysis | Accept a resume, extract usable content, and use it as context for relevant questions. |
-| Feedback System | Return per-answer and/or end-of-session feedback, scores, strengths, weaknesses, and practical improvement suggestions. |
-| Analytics Dashboard | Show past sessions, scores, interview type, date, and basic progress trends. |
+| Module                 | V1 responsibility                                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| User Authentication    | Register, log in, maintain an authenticated session, and associate data with a user.                                                   |
+| Interview Simulation   | Let the user select DSA, HR, or System Design; create a session; request questions; advance through a small, defined set of questions. |
+| Speech & Text Analysis | Accept text answers and a simple voice-answer path; obtain usable text for evaluation, then evaluate the answer.                       |
+| Resume Analysis        | Accept a resume, extract usable content, and use it as context for relevant questions.                                                 |
+| Feedback System        | Return per-answer and/or end-of-session feedback, scores, strengths, weaknesses, and practical improvement suggestions.                |
+| Analytics Dashboard    | Show past sessions, scores, interview type, date, and basic progress trends.                                                           |
 
 ## Core user flow and data flow
 
@@ -76,18 +76,18 @@ For V1, feedback should be returned in a predictable structured shape, for examp
 
 ## API surface (pragmatic initial design)
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/auth/signup` | Create an account. |
-| POST | `/api/auth/login` | Authenticate a user. |
-| GET | `/api/auth/me` | Retrieve the signed-in user. |
-| POST | `/api/resumes` | Upload and save a resume for analysis. |
-| POST | `/api/interviews` | Create a DSA, HR, or System Design interview session. |
-| POST | `/api/interviews/:id/questions` | Generate or retrieve the next question. |
-| POST | `/api/interviews/:id/answers` | Submit an answer and receive feedback. |
-| POST | `/api/interviews/:id/complete` | Mark a session complete and calculate summary data. |
-| GET | `/api/interviews/:id` | Retrieve an interview session and results. |
-| GET | `/api/analytics/summary` | Retrieve the current user's dashboard data. |
+| Method | Endpoint                        | Purpose                                               |
+| ------ | ------------------------------- | ----------------------------------------------------- |
+| POST   | `/api/auth/signup`              | Create an account.                                    |
+| POST   | `/api/auth/login`               | Authenticate a user.                                  |
+| GET    | `/api/auth/me`                  | Retrieve the signed-in user.                          |
+| POST   | `/api/resumes`                  | Upload and save a resume for analysis.                |
+| POST   | `/api/interviews`               | Create a DSA, HR, or System Design interview session. |
+| POST   | `/api/interviews/:id/questions` | Generate or retrieve the next question.               |
+| POST   | `/api/interviews/:id/answers`   | Submit an answer and receive feedback.                |
+| POST   | `/api/interviews/:id/complete`  | Mark a session complete and calculate summary data.   |
+| GET    | `/api/interviews/:id`           | Retrieve an interview session and results.            |
+| GET    | `/api/analytics/summary`        | Retrieve the current user's dashboard data.           |
 
 Endpoint names are implementation decisions, not synopsis requirements. The team may adjust them while preserving the same responsibilities.
 
@@ -150,7 +150,7 @@ Only `aiProviderService` may select or call an AI SDK. It exposes provider-neutr
 
 ```text
 generateQuestion({ interviewType, level, resumeContext, previousQuestions })
-evaluateAnswer({ interviewType, level, question, answerText })
+evaluateAnswer({ interviewType, level, question, answer })
 ```
 
 Both the Gemini V1 adapter and an optional future OpenAI adapter must return the same validated question and feedback shapes. Provider-specific prompts, SDK objects, model identifiers, and raw responses must not escape the adapter. The selected adapter is controlled only by `AI_PROVIDER`; changing `gemini` to `openai` is permitted only after the OpenAI adapter passes the shared provider contract tests and deployed smoke tests.
@@ -218,13 +218,13 @@ This ordering protects the essential demo flow first. Voice and visual refinemen
 
 ## Requirement traceability
 
-| Synopsis requirement | Design response |
-| --- | --- |
-| React.js frontend | React browser application. |
-| Node.js + Express.js backend | Single REST API backend. |
-| MongoDB database | Stores user, resume, session, answer, feedback, and analytics data. |
+| Synopsis requirement          | Design response                                                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| React.js frontend             | React browser application.                                                                                                               |
+| Node.js + Express.js backend  | Single REST API backend.                                                                                                                 |
+| MongoDB database              | Stores user, resume, session, answer, feedback, and analytics data.                                                                      |
 | OpenAI APIs named in synopsis | Gemini Developer API is the backend-only V1 provider; an optional OpenAI adapter may be added later through the same provider interface. |
-| DSA, HR, System Design | Interview-type selection in session creation. |
-| Voice + text analysis | One shared feedback pipeline with typed or transcribed answer text. |
-| Resume-based questions | Resume extraction/context at interview setup. |
-| Feedback and analytics | Stored structured feedback and dashboard summaries. |
+| DSA, HR, System Design        | Interview-type selection in session creation.                                                                                            |
+| Voice + text analysis         | One shared feedback pipeline with typed or transcribed answer text.                                                                      |
+| Resume-based questions        | Resume extraction/context at interview setup.                                                                                            |
+| Feedback and analytics        | Stored structured feedback and dashboard summaries.                                                                                      |

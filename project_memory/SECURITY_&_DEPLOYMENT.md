@@ -28,7 +28,7 @@ Configure secrets through the deployment provider's environment-variable setting
 ```text
 # Required server configuration
 NODE_ENV=production
-PORT=5000
+PORT=4444
 MONGODB_URI=
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
@@ -94,10 +94,10 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 - Require structured output and validate it before database writes or UI rendering. Reject missing fields, wrong types, and out-of-range scores.
 - Enforce a maximum prompt/input size and a maximum completion/output size. Truncate only with deliberate, documented handling so prompts remain coherent.
 - Cap questions per session; prevent repeated clicks/retries from creating duplicate questions or evaluations.
-- Rate-limit AI-consuming routes by authenticated user and by IP. Use a conservative initial allowance, such as a small number of evaluations per hour, then adjust from real usage and budget.
+- **Day 29 planned control:** rate-limit AI-consuming routes by authenticated user and by IP. Use a conservative initial allowance, such as a small number of evaluations per hour, then adjust from real usage and budget.
 - Use a deterministic mock provider for UI development and automated tests, so routine development does not consume live Gemini quota.
 - Cache generated questions for a short configured period only when type/level/context compatibility is safe. Never cache or share answer feedback/resume content between users.
-- Track per-user and total request counts/cost indicators without logging sensitive prompt content unnecessarily. Add an application-wide circuit breaker or daily development budget cap when feasible.
+- **Day 29 planned control:** track per-user and total request counts/cost indicators without logging sensitive prompt content unnecessarily. Add an application-wide circuit breaker or daily development budget cap when feasible.
 - Set a finite AI timeout. On timeout, provider error, quota exhaustion, or malformed output, return a retryable state—never invented feedback.
 - Avoid automatic unlimited retries. At most one controlled retry may be used for transient provider errors; subsequent attempts require an explicit user action and remain rate-limited.
 - On quota exhaustion, normalize the provider error to `429 AI_QUOTA_EXCEEDED`, preserve session state, log safe quota metadata, and show the active user an immediate in-app notification. V1 does not send external owner alerts or rotate keys/projects.
@@ -106,26 +106,26 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 
 ## Limits and Constraints That Can Break the Application
 
-| Risk or constraint | Failure mode | Required mitigation |
-| --- | --- | --- |
-| Gemini free-tier quota, billing limit, or outage | Questions/evaluation cannot be generated. | Return `AI_QUOTA_EXCEEDED`, preserve user work, show in-app retry-later notice, log safe event, and use a small curated fallback question set only if explicitly implemented and labelled. |
-| AI latency or timeout | UI appears stuck; request may be duplicated by repeated clicks. | Loading state, request timeout, idempotency/deduplication key for answer evaluation, disable duplicate submit while pending. |
-| Malformed AI response | UI/data persistence breaks or invalid scores are saved. | Schema-validate response; reject invalid output; preserve session in recoverable state. |
-| High API usage / abuse | Budget is exhausted or provider rate limits are hit. | Per-user/IP limits, session question caps, daily budget monitoring, authentication on all AI routes. |
-| Large/hostile file upload | Memory exhaustion, disk fill, parser crash, or path traversal. | Size/type limits, streaming uploads, controlled filenames, isolated storage, parser timeouts, cleanup. |
-| Resume extraction failure | Question context unavailable. | Save controlled extraction status; let user continue without resume context or retry upload. |
-| Voice transcription failure | Voice path cannot produce feedback. | Present transcript/retry error; keep typed answer as dependable fallback. |
-| MongoDB outage or bad connection string | Login, persistence, sessions, and dashboard fail. | Validate config at startup; health check; safe error state; managed backups; do not claim saves succeeded. |
-| MongoDB free-tier connection/storage limits | Intermittent connection failure or capacity exhaustion. | Use connection pooling, retain minimal data, set upload retention, monitor provider limits before demo. |
-| Incorrect CORS/cookie settings | Browser rejects authenticated requests. | Configure exact production origin, HTTPS, credentials policy, and test deployed login—not just localhost. |
-| Expired/misconfigured authentication secret | All sessions may be invalidated or insecure. | Store securely, use strong stable production secret, rotate deliberately with a migration/logout plan. |
-| Static-host SPA routing | Refreshing a client route returns 404. | Configure host rewrite/fallback to the React entry point and test direct navigation/refresh. |
-| Deployment sleep/cold start | First API call is slow; demo can time out. | Use a host appropriate for demo needs; warm/test the app before presentation; show loading states. |
-| Environment-variable mismatch | Deployed app starts but cannot reach client, DB, or Gemini. | Validate selected provider configuration at startup; maintain `.env.example`; perform a deployed smoke test. |
-| Unbounded MongoDB documents | Large sessions eventually exceed limits or slow reads. | Cap question/answer counts and response sizes; retain only necessary data. |
-| Browser microphone permissions | Voice recording is unavailable. | Request permission contextually; explain requirement; typed answer remains fully supported. |
-| Unsupported browser/audio codec | Upload/transcription fails for some users. | Document supported browsers/codecs; validate client/server format; provide typed fallback. |
-| Concurrent requests | Duplicate answers, questions, or completion summaries. | Use status checks, idempotency keys/unique operation IDs, and atomic updates where needed. |
+| Risk or constraint                               | Failure mode                                                    | Required mitigation                                                                                                                                                                        |
+| ------------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Gemini free-tier quota, billing limit, or outage | Questions/evaluation cannot be generated.                       | Return `AI_QUOTA_EXCEEDED`, preserve user work, show in-app retry-later notice, log safe event, and use a small curated fallback question set only if explicitly implemented and labelled. |
+| AI latency or timeout                            | UI appears stuck; request may be duplicated by repeated clicks. | Loading state, request timeout, idempotency/deduplication key for answer evaluation, disable duplicate submit while pending.                                                               |
+| Malformed AI response                            | UI/data persistence breaks or invalid scores are saved.         | Schema-validate response; reject invalid output; preserve session in recoverable state.                                                                                                    |
+| High API usage / abuse                           | Budget is exhausted or provider rate limits are hit.            | Per-user/IP limits, session question caps, daily budget monitoring, authentication on all AI routes.                                                                                       |
+| Large/hostile file upload                        | Memory exhaustion, disk fill, parser crash, or path traversal.  | Size/type limits, streaming uploads, controlled filenames, isolated storage, parser timeouts, cleanup.                                                                                     |
+| Resume extraction failure                        | Question context unavailable.                                   | Save controlled extraction status; let user continue without resume context or retry upload.                                                                                               |
+| Voice transcription failure                      | Voice path cannot produce feedback.                             | Present transcript/retry error; keep typed answer as dependable fallback.                                                                                                                  |
+| MongoDB outage or bad connection string          | Login, persistence, sessions, and dashboard fail.               | Validate config at startup; health check; safe error state; managed backups; do not claim saves succeeded.                                                                                 |
+| MongoDB free-tier connection/storage limits      | Intermittent connection failure or capacity exhaustion.         | Use connection pooling, retain minimal data, set upload retention, monitor provider limits before demo.                                                                                    |
+| Incorrect CORS/cookie settings                   | Browser rejects authenticated requests.                         | Configure exact production origin, HTTPS, credentials policy, and test deployed login—not just localhost.                                                                                  |
+| Expired/misconfigured authentication secret      | All sessions may be invalidated or insecure.                    | Store securely, use strong stable production secret, rotate deliberately with a migration/logout plan.                                                                                     |
+| Static-host SPA routing                          | Refreshing a client route returns 404.                          | Configure host rewrite/fallback to the React entry point and test direct navigation/refresh.                                                                                               |
+| Deployment sleep/cold start                      | First API call is slow; demo can time out.                      | Use a host appropriate for demo needs; warm/test the app before presentation; show loading states.                                                                                         |
+| Environment-variable mismatch                    | Deployed app starts but cannot reach client, DB, or Gemini.     | Validate selected provider configuration at startup; maintain `.env.example`; perform a deployed smoke test.                                                                               |
+| Unbounded MongoDB documents                      | Large sessions eventually exceed limits or slow reads.          | Cap question/answer counts and response sizes; retain only necessary data.                                                                                                                 |
+| Browser microphone permissions                   | Voice recording is unavailable.                                 | Request permission contextually; explain requirement; typed answer remains fully supported.                                                                                                |
+| Unsupported browser/audio codec                  | Upload/transcription fails for some users.                      | Document supported browsers/codecs; validate client/server format; provide typed fallback.                                                                                                 |
+| Concurrent requests                              | Duplicate answers, questions, or completion summaries.          | Use status checks, idempotency keys/unique operation IDs, and atomic updates where needed.                                                                                                 |
 
 ## Availability and Safe Failure Behaviour
 

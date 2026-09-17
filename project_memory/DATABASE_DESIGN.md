@@ -8,10 +8,10 @@ Separate collections are used for users and resumes because they have independen
 
 ## Collection Overview
 
-| Collection | Purpose | Primary relationship |
-| --- | --- | --- |
-| `users` | Accounts and basic interview preferences | Owns resumes and interview sessions |
-| `resumes` | Resume metadata, controlled file reference, and extracted text | Belongs to one user |
+| Collection          | Purpose                                                          | Primary relationship                          |
+| ------------------- | ---------------------------------------------------------------- | --------------------------------------------- |
+| `users`             | Accounts and basic interview preferences                         | Owns resumes and interview sessions           |
+| `resumes`           | Resume metadata, controlled file reference, and extracted text   | Belongs to one user                           |
 | `interviewSessions` | Interview setup, questions, answers, feedback, and final summary | Belongs to one user; may reference one resume |
 
 All application records include `createdAt` and `updatedAt` timestamps. IDs below are MongoDB `ObjectId` values unless otherwise stated.
@@ -109,6 +109,7 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
           text: String,                 // typed or transcribed answer
           voiceStorageKey: String,      // optional; retain only if configured
           submittedAt: Date,
+          evaluationStatus: String,     // not_started | pending | completed
           feedback: {
             overallScore: Number,       // recommended range: 0–100
             accuracyScore: Number,      // 0–100
@@ -153,12 +154,12 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
 
 ### Indexes
 
-| Index | Reason |
-| --- | --- |
-| `{ userId: 1, createdAt: -1 }` | Retrieve a user's recent history. |
-| `{ userId: 1, status: 1, updatedAt: -1 }` | Find active/completed sessions efficiently. |
-| `{ userId: 1, completedAt: -1 }` | Support dashboard history and trend queries. |
-| `{ resumeId: 1 }` | Optional: locate sessions related to a resume. |
+| Index                                     | Reason                                         |
+| ----------------------------------------- | ---------------------------------------------- |
+| `{ userId: 1, createdAt: -1 }`            | Retrieve a user's recent history.              |
+| `{ userId: 1, status: 1, updatedAt: -1 }` | Find active/completed sessions efficiently.    |
+| `{ userId: 1, completedAt: -1 }`          | Support dashboard history and trend queries.   |
+| `{ resumeId: 1 }`                         | Optional: locate sessions related to a resume. |
 
 ## Relationships and Ownership
 
