@@ -10,8 +10,8 @@ function Button({
     <button
       className={`button ${className}`.trim()}
       type={type}
-      disabled={isLoading || props.disabled}
       {...props}
+      disabled={isLoading || props.disabled}
     >
       {isLoading ? loadingLabel : children}
     </button>

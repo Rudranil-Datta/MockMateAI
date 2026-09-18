@@ -14,6 +14,7 @@ describe("loadConfig", () => {
       aiProvider: "gemini",
       aiRequestTimeoutMs: 8000,
       clientOrigin: "http://localhost:5173",
+      maxResumeSizeBytes: 5 * 1024 * 1024,
       nodeEnv: "development",
       port: 4444,
     });
@@ -50,6 +51,16 @@ describe("loadConfig", () => {
     ).toThrow(
       new ConfigurationError(
         "AI_REQUEST_TIMEOUT_MS must be a positive integer.",
+      ),
+    );
+  });
+
+  it("rejects an invalid resume size limit", () => {
+    expect(() =>
+      loadConfig({ ...validEnvironment, MAX_RESUME_SIZE_BYTES: "0" }),
+    ).toThrow(
+      new ConfigurationError(
+        "MAX_RESUME_SIZE_BYTES must be a positive integer.",
       ),
     );
   });

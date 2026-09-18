@@ -112,9 +112,7 @@ Returns the current user's safe profile.
 
 ### `POST /api/resumes`
 
-**Planned for Day 21; not implemented yet.**
-
-Uploads a supported resume and extracts usable text.
+Uploads a supported resume and creates owned metadata with `pending` extraction status.
 
 - Content type: `multipart/form-data`
 - Required field: `resume`
@@ -128,13 +126,13 @@ Uploads a supported resume and extracts usable text.
     "originalName": "Asha-Kumar-Resume.pdf",
     "mimeType": "application/pdf",
     "sizeBytes": 124000,
-    "extractionStatus": "completed",
+    "extractionStatus": "pending",
     "createdAt": "2026-09-02T00:00:00.000Z"
   }
 }
 ```
 
-Reject unsupported or oversized uploads before processing. Do not return extracted resume text by default.
+Reject unsupported, malformed, or oversized uploads before persistence. Do not return extracted resume text or internal storage references.
 
 ### `GET /api/resumes`
 

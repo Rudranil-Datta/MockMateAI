@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll } from "vitest";
 
 import User from "../../src/models/User.js";
 import InterviewSession from "../../src/models/InterviewSession.js";
+import Resume from "../../src/models/Resume.js";
 
 export default function useMongoTestDatabase() {
   let mongoServer;
@@ -17,6 +18,7 @@ export default function useMongoTestDatabase() {
 
   afterEach(async () => {
     await InterviewSession.deleteMany({});
+    await Resume.deleteMany({});
     await User.deleteMany({});
   });
 

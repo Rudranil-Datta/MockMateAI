@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   completeInterview,
+  generateNextQuestion,
   getInterview,
   startInterview,
   submitTextAnswer,
@@ -78,6 +79,17 @@ describe("interviewApi", () => {
       2,
       "interviews/interview-123/complete",
       { method: "POST" },
+    );
+  });
+
+  it("maps next-question request to documented route", () => {
+    generateNextQuestion({ interviewId: "interview-123" });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "interviews/interview-123/questions",
+      {
+        method: "POST",
+      },
     );
   });
 });

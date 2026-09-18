@@ -18,6 +18,12 @@ export function submitTextAnswer({ interviewId, questionId, text } = {}) {
   });
 }
 
+export function generateNextQuestion({ interviewId } = {}) {
+  return apiRequest(`interviews/${interviewId}/questions`, {
+    method: "POST",
+  });
+}
+
 export function getInterview({ interviewId, signal } = {}) {
   return apiRequest(`interviews/${interviewId}`, { signal });
 }

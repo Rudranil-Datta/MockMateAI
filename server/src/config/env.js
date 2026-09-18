@@ -1,6 +1,10 @@
-import { URL } from "node:url";
+import { resolve } from "node:path";
+import { fileURLToPath, URL } from "node:url";
 
 const allowedAiProviders = new Set(["gemini", "mock"]);
+const defaultResumeUploadDir = fileURLToPath(
+  new URL("../../uploads/resumes", import.meta.url),
+);
 
 export class ConfigurationError extends Error {
   constructor(message) {
@@ -96,6 +100,14 @@ export function loadConfig(environment = process.env) {
       8000,
     ),
     geminiModel: environment.GEMINI_MODEL?.trim() || "gemini-3.6-flash",
+    maxResumeSizeBytes: optionalPositiveInteger(
+      environment.MAX_RESUME_SIZE_BYTES,
+      "MAX_RESUME_SIZE_BYTES",
+      5 * 1024 * 1024,
+    ),
+    resumeUploadDir: resolve(
+      environment.RESUME_UPLOAD_DIR?.trim() || defaultResumeUploadDir,
+    ),
   };
 
   if (nodeEnv === "production" && aiProvider === "gemini") {

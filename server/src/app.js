@@ -8,6 +8,7 @@ import { requestLogger } from "./middlewares/requestLogger.js";
 import authRouter from "./routes/authRoutes.js";
 import healthRouter from "./routes/healthRoutes.js";
 import { createInterviewRouter } from "./routes/interviewRoutes.js";
+import { createResumeRouter } from "./routes/resumeRoutes.js";
 import { createAiProviderService } from "./services/aiProviderService.js";
 import { AppError } from "./utils/AppError.js";
 
@@ -36,6 +37,8 @@ export function createApp({
   clientOrigin = "http://localhost:5173",
   geminiApiKey,
   geminiModel,
+  maxResumeSizeBytes = 5 * 1024 * 1024,
+  resumeUploadDir = "/tmp/mockmateai-resumes",
 } = {}) {
   const app = express();
   const providerService =
@@ -57,6 +60,10 @@ export function createApp({
   app.use(
     "/api/interviews",
     createInterviewRouter({ aiProviderService: providerService }),
+  );
+  app.use(
+    "/api/resumes",
+    createResumeRouter({ maxResumeSizeBytes, resumeUploadDir }),
   );
   app.use("/health", healthRouter);
   app.use(notFoundHandler);

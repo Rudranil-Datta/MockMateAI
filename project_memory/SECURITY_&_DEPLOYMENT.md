@@ -39,6 +39,7 @@ CLIENT_ORIGIN=https://app.example.com
 
 # Operational limits: choose conservative V1 values and document them
 MAX_RESUME_SIZE_BYTES=
+RESUME_UPLOAD_DIR=
 MAX_AUDIO_SIZE_BYTES=
 MAX_QUESTIONS_PER_SESSION=
 AI_REQUESTS_PER_USER_PER_HOUR=
@@ -83,6 +84,12 @@ Resume and voice uploads are the highest-risk V1 input path. Apply all of the fo
 - Extract text/transcribe with timeouts and resource limits. Treat malformed or password-protected documents as controlled failures.
 - Delete temporary upload files after processing, including error paths.
 - Retain raw audio only if required for a stated feature; the lowest-risk V1 option is to retain the transcription and discard raw audio after processing.
+
+### Resume Storage Migration Trigger
+
+The current `RESUME_UPLOAD_DIR` implementation is private local storage for development or one persistent backend instance. Before deploying to an ephemeral, serverless, or multi-instance host, move resume files behind a backend storage adapter to private object storage. S3, Cloudflare R2, or Google Cloud Storage are preferred for document retention; Cloudinary is a possible option only if private/authenticated raw-file delivery, deletion, and lifecycle controls are configured.
+
+Keep only an opaque provider/key in MongoDB, never public file URLs or user-supplied paths. Keep storage credentials server-side, authorize reads through the API or short-lived controlled URLs, and use a verified copy/update/rollback procedure for any existing files.
 
 ## Gemini Integration and Cost Controls
 

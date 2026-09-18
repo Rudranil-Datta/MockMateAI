@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
   completeInterview,
+  generateNextQuestion,
   startInterview,
   submitTextAnswer,
 } from "../api/interviewApi.js";
@@ -106,6 +107,16 @@ function isSavedAnswerResult(result) {
   );
 }
 
+function isGeneratedQuestionResult(question) {
+  return Boolean(
+    question?.id &&
+    Number.isInteger(question.order) &&
+    question.order > 0 &&
+    typeof question.prompt === "string" &&
+    question.prompt.trim(),
+  );
+}
+
 function isCompletedInterviewResult(result) {
   return Boolean(
     result?.interview?.id &&
@@ -124,7 +135,11 @@ function PracticePage() {
   const [feedbackByQuestion, setFeedbackByQuestion] = useState({});
   const [isAnswerSubmitting, setIsAnswerSubmitting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isNextQuestionLoading, setIsNextQuestionLoading] = useState(false);
   const [completionError, setCompletionError] = useState("");
+  const [nextQuestionError, setNextQuestionError] = useState("");
+  const [nextQuestionStatusMessage, setNextQuestionStatusMessage] =
+    useState("");
   const [submittedAnswerIds, setSubmittedAnswerIds] = useState({});
   const [selectedType, setSelectedType] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
@@ -253,6 +268,36 @@ function PracticePage() {
       );
     } finally {
       setIsCompleting(false);
+    }
+  }
+
+  async function handleNextQuestion(interviewId) {
+    setIsNextQuestionLoading(true);
+    setNextQuestionError("");
+    setNextQuestionStatusMessage("Preparing your next question...");
+
+    try {
+      const result = await generateNextQuestion({ interviewId });
+
+      if (!isGeneratedQuestionResult(result?.question)) {
+        throw new Error("Next question could not be loaded. Please try again.");
+      }
+
+      setActiveInterview((currentInterview) =>
+        currentInterview?.interview.id === interviewId
+          ? { ...currentInterview, question: result.question }
+          : currentInterview,
+      );
+      setAnswerError("");
+      setAnswerStatusMessage("");
+      setNextQuestionStatusMessage("");
+    } catch (error) {
+      setNextQuestionStatusMessage("");
+      setNextQuestionError(
+        `${error?.message || "Next question could not be loaded."} Your saved feedback is still here. Press Next question to retry.`,
+      );
+    } finally {
+      setIsNextQuestionLoading(false);
     }
   }
 
@@ -402,14 +447,47 @@ function PracticePage() {
               accurate. It is not a hiring decision.
             </p>
             <div className="feedback-actions">
-              <Button
-                isLoading={isCompleting}
-                loadingLabel="Completing session..."
-                onClick={() => handleCompleteInterview(interview.id)}
-              >
-                Complete session
-              </Button>
+              {question.order < maxQuestionsPerInterview ? (
+                <>
+                  <Button
+                    disabled={isCompleting}
+                    isLoading={isNextQuestionLoading}
+                    loadingLabel="Preparing next question..."
+                    onClick={() => handleNextQuestion(interview.id)}
+                  >
+                    Next question
+                  </Button>
+                  <Button
+                    className="button--secondary"
+                    disabled={isNextQuestionLoading || isCompleting}
+                    isLoading={isCompleting}
+                    loadingLabel="Ending session..."
+                    onClick={() => handleCompleteInterview(interview.id)}
+                  >
+                    End session early
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  isLoading={isCompleting}
+                  loadingLabel="Completing session..."
+                  onClick={() => handleCompleteInterview(interview.id)}
+                >
+                  Complete session
+                </Button>
+              )}
             </div>
+            {nextQuestionError ? (
+              <InlineAlert tone="error">{nextQuestionError}</InlineAlert>
+            ) : null}
+            {nextQuestionStatusMessage ? (
+              <InlineAlert tone="info">
+                <span aria-live="polite" className="alert-row">
+                  <Loader2 aria-hidden="true" size={18} />
+                  {nextQuestionStatusMessage}
+                </span>
+              </InlineAlert>
+            ) : null}
             {completionError ? (
               <InlineAlert tone="error">{completionError}</InlineAlert>
             ) : null}
