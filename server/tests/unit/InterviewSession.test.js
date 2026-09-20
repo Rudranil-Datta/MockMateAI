@@ -130,6 +130,8 @@ describe("InterviewSession", () => {
   });
 
   it("requires completion data only for completed sessions", async () => {
+    const completedAt = new Date();
+
     await expect(
       new InterviewSession(validSession({ status: "completed" })).validate(),
     ).rejects.toThrow();
@@ -142,7 +144,7 @@ describe("InterviewSession", () => {
     await expect(
       new InterviewSession(
         validSession({
-          completedAt: new Date(),
+          completedAt,
           questions: [
             {
               ...validQuestion(1),
@@ -157,7 +159,7 @@ describe("InterviewSession", () => {
               ],
             },
           ],
-          startedAt: new Date(),
+          startedAt: completedAt,
           status: "completed",
           summary: validSummary(),
         }),

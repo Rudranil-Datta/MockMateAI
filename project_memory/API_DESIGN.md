@@ -134,7 +134,7 @@ Uploads a supported resume, creates owned `pending` metadata, and performs bound
 }
 ```
 
-Reject unsupported, invalid-signature, or oversized uploads before persistence. Treat malformed, password-protected, image-only, empty-text, or timed-out parsing as a safe recoverable `failed` state. Do not return extracted resume text, extraction details, or internal storage references.
+Reject missing, empty, unsupported, invalid-signature, oversized, multiple, or unexpected-field uploads before persistence. Multiple or unexpected files return `400 INVALID_RESUME_UPLOAD`; unsupported types return `415`, and oversized files return `413`. Treat malformed, password-protected, image-only, empty-text, or timed-out parsing as a safe recoverable `failed` state. Do not return extracted resume text, extraction details, or internal storage references.
 
 ### `GET /api/resumes`
 

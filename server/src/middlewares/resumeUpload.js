@@ -23,6 +23,17 @@ function toUploadError(error) {
     );
   }
 
+  if (
+    error instanceof multer.MulterError &&
+    ["LIMIT_FILE_COUNT", "LIMIT_UNEXPECTED_FILE"].includes(error.code)
+  ) {
+    return new AppError(
+      "INVALID_RESUME_UPLOAD",
+      "Upload exactly one PDF using the resume field.",
+      { status: 400 },
+    );
+  }
+
   if (error instanceof AppError) {
     return error;
   }
