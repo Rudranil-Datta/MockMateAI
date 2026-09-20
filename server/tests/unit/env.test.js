@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ConfigurationError, loadConfig } from "../../src/config/env.js";
 
 const validEnvironment = {
-  AUTH_SECRET: "development-test-secret",
+  AUTH_SECRET: "development-test-secret-at-least-32-bytes",
   CLIENT_ORIGIN: "http://localhost:5173",
   MONGODB_URI: "mongodb://localhost:27017/mockmateai-test",
 };
@@ -34,6 +34,21 @@ describe("loadConfig", () => {
     ).toThrow(new ConfigurationError("GEMINI_API_KEY must be configured."));
   });
 
+  it("rejects a weak production authentication secret", () => {
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        AI_PROVIDER: "mock",
+        AUTH_SECRET: "too-short",
+        NODE_ENV: "production",
+      }),
+    ).toThrow(
+      new ConfigurationError(
+        "AUTH_SECRET must contain at least 32 bytes in production.",
+      ),
+    );
+  });
+
   it("rejects a client origin with a path", () => {
     expect(() =>
       loadConfig({
@@ -53,6 +68,11 @@ describe("loadConfig", () => {
         "AI_REQUEST_TIMEOUT_MS must be a positive integer.",
       ),
     );
+    expect(() =>
+      loadConfig({ ...validEnvironment, AI_REQUEST_TIMEOUT_MS: "20001" }),
+    ).toThrow(
+      new ConfigurationError("AI_REQUEST_TIMEOUT_MS must not exceed 20000."),
+    );
   });
 
   it("rejects an invalid resume size limit", () => {
@@ -62,6 +82,14 @@ describe("loadConfig", () => {
       new ConfigurationError(
         "MAX_RESUME_SIZE_BYTES must be a positive integer.",
       ),
+    );
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        MAX_RESUME_SIZE_BYTES: String(5 * 1024 * 1024 + 1),
+      }),
+    ).toThrow(
+      new ConfigurationError("MAX_RESUME_SIZE_BYTES must not exceed 5242880."),
     );
   });
 });

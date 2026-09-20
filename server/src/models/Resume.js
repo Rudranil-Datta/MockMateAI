@@ -21,6 +21,9 @@ const resumeSchema = new mongoose.Schema(
   {
     extractionError: {
       maxlength: 500,
+      required() {
+        return this.extractionStatus === "failed";
+      },
       trim: true,
       type: String,
     },
@@ -31,7 +34,10 @@ const resumeSchema = new mongoose.Schema(
       type: String,
     },
     extractedText: {
-      maxlength: 100000,
+      maxlength: 50000,
+      required() {
+        return this.extractionStatus === "completed";
+      },
       type: String,
     },
     mimeType: {
@@ -46,6 +52,7 @@ const resumeSchema = new mongoose.Schema(
       type: String,
     },
     sizeBytes: {
+      max: 5 * 1024 * 1024,
       min: 1,
       required: true,
       type: Number,
@@ -62,6 +69,29 @@ const resumeSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+resumeSchema.pre("validate", function validateExtractionState() {
+  if (this.extractionStatus === "completed") {
+    if (this.extractionError) {
+      this.invalidate(
+        "extractionError",
+        "Completed extraction cannot retain an error.",
+      );
+    }
+  } else if (this.extractedText) {
+    this.invalidate(
+      "extractedText",
+      "Only completed extraction can retain extracted text.",
+    );
+  }
+
+  if (this.extractionStatus !== "failed" && this.extractionError) {
+    this.invalidate(
+      "extractionError",
+      "Only failed extraction can retain an error.",
+    );
+  }
+});
 
 resumeSchema.index({ userId: 1, createdAt: -1 });
 

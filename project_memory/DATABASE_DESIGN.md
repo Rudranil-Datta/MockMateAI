@@ -41,7 +41,7 @@ Stores account identity, securely hashed authentication data, and only the profi
 
 ### Validation and indexes
 
-- Require a non-empty name, valid normalized email, and password meeting the team's chosen minimum policy.
+- Require a non-empty name, valid normalized email of at most 254 characters, and password meeting the team's chosen minimum policy.
 - Store only a strong password hash (for example, bcrypt or Argon2 output); never store a plain password.
 - Unique index: `{ email: 1 }`.
 - Return a safe projection from APIs: `_id`, `name`, `email`, `profile`, timestamps. Exclude `passwordHash` always.
@@ -75,8 +75,9 @@ Represents a resume uploaded by a user and the extracted text that can be used a
 
 ### Validation and indexes
 
-- Validate authentication, ownership, content type, file extension/signature as appropriate, and configured size limit before saving or extracting.
+- Validate authentication, ownership, content type, file extension/signature as appropriate, and the 5 MiB upload/extraction file limit before saving or extracting.
 - `userId` is required and must be taken from the authenticated request—not a client-supplied ownership field.
+- Extract at most 20 pages and persist at most 50,000 normalized text characters. `completed` requires extracted text; `failed` stores only the safe operational message needed for recovery.
 - Index: `{ userId: 1, createdAt: -1 }` for a user's resume list.
 - Do not return `extractedText` unless the client genuinely needs it; question generation reads it only on the backend.
 
@@ -95,11 +96,20 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
   interviewType: String,                // required: DSA | HR | System Design
   level: String,                        // required: beginner | intermediate | advanced
   resumeId: ObjectId,                   // optional; references an owned resume
+  startRequestId: String,               // optional legacy-safe unique per-user start idempotency key
   status: String,                       // created | active | completed
+  questionGeneration: {                 // present only while bounded generation is claimed
+    claimId: String,
+    idempotencyKey: String,
+    expectedQuestionCount: Number,
+    startedAt: Date,
+    prompt: String                       // optional validated output retained across final-write retry
+  },
   questions: [
     {
       _id: ObjectId,
       order: Number,
+      generationKey: String,            // idempotency key; omitted from API responses
       prompt: String,
       generatedAt: Date,
       answers: [
@@ -109,7 +119,20 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
           text: String,                 // typed or transcribed answer
           voiceStorageKey: String,      // optional; retain only if configured
           submittedAt: Date,
+          evaluationKey: String,        // client operation UUID; omitted from API responses
           evaluationStatus: String,     // not_started | pending | completed
+          evaluationClaimId: String,    // private current-claim owner; pending only
+          evaluationStartedAt: Date,    // private 30-second recovery lease timestamp
+          evaluationOutput: {           // private validated output staged across final-write retry
+            overallScore: Number,
+            accuracyScore: Number,
+            clarityScore: Number,
+            confidenceScore: Number,
+            strengths: [String],
+            improvements: [String],
+            nextStep: String,
+            evaluatedAt: Date
+          },
           feedback: {
             overallScore: Number,       // recommended range: 0–100
             accuracyScore: Number,      // 0–100
@@ -131,8 +154,7 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
     confidenceScore: Number,
     strengths: [String],
     improvements: [String],
-    recommendation: String,
-    completedAt: Date
+    recommendation: String
   },
   startedAt: Date,
   completedAt: Date,
@@ -149,17 +171,21 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
 - A referenced `resumeId` must exist and belong to the same user.
 - Require an active session and a non-empty answer text before evaluation.
 - Accept feedback only after server-side validation of its structured shape and score ranges.
-- Set `completedAt` and `summary` only when the session transitions to `completed`.
+- Persist only the first answer text for a question. Repeated evaluation requests must use the same operation UUID; a completed replay returns the same saved result.
+- A `pending` evaluation requires a private claim ID and start time. Only that claim may stage output, complete, or release itself; claims older than 30 seconds may be replaced.
+- A recoverable non-completed answer may retain private validated `evaluationOutput` after final feedback persistence fails. Completion moves that output to `feedback` and removes all private claim/output fields.
+- Set top-level `completedAt` and `summary` only when the session transitions to `completed`. A completed session requires at least one evaluated answer and cannot retain pending/staged evaluation or question-generation work; `completedAt` cannot precede `startedAt`.
 - Cap question and answer counts to the defined V1 interview length so documents stay small and predictable.
 
 ### Indexes
 
-| Index                                     | Reason                                         |
-| ----------------------------------------- | ---------------------------------------------- |
-| `{ userId: 1, createdAt: -1 }`            | Retrieve a user's recent history.              |
-| `{ userId: 1, status: 1, updatedAt: -1 }` | Find active/completed sessions efficiently.    |
-| `{ userId: 1, completedAt: -1 }`          | Support dashboard history and trend queries.   |
-| `{ resumeId: 1 }`                         | Optional: locate sessions related to a resume. |
+| Index                                             | Reason                                                                            |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `{ userId: 1, createdAt: -1 }`                    | Retrieve a user's recent history.                                                 |
+| `{ userId: 1, status: 1, updatedAt: -1 }`         | Find active/completed sessions efficiently.                                       |
+| `{ userId: 1, completedAt: -1 }`                  | Support dashboard history and trend queries.                                      |
+| `{ resumeId: 1 }`                                 | Optional: locate sessions related to a resume.                                    |
+| `{ userId: 1, startRequestId: 1 }` unique partial | Deduplicate retry/replay of interview creation without affecting legacy sessions. |
 
 ## Relationships and Ownership
 

@@ -11,6 +11,7 @@ const validSignup = {
   name: "Asha Kumar",
   password: "secure-password-123",
 };
+const oversizedEmail = `${"a".repeat(243)}@example.com`;
 
 function getSessionCookie(response) {
   return response.headers["set-cookie"][0].split(";")[0];
@@ -88,6 +89,20 @@ describe("POST /api/auth/signup", () => {
         message: "Check the highlighted fields.",
       },
     });
+    await expect(User.countDocuments()).resolves.toBe(0);
+  });
+
+  it("rejects an oversized email before persistence", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ ...validSignup, email: oversizedEmail });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      fields: { email: "Enter a valid email address." },
+    });
+    expect(response.headers["set-cookie"]).toBeUndefined();
     await expect(User.countDocuments()).resolves.toBe(0);
   });
 

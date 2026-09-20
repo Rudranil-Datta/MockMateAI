@@ -75,7 +75,7 @@ Creates an account.
 { "user": { "id": "...", "name": "Asha Kumar", "email": "asha@example.com", "profile": {} } }
 ```
 
-Validate normalized unique email and password policy. Hash the password before storage. Establish auth state according to the chosen secure session/token approach.
+Validate a normalized unique email of at most 254 characters and the password policy. Hash the password before storage. Establish auth state according to the chosen secure session/token approach.
 
 ### `POST /api/auth/login`
 
@@ -108,11 +108,13 @@ Returns the current user's safe profile.
 }
 ```
 
+Malformed JSON is rejected before route validation with `400 MALFORMED_JSON` and the stable message `Request body must contain valid JSON.` Parser details and submitted values are never returned.
+
 ## Resumes
 
 ### `POST /api/resumes`
 
-Uploads a supported resume and creates owned metadata with `pending` extraction status.
+Uploads a supported resume, creates owned `pending` metadata, and performs bounded local text extraction before responding. The safe response reports `completed` or `failed`; a failed extraction preserves the owned upload for a future retry and never returns parser details.
 
 - Content type: `multipart/form-data`
 - Required field: `resume`
@@ -126,13 +128,13 @@ Uploads a supported resume and creates owned metadata with `pending` extraction 
     "originalName": "Asha-Kumar-Resume.pdf",
     "mimeType": "application/pdf",
     "sizeBytes": 124000,
-    "extractionStatus": "pending",
+    "extractionStatus": "completed",
     "createdAt": "2026-09-02T00:00:00.000Z"
   }
 }
 ```
 
-Reject unsupported, malformed, or oversized uploads before persistence. Do not return extracted resume text or internal storage references.
+Reject unsupported, invalid-signature, or oversized uploads before persistence. Treat malformed, password-protected, image-only, empty-text, or timed-out parsing as a safe recoverable `failed` state. Do not return extracted resume text, extraction details, or internal storage references.
 
 ### `GET /api/resumes`
 
@@ -155,6 +157,7 @@ Creates an active interview session and returns its first question.
 ```json
 // request
 {
+  "idempotencyKey": "client-generated-UUID-retained-for-retry",
   "interviewType": "DSA",
   "level": "intermediate",
   "resumeId": "optional-owned-resume-id"
@@ -177,18 +180,23 @@ Creates an active interview session and returns its first question.
 }
 ```
 
-Accept only `DSA`, `HR`, and `System Design`. Confirm `resumeId`, if present, belongs to the user. If question generation fails, return a safe retryable error and do not present a non-existent question as active.
+Require a client-generated UUID `idempotencyKey`; the client retains it for retries of the same setup and replaces it when setup choices change. Accept only `DSA`, `HR`, and `System Design`. Confirm `resumeId`, if present, belongs to the user and has completed extraction. Send only a normalized deterministic excerpt of at most 2,000 characters through the backend provider contract; never return that context to the client. If question generation fails, return a safe retryable error and do not present a non-existent question as active. Replaying a completed key returns the same persisted interview/question; concurrent generation receives a safe conflict without another provider call.
 
 ### `POST /api/interviews/:id/questions`
 
 Generates/retrieves the next question for an owned active session.
 
 ```json
+// request
+{ "idempotencyKey": "client-generated-UUID-retained-for-retry" }
+```
+
+```json
 // 200 response
 { "question": { "id": "...", "order": 2, "prompt": "..." } }
 ```
 
-Reject completed sessions and enforce the configured V1 question limit.
+Reject completed sessions and enforce the configured V1 question limit. Replaying a completed key returns the same persisted question. A short database-backed generation lease prevents simultaneous requests from multiplying provider calls and permits recovery after interrupted work. Validated provider output is retained inside the private claim before the final question write, so retry after a final-write failure does not call the provider again.
 
 ### `POST /api/interviews/:id/answers`
 
@@ -196,7 +204,11 @@ Submits a typed answer for an owned active question, then evaluates it through t
 
 ```json
 // request
-{ "questionId": "...", "text": "A stack is LIFO, while a queue is FIFO." }
+{
+  "idempotencyKey": "client-generated-UUID-retained-for-retry",
+  "questionId": "...",
+  "text": "A stack is LIFO, while a queue is FIFO."
+}
 
 // Day 18 200 response
 {
@@ -213,7 +225,9 @@ Submits a typed answer for an owned active question, then evaluates it through t
 }
 ```
 
-Confirm session/question ownership and active state. Validate non-empty text before saving. Reject duplicate answers for a question. Validate every feedback field before atomic persistence. Map quota exhaustion to `AI_QUOTA_EXCEEDED`; timeout, malformed output, and provider failures are retryable and preserve the saved answer.
+Confirm session/question ownership and active state. Validate the operation UUID and non-empty bounded text before saving. Persist the first accepted answer text and never replace it from a retry payload. The client retains one operation UUID across retry; replay after completion returns the same persisted answer and feedback, while another operation is rejected as a duplicate.
+
+A private 30-second database claim permits only one active evaluation. Stale claims are recoverable and claim release is ownership-scoped so an older worker cannot release a newer claim. Validated provider output is staged privately before the final feedback write; retry after a final-write failure reuses that staged output without another provider call. Claim/output metadata is never returned by the API. Validate every feedback field before persistence and rendering. Map quota exhaustion to `AI_QUOTA_EXCEEDED`; timeout, malformed output, generic provider failures, and persistence failures preserve the saved answer and return safe retryable errors.
 
 ### `POST /api/interviews/:id/voice-answers`
 
@@ -283,7 +297,7 @@ Returns one owned session, including questions, submitted answers, feedback, and
 }
 ```
 
-The route returns only safe persisted session fields and applies ownership filtering before reading.
+The route returns only safe persisted session fields and applies ownership filtering before reading. Private generation/evaluation keys, claims, staged output, and lease state are never returned.
 
 ### `POST /api/interviews/:id/complete`
 
@@ -309,7 +323,7 @@ Completes an owned active session and calculates/saves its summary.
 }
 ```
 
-Requires at least one evaluated answer and no pending evaluation. Rejects attempts to complete another user's session or an already completed session; successful responses include safe persisted questions and answers with the completed summary.
+Requires at least one evaluated answer and no pending or staged evaluation or question generation. The owned transition is atomic and conflict-safe; a persistence failure leaves the session active for retry. Rejects attempts to complete another user's session or an already completed session; successful responses include safe persisted questions and answers with the completed summary.
 
 ## Analytics
 

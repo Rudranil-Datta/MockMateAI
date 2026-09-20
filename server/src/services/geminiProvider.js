@@ -1,3 +1,5 @@
+import { GoogleGenAI } from "@google/genai";
+
 const questionJsonSchema = {
   additionalProperties: false,
   properties: {
@@ -71,10 +73,21 @@ export function buildEvaluationPrompt({
   ].join("\n\n");
 }
 
-export function createGeminiProvider({ generateContent, model, timeoutMs }) {
+export function createGeminiProvider({
+  geminiApiKey,
+  generateContent,
+  model,
+  timeoutMs,
+}) {
+  const client = generateContent
+    ? null
+    : new GoogleGenAI({ apiKey: geminiApiKey });
+  const requestContent =
+    generateContent || ((request) => client.models.generateContent(request));
+
   return {
     async generateQuestion(input) {
-      const response = await generateContent({
+      const response = await requestContent({
         config: {
           abortSignal: AbortSignal.timeout(timeoutMs),
           candidateCount: 1,
@@ -100,7 +113,7 @@ export function createGeminiProvider({ generateContent, model, timeoutMs }) {
     },
 
     async evaluateAnswer(input) {
-      const response = await generateContent({
+      const response = await requestContent({
         config: {
           abortSignal: AbortSignal.timeout(timeoutMs),
           candidateCount: 1,

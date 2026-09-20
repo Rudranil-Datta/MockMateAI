@@ -1,5 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
 import { AppError } from "../utils/AppError.js";
 import {
   validateEvaluationInput,
@@ -75,12 +73,9 @@ function createProvider({
     );
   }
 
-  const client = generateContent
-    ? null
-    : new GoogleGenAI({ apiKey: geminiApiKey });
-
   return createGeminiProvider({
-    generateContent: generateContent || client.models.generateContent,
+    geminiApiKey,
+    generateContent,
     model: geminiModel,
     timeoutMs,
   });

@@ -111,6 +111,18 @@ describe("aiProviderService", () => {
       mockService.generateQuestion({ ...dsaInput, interviewType: "Coding" }),
     ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST", status: 400 });
     await expect(
+      mockService.generateQuestion({
+        ...dsaInput,
+        previousQuestions: ["   "],
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST", status: 400 });
+    await expect(
+      mockService.generateQuestion({
+        ...dsaInput,
+        resumeContext: "x".repeat(2001),
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST", status: 400 });
+    await expect(
       malformedService.generateQuestion(dsaInput),
     ).rejects.toMatchObject({
       code: "INVALID_AI_RESPONSE",
@@ -135,7 +147,6 @@ describe("aiProviderService", () => {
       aiProvider: "gemini",
       generateContent: vi.fn().mockRejectedValue(new Error("Network failed")),
     });
-
     await expect(quotaService.generateQuestion(dsaInput)).rejects.toMatchObject(
       {
         code: "AI_QUOTA_EXCEEDED",
@@ -214,6 +225,10 @@ describe("aiProviderService", () => {
       aiProvider: "gemini",
       generateContent: vi.fn().mockRejectedValue({ name: "TimeoutError" }),
     });
+    const unavailableService = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent: vi.fn().mockRejectedValue(new Error("Network failed")),
+    });
 
     await expect(
       malformedService.evaluateAnswer(evaluationInput),
@@ -229,6 +244,12 @@ describe("aiProviderService", () => {
     ).rejects.toMatchObject({
       code: "AI_PROVIDER_TIMEOUT",
       status: 504,
+    });
+    await expect(
+      unavailableService.evaluateAnswer(evaluationInput),
+    ).rejects.toMatchObject({
+      code: "AI_PROVIDER_UNAVAILABLE",
+      status: 502,
     });
   });
 });

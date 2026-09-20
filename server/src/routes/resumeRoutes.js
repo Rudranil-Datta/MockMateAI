@@ -4,9 +4,13 @@ import { createResumeController } from "../controllers/resumeController.js";
 import { createResumeUpload } from "../middlewares/resumeUpload.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
-export function createResumeRouter({ maxResumeSizeBytes, resumeUploadDir }) {
+export function createResumeRouter({
+  maxResumeSizeBytes,
+  resumeService,
+  resumeUploadDir,
+}) {
   const resumeRouter = Router();
-  const resumeController = createResumeController();
+  const resumeController = createResumeController({ resumeService });
   const uploadResume = createResumeUpload({
     maxResumeSizeBytes,
     resumeUploadDir,

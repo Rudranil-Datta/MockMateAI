@@ -1,6 +1,6 @@
 # MockMateAI — Automatic Codex Project Rules
 
-This `AGENTS.md` is canonical. Codex loads it automatically for every new session started from this repository. `.codex/rules/` contains matching readable copies; do not rely on those files being auto-discovered.
+This `AGENTS.md` is canonical. Codex loads it automatically for every new session started from this repository. Do not create duplicate rule copies; keep detailed delivery controls in `project_memory/DELIVERY_ASSURANCE.md`.
 
 ## Engineering Standards
 
@@ -25,31 +25,39 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 
 ## Project Governance and Efficient Context Use
 
-- Before every feature/refactor, read `project_memory/IMPLEMENTATION_STATUS.md`, then only directly relevant documents in `project_memory/`, target code, and direct dependencies.
+- Before every feature/refactor or remediation, read `project_memory/IMPLEMENTATION_STATUS.md` and `project_memory/DELIVERY_ASSURANCE.md`, then only directly relevant documents in `project_memory/`, target code, and direct dependencies.
 - Do not perform broad repository scans, re-read unchanged large files, or load unrelated material without a concrete need.
 - Use smallest sufficient context, tool output, model effort, and action sequence. Use targeted reads/searches, existing contracts/helpers/tests, and batched independent read-only checks. Efficiency never overrides required reads, risk disclosure, approval, validation, or truthful failure reporting.
 - Do not reread unchanged project-memory documents. Read `project_memory/IMPLEMENTATION_STATUS.md` before each workday, then only the documents and code directly needed for the approved scope.
 - Preserve V1 journey: authenticate; choose DSA/HR/System Design plus level; optional resume; question; text/constrained voice answer; structured feedback; saved completion; dashboard. Text flow remains dependable baseline.
 - Preserve data isolation, backend-only Gemini V1 integration, saved feedback/results, and basic analytics. Implement only documented success criteria.
 - Do not add company-specific preparation, placement integration, payments, recruiting, live video/multi-user interviews, proctoring, anti-cheating, native apps, advanced gamification, agents, microservices, Kubernetes, or distributed systems.
+- Treat `IMPLEMENTATION_TIMELINE.md`, `SUCCESS_CRITERIA.md`, and affected design contracts as the specification. Never silently narrow plan language to match the implementation.
 - Stop and request explicit scope-change approval for conflict with documentation, security, budget, success criteria, or working behavior. Never mark unapproved, untested, partial, blocked, misleading, or regressive work complete.
 
 ## Daily Task Planning, Risk Control, and Approval
 
-- Before each workday, read `project_memory/IMPLEMENTATION_STATUS.md`. Split work into independently verifiable tasks; record objective/affected area, expected result, dependencies, risks, mitigation/validation, and possible documentation deviation before execution.
+- Follow the mandatory lifecycle and completion gate in `project_memory/DELIVERY_ASSURANCE.md`.
+- Before each workday, create the current-day traceability and verification matrices in `project_memory/IMPLEMENTATION_STATUS.md`. Map every approved requirement to its authoritative source, affected boundaries, risk, implementation evidence, and independent verification before editing.
+- Split work into independently verifiable tasks; record objective/affected area, expected result, dependencies, risks, mitigation/validation, and possible documentation deviation before execution.
 - Each task requires explicit user approval before edits, dependency installation, deployment, external communication, or other state-changing action. Targeted read-only inspection for planning is allowed.
 - Explicit automation permission waives per-task approval only for stated scope/duration. Stop for renewed approval on material deviation, security/privacy risk, dependency, migration, destructive action, significant cost, or scope expansion.
 - A user may approve routine execution for one named workday by explicitly covering focused dependency installation, existing verification scripts, temporary localhost test ports, and one bounded configured-provider smoke test. Treat this as approval only for that day and documented scope; host-level permission prompts still govern network/port access.
 - Prefer deterministic mock-provider tests. Use a live Gemini smoke only after provider/configuration work changes, keep it to one request, and report only safe metadata. Keep `GEMINI_MODEL` configured or use the documented default; never request or print `GEMINI_API_KEY`.
-- Keep concise task status/blockers/evidence in `project_memory/IMPLEMENTATION_STATUS.md`. End each day with dated outcome, validation evidence, unresolved issues, and status: `Complete`, `Partial`, or `Blocked`.
+- Derive acceptance and negative tests from the approved specification, not from implementation details. For every affected category, test success, validation, ownership, duplicate/concurrent action, dependency/provider failure, persistence failure, malformed data, retry/recovery, and regression; record `N/A` with a reason when a category truly does not apply.
+- After implementation, compare the approved requirements against the final diff, tests, runtime evidence, and affected documentation. Record every deviation, limitation, and approved deferral.
+- Keep concise task status/blockers/evidence in `project_memory/IMPLEMENTATION_STATUS.md`. End each day with dated outcome, validation evidence, unresolved findings, and status: `Complete`, `Partial`, or `Blocked`.
+- Mark a day `Complete` only when every approved requirement has evidence, full required checks pass, affected documentation agrees with behavior, and no unresolved P0/P1 finding remains. Otherwise use `Partial` or `Blocked`; never weaken the requirement or test to obtain completion.
+- P0/P1 findings may be fixed or deferred only with explicit user approval. P2/P3 findings must be recorded and may be scheduled without blocking completion only when `DELIVERY_ASSURANCE.md` permits it.
 - Treat `project_memory/IMPLEMENTATION_STATUS.md` as the sole live work tracker. `IMPLEMENTATION_TIMELINE.md` is the approved plan; do not create or maintain a separate task board.
 - Every daily report includes **Manual tasks for user**: each user-owned action, why it is needed, and short ordered steps. If none: `Manual tasks for user: None.`
 - At the end of each completed workday, ask the user whether to review the next day's tasks or approve that next day directly. Do not begin the next day until they explicitly approve it; reviewing tasks is not approval.
 - Never request secrets in chat. State where users configure credentials and relevant environment-variable name, never its value.
 - Start only the servers/processes needed for a verification run. After verification, stop every related process and confirm its port is free; start fresh processes again for later workdays as needed. Never leave test/dev servers running between tasks.
-- During implementation, run the narrowest affected workspace test command (for example, `npm test --workspace=server`). After the final change, run the full workspace checks once; do not repeat them after every small patch. Start one temporary server only for final smoke validation, then stop it and confirm its port is free.
+- During implementation, run the narrowest affected workspace test command (for example, `npm test --workspace=server`). After the final change, run the full workspace checks once, including `npm run validate:delivery`; do not repeat them after every small patch. Start one temporary server only for final smoke validation, then stop it and confirm its port is free.
 - Reuse the locally cached `mongodb-memory-server` binary. Keep integration-test database setup in shared helpers when it meaningfully reduces duplicated lifecycle code without weakening test isolation.
 
 ## Code Review Rules
 
 - Flag bypassed authentication/ownership, exposed secrets, frontend AI-provider calls, unvalidated AI persistence, broken core text flow, V1 scope creep, broad unrelated refactors, missing affected tests, unsafe uploads, and unbounded external/AI requests.
+- Review against the approved specification and traceability matrix, not only the code's apparent intent. A green test suite is insufficient when required behavior lacks an independent assertion.

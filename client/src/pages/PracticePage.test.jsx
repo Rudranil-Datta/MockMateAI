@@ -35,9 +35,32 @@ function interviewStartResult({
       id: "session-123",
       interviewType,
       level,
+      startedAt: "2026-09-19T00:00:00.000Z",
       status: "active",
     },
     question: { id: "question-123", order, prompt },
+  };
+}
+
+function savedAnswerResult(overrides = {}) {
+  return {
+    answer: {
+      id: "answer-123",
+      inputMode: "text",
+      submittedAt: "2026-09-19T00:00:00.000Z",
+      text: "Use a stack.",
+      ...overrides.answer,
+    },
+    feedback: {
+      accuracyScore: 78,
+      clarityScore: 76,
+      confidenceScore: 74,
+      improvements: ["Add an example."],
+      nextStep: "Practise a concise example.",
+      overallScore: 76,
+      strengths: ["Explains the core idea."],
+      ...overrides.feedback,
+    },
   };
 }
 
@@ -59,30 +82,56 @@ describe("PracticePage", () => {
     expect(screen.getByText("Choose your level")).toBeVisible();
   });
 
-  it("shows saved first question returned by interview API", async () => {
-    startInterview.mockResolvedValueOnce(interviewStartResult());
+  it.each([
+    ["DSA", "intermediate", "Intermediate", "Explain stacks."],
+    ["HR", "beginner", "Beginner", "Tell me about yourself."],
+    ["System Design", "advanced", "Advanced", "Design a notification service."],
+  ])(
+    "shows saved first question for %s",
+    async (interviewType, level, levelLabel, prompt) => {
+      startInterview.mockResolvedValueOnce(
+        interviewStartResult({ interviewType, level, prompt }),
+      );
+      renderPracticePage();
+
+      fireEvent.click(
+        screen.getByRole("button", { name: new RegExp(interviewType, "i") }),
+      );
+      fireEvent.click(screen.getByLabelText(new RegExp(levelLabel, "i")));
+      fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+      await waitFor(() => {
+        expect(startInterview).toHaveBeenCalledWith({
+          idempotencyKey: expect.any(String),
+          interviewType,
+          level,
+        });
+      });
+      expect(
+        await screen.findByRole("heading", {
+          name: `${interviewType} practice`,
+        }),
+      ).toBeVisible();
+      expect(screen.getByText(`${levelLabel} level`)).toBeVisible();
+      expect(screen.getByText("Question 1 of 5")).toBeVisible();
+      expect(screen.getByText(prompt)).toBeVisible();
+    },
+  );
+
+  it("rejects malformed start response before rendering active state", async () => {
+    startInterview.mockResolvedValueOnce(
+      interviewStartResult({ order: 2, prompt: "Unpersisted question." }),
+    );
     renderPracticePage();
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
     fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
 
-    await waitFor(() => {
-      expect(startInterview).toHaveBeenCalledWith({
-        interviewType: "DSA",
-        level: "intermediate",
-      });
-    });
     expect(
-      await screen.findByRole("heading", { name: "DSA practice" }),
+      await screen.findByText(/Interview could not be started.*retry\./),
     ).toBeVisible();
-    expect(screen.getByText("Intermediate level")).toBeVisible();
-    expect(screen.getByText("Question 1 of 5")).toBeVisible();
-    expect(screen.getByText("Explain stacks.")).toBeVisible();
-    expect(screen.getByRole("progressbar")).toHaveAttribute(
-      "aria-valuenow",
-      "1",
-    );
+    expect(screen.queryByText("Unpersisted question.")).not.toBeInTheDocument();
   });
 
   it("preserves selections and retries after quota failure", async () => {
@@ -120,6 +169,10 @@ describe("PracticePage", () => {
       await screen.findByRole("heading", { name: "System Design practice" }),
     ).toBeVisible();
     expect(screen.getByText("Design a notification service.")).toBeVisible();
+    expect(startInterview).toHaveBeenCalledTimes(2);
+    expect(startInterview.mock.calls[1][0].idempotencyKey).toBe(
+      startInterview.mock.calls[0][0].idempotencyKey,
+    );
   });
 
   it("disables duplicate starts while question request is pending", async () => {
@@ -210,6 +263,7 @@ describe("PracticePage", () => {
     ).toBeDisabled();
     expect(answer).toHaveValue("Use a stack.");
     expect(submitTextAnswer).toHaveBeenCalledWith({
+      idempotencyKey: expect.any(String),
       interviewId: "session-123",
       questionId: "question-123",
       text: "Use a stack.",
@@ -293,6 +347,97 @@ describe("PracticePage", () => {
     expect(
       screen.getByRole("button", { name: "Submit for feedback" }),
     ).toBeEnabled();
+
+    const firstOperationKey = submitTextAnswer.mock.calls[0][0].idempotencyKey;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+    await waitFor(() => expect(submitTextAnswer).toHaveBeenCalledTimes(2));
+    expect(submitTextAnswer.mock.calls[1][0].idempotencyKey).toBe(
+      firstOperationKey,
+    );
+  });
+
+  it("preserves saved feedback and retries completion failure", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitTextAnswer.mockResolvedValueOnce(savedAnswerResult());
+    completeInterview
+      .mockRejectedValueOnce(new Error("Completion could not be saved."))
+      .mockResolvedValueOnce({
+        interview: {
+          completedAt: "2026-09-20T00:00:00.000Z",
+          id: "session-123",
+          status: "completed",
+          summary: { overallScore: 76 },
+        },
+      });
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    fireEvent.change(await screen.findByLabelText("Your answer"), {
+      target: { value: "Use a stack." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "End session early" }),
+    );
+
+    expect(
+      await screen.findByText(
+        /Completion could not be saved.*saved feedback is still here/,
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("Explains the core idea.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "End session early" }));
+
+    await waitFor(() => expect(completeInterview).toHaveBeenCalledTimes(2));
+  });
+
+  it.each([
+    [
+      "invalid submitted date",
+      savedAnswerResult({ answer: { submittedAt: "not-a-date" } }),
+    ],
+    [
+      "out-of-range score",
+      savedAnswerResult({ feedback: { overallScore: 101 } }),
+    ],
+    [
+      "blank feedback list",
+      savedAnswerResult({ feedback: { strengths: [" "] } }),
+    ],
+    [
+      "oversized next step",
+      savedAnswerResult({ feedback: { nextStep: "n".repeat(1001) } }),
+    ],
+  ])("rejects %s without rendering feedback", async (_label, result) => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitTextAnswer.mockResolvedValueOnce(result);
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    const answer = await screen.findByLabelText("Your answer");
+    fireEvent.change(answer, { target: { value: "Use a stack." } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+
+    expect(
+      await screen.findByText(/Answer could not be saved.*draft is still here/),
+    ).toBeVisible();
+    expect(answer).toHaveValue("Use a stack.");
+    expect(
+      screen.queryByRole("heading", { name: "Feedback" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    ).toBeEnabled();
   });
 
   it("moves to saved next question after feedback", async () => {
@@ -338,6 +483,7 @@ describe("PracticePage", () => {
 
     await waitFor(() => {
       expect(generateNextQuestion).toHaveBeenCalledWith({
+        idempotencyKey: expect.any(String),
         interviewId: "session-123",
       });
     });
@@ -347,6 +493,56 @@ describe("PracticePage", () => {
       "aria-valuenow",
       "2",
     );
+  });
+
+  it("rejects malformed next-question response and preserves feedback", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitTextAnswer.mockResolvedValueOnce({
+      answer: {
+        id: "answer-123",
+        inputMode: "text",
+        submittedAt: "2026-09-18T00:00:00.000Z",
+        text: "Use a stack.",
+      },
+      feedback: {
+        accuracyScore: 78,
+        clarityScore: 76,
+        confidenceScore: 74,
+        improvements: ["Add an example."],
+        nextStep: "Practise a concise example.",
+        overallScore: 76,
+        strengths: ["Explains the core idea."],
+      },
+    });
+    generateNextQuestion.mockResolvedValueOnce({
+      question: {
+        id: "question-invalid",
+        order: 4,
+        prompt: "Skipped persisted questions.",
+      },
+    });
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    fireEvent.change(await screen.findByLabelText("Your answer"), {
+      target: { value: "Use a stack." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Next question" }),
+    );
+
+    expect(
+      await screen.findByText(/Next question could not be loaded.*retry\./),
+    ).toBeVisible();
+    expect(screen.getByText("Explains the core idea.")).toBeVisible();
+    expect(
+      screen.queryByText("Skipped persisted questions."),
+    ).not.toBeInTheDocument();
   });
 
   it("prevents duplicate next-question requests while request is pending", async () => {
@@ -452,10 +648,8 @@ describe("PracticePage", () => {
   });
 
   it("offers completion instead of next question after fifth feedback", async () => {
-    startInterview.mockResolvedValueOnce(
-      interviewStartResult({ order: 5, prompt: "Summarize your approach." }),
-    );
-    submitTextAnswer.mockResolvedValueOnce({
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitTextAnswer.mockResolvedValue({
       answer: {
         id: "answer-123",
         inputMode: "text",
@@ -472,13 +666,36 @@ describe("PracticePage", () => {
         strengths: ["Explains the core idea."],
       },
     });
+    generateNextQuestion.mockImplementation(async () => {
+      const order = generateNextQuestion.mock.calls.length + 1;
+      return {
+        question: {
+          id: `question-${order}`,
+          order,
+          prompt: `Question ${order}`,
+        },
+      };
+    });
     renderPracticePage();
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
     fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
-    fireEvent.change(await screen.findByLabelText("Your answer"), {
-      target: { value: "I would summarize trade-offs." },
+    for (let order = 1; order < 5; order += 1) {
+      fireEvent.change(await screen.findByLabelText("Your answer"), {
+        target: { value: `Answer ${order}` },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Submit for feedback" }),
+      );
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Next question" }),
+      );
+      await screen.findByText(`Question ${order + 1} of 5`);
+    }
+
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: { value: "Answer 5" },
     });
     fireEvent.click(
       screen.getByRole("button", { name: "Submit for feedback" }),

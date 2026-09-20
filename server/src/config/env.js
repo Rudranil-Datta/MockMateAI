@@ -66,7 +66,19 @@ function parseClientOrigin(environment) {
   }
 }
 
-function optionalPositiveInteger(value, name, defaultValue) {
+function parseAuthSecret(environment, nodeEnv) {
+  const authSecret = requiredValue(environment, "AUTH_SECRET");
+
+  if (nodeEnv === "production" && Buffer.byteLength(authSecret, "utf8") < 32) {
+    throw new ConfigurationError(
+      "AUTH_SECRET must contain at least 32 bytes in production.",
+    );
+  }
+
+  return authSecret;
+}
+
+function optionalPositiveInteger(value, name, defaultValue, maximum) {
   if (value === undefined || value === "") {
     return defaultValue;
   }
@@ -74,6 +86,10 @@ function optionalPositiveInteger(value, name, defaultValue) {
   const parsedValue = Number(value);
   if (!Number.isInteger(parsedValue) || parsedValue < 1) {
     throw new ConfigurationError(`${name} must be a positive integer.`);
+  }
+
+  if (maximum && parsedValue > maximum) {
+    throw new ConfigurationError(`${name} must not exceed ${maximum}.`);
   }
 
   return parsedValue;
@@ -92,17 +108,19 @@ export function loadConfig(environment = process.env) {
     port: parsePort(environment.PORT),
     mongoUri: parseMongoUri(environment),
     aiProvider,
-    authSecret: requiredValue(environment, "AUTH_SECRET"),
+    authSecret: parseAuthSecret(environment, nodeEnv),
     clientOrigin: parseClientOrigin(environment),
     aiRequestTimeoutMs: optionalPositiveInteger(
       environment.AI_REQUEST_TIMEOUT_MS,
       "AI_REQUEST_TIMEOUT_MS",
       8000,
+      20_000,
     ),
     geminiModel: environment.GEMINI_MODEL?.trim() || "gemini-3.6-flash",
     maxResumeSizeBytes: optionalPositiveInteger(
       environment.MAX_RESUME_SIZE_BYTES,
       "MAX_RESUME_SIZE_BYTES",
+      5 * 1024 * 1024,
       5 * 1024 * 1024,
     ),
     resumeUploadDir: resolve(

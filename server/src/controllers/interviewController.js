@@ -1,5 +1,6 @@
 import {
   validateInterviewId,
+  validateQuestionGenerationRequest,
   validateStartInterviewRequest,
   validateTextAnswerRequest,
 } from "../validators/interviewSchemas.js";
@@ -36,6 +37,7 @@ export function createInterviewController({ interviewService }) {
     async generateNextQuestion(request, response, next) {
       try {
         const question = await interviewService.generateNextQuestion({
+          ...validateQuestionGenerationRequest(request.body),
           interviewId: validateInterviewId(request.params.id),
           userId: request.auth.userId,
         });

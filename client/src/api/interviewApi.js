@@ -1,8 +1,14 @@
 import { apiRequest } from "./httpClient.js";
 
-export function startInterview({ interviewType, level, resumeId } = {}) {
+export function startInterview({
+  idempotencyKey,
+  interviewType,
+  level,
+  resumeId,
+} = {}) {
   return apiRequest("interviews", {
     body: {
+      idempotencyKey,
       interviewType,
       level,
       ...(resumeId ? { resumeId } : {}),
@@ -11,15 +17,21 @@ export function startInterview({ interviewType, level, resumeId } = {}) {
   });
 }
 
-export function submitTextAnswer({ interviewId, questionId, text } = {}) {
+export function submitTextAnswer({
+  idempotencyKey,
+  interviewId,
+  questionId,
+  text,
+} = {}) {
   return apiRequest(`interviews/${interviewId}/answers`, {
-    body: { questionId, text },
+    body: { idempotencyKey, questionId, text },
     method: "POST",
   });
 }
 
-export function generateNextQuestion({ interviewId } = {}) {
+export function generateNextQuestion({ idempotencyKey, interviewId } = {}) {
   return apiRequest(`interviews/${interviewId}/questions`, {
+    body: { idempotencyKey },
     method: "POST",
   });
 }

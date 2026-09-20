@@ -17,6 +17,7 @@ const validCredentials = {
   email: "asha.kumar@example.com",
   password: "secure-password-123",
 };
+const oversizedEmail = `${"a".repeat(243)}@example.com`;
 
 useMongoTestDatabase();
 
@@ -127,6 +128,27 @@ describe("authentication session routes", () => {
       },
     });
     expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("rejects malformed login input without setting a session", async () => {
+    const missingPasswordResponse = await request(app)
+      .post("/api/auth/login")
+      .send({ email: validCredentials.email });
+    const oversizedEmailResponse = await request(app)
+      .post("/api/auth/login")
+      .send({ email: oversizedEmail, password: validCredentials.password });
+
+    for (const response of [missingPasswordResponse, oversizedEmailResponse]) {
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(response.headers["set-cookie"]).toBeUndefined();
+    }
+    expect(missingPasswordResponse.body.error.fields).toEqual({
+      password: "Enter your password.",
+    });
+    expect(oversizedEmailResponse.body.error.fields).toEqual({
+      email: "Enter a valid email address.",
+    });
   });
 
   it("rejects missing, invalid, and expired sessions safely", async () => {

@@ -4,7 +4,7 @@ export const interviewTypes = ["DSA", "HR", "System Design"];
 export const interviewLevels = ["beginner", "intermediate", "advanced"];
 
 const maxPreviousQuestions = 5;
-const maxResumeContextLength = 4000;
+const maxResumeContextLength = 2000;
 const maxPreviousQuestionLength = 2000;
 const maxQuestionPromptLength = 2000;
 const maxAnswerLength = 10000;
@@ -61,14 +61,19 @@ export function validateQuestionInput(input) {
     throw invalidInput("Previous questions must be a list.");
   }
 
-  const previousQuestions = (input.previousQuestions || []).map(
-    (question) =>
-      optionalBoundedText(
-        question,
-        maxPreviousQuestionLength,
-        "Previous question",
-      ) || invalidInput("Previous questions cannot be blank."),
-  );
+  const previousQuestions = (input.previousQuestions || []).map((question) => {
+    const normalizedQuestion = optionalBoundedText(
+      question,
+      maxPreviousQuestionLength,
+      "Previous question",
+    );
+
+    if (!normalizedQuestion) {
+      throw invalidInput("Previous questions cannot be blank.");
+    }
+
+    return normalizedQuestion;
+  });
 
   if (previousQuestions.length > maxPreviousQuestions) {
     throw invalidInput("Too many previous questions.");

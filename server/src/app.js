@@ -10,6 +10,7 @@ import healthRouter from "./routes/healthRoutes.js";
 import { createInterviewRouter } from "./routes/interviewRoutes.js";
 import { createResumeRouter } from "./routes/resumeRoutes.js";
 import { createAiProviderService } from "./services/aiProviderService.js";
+import { createResumeService } from "./services/resumeService.js";
 import { AppError } from "./utils/AppError.js";
 
 function createCorsOptions(clientOrigin) {
@@ -38,6 +39,7 @@ export function createApp({
   geminiApiKey,
   geminiModel,
   maxResumeSizeBytes = 5 * 1024 * 1024,
+  resumeService,
   resumeUploadDir = "/tmp/mockmateai-resumes",
 } = {}) {
   const app = express();
@@ -49,6 +51,7 @@ export function createApp({
       geminiModel,
       timeoutMs: aiRequestTimeoutMs,
     });
+  const ownedResumeService = resumeService || createResumeService();
 
   app.disable("x-powered-by");
   app.use(requestLogger);
@@ -59,11 +62,18 @@ export function createApp({
   app.use("/api/auth", authRouter);
   app.use(
     "/api/interviews",
-    createInterviewRouter({ aiProviderService: providerService }),
+    createInterviewRouter({
+      aiProviderService: providerService,
+      resumeService: ownedResumeService,
+    }),
   );
   app.use(
     "/api/resumes",
-    createResumeRouter({ maxResumeSizeBytes, resumeUploadDir }),
+    createResumeRouter({
+      maxResumeSizeBytes,
+      resumeService: ownedResumeService,
+      resumeUploadDir,
+    }),
   );
   app.use("/health", healthRouter);
   app.use(notFoundHandler);

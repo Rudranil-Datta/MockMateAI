@@ -32,9 +32,20 @@ Resume PDFs currently use private local backend storage configured by `RESUME_UP
 
 This is a deployment/storage concern, not a reason to replace Multer: Multer remains the HTTP multipart parser at the API boundary, while the future adapter decides where accepted files are stored.
 
+## Resume Extraction Decision
+
+**Status:** Implemented for V1 local PDF extraction.
+
+Use `pdf-parse` on the backend only. Extraction is synchronous with the bounded upload request, limited to 5 MiB, 20 pages, 50,000 persisted characters, and 5 seconds. Parser failures persist a recoverable safe `failed` state without exposing text or parser details. Question generation receives only an owned completed resume's normalized first 2,000 characters. OCR, cloud document parsing, and client-side extraction remain deferred.
+
+## Answer Evaluation Recovery Decision
+
+**Status:** Implemented for the V1 typed-answer flow.
+
+Each logical answer submission carries a client-generated UUID retained across explicit retry. The backend persists the first accepted answer text, acquires a private 30-second database claim, evaluates only that saved text, and validates provider output before storage. Valid output is staged privately before the final feedback transition so a final-write failure can retry without another provider call. Claim ownership prevents an expired worker from releasing or overwriting a newer evaluation. Completed same-key replay returns the saved result; different-key duplicates are rejected. Internal keys, claim metadata, and staged output never enter API responses.
+
 ## Deferred Decisions
 
-- Resume extraction provider: decide Week 5.
 - Speech-to-text provider and audio retention: decide Week 6.
 - Hosting provider: decide Week 7.
 

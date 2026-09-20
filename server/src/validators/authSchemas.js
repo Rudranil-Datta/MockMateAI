@@ -1,6 +1,7 @@
 import { AppError } from "../utils/AppError.js";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const maximumEmailLength = 254;
 const maximumPasswordBytes = 72;
 const minimumPasswordLength = 12;
 
@@ -19,7 +20,7 @@ export function validateSignupRequest(body) {
     fields.name = "Enter a name between 1 and 100 characters.";
   }
 
-  if (!emailPattern.test(email)) {
+  if (email.length > maximumEmailLength || !emailPattern.test(email)) {
     fields.email = "Enter a valid email address.";
   }
 
@@ -46,7 +47,7 @@ export function validateLoginRequest(body) {
   const password = typeof request.password === "string" ? request.password : "";
   const fields = {};
 
-  if (!emailPattern.test(email)) {
+  if (email.length > maximumEmailLength || !emailPattern.test(email)) {
     fields.email = "Enter a valid email address.";
   }
 

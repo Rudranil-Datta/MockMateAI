@@ -10,6 +10,26 @@ const authContext = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("../hooks/useAuth.js", () => ({ default: authContext.useAuth }));
 
 describe("authentication routes", () => {
+  it("shows session restoration loading state", () => {
+    authContext.useAuth.mockReturnValue({
+      isAuthenticated: false,
+      isAuthLoading: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<p>Dashboard</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Restoring your session")).toBeVisible();
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+  });
+
   it("redirects signed-out protected access to login", () => {
     authContext.useAuth.mockReturnValue({
       isAuthenticated: false,

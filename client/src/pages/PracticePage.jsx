@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   CheckCircle2,
   Code2,
@@ -58,6 +58,11 @@ const levels = [
 ];
 
 const maxQuestionsPerInterview = 5;
+const maxQuestionPromptLength = 2000;
+const maxTextAnswerLength = 10000;
+const maxFeedbackItemLength = 500;
+const maxFeedbackItems = 3;
+const maxNextStepLength = 1000;
 
 const feedbackDimensions = [
   { key: "accuracyScore", label: "Accuracy" },
@@ -77,43 +82,80 @@ function getScoreLabel(score) {
   return "Developing";
 }
 
-function isInterviewStartResult(result) {
+function createIdempotencyKey() {
+  if (typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const value = [...bytes]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(
+    12,
+    16,
+  )}-${value.slice(16, 20)}-${value.slice(20)}`;
+}
+
+function isGeneratedQuestionResult(question, expectedOrder) {
+  return Boolean(
+    question?.id &&
+    Number.isInteger(question.order) &&
+    question.order === expectedOrder &&
+    question.order >= 1 &&
+    question.order <= maxQuestionsPerInterview &&
+    typeof question.prompt === "string" &&
+    question.prompt.trim() &&
+    question.prompt.length <= maxQuestionPromptLength,
+  );
+}
+
+function isInterviewStartResult(result, expectedType, expectedLevel) {
   return Boolean(
     result?.interview?.id &&
-    result?.interview?.interviewType &&
-    result?.interview?.level &&
-    result?.question?.id &&
-    Number.isInteger(result.question.order) &&
-    result.question.order > 0 &&
-    typeof result.question.prompt === "string" &&
-    result.question.prompt.trim(),
+    result.interview.interviewType === expectedType &&
+    result.interview.level === expectedLevel &&
+    result.interview.status === "active" &&
+    typeof result.interview.startedAt === "string" &&
+    !Number.isNaN(Date.parse(result.interview.startedAt)) &&
+    isGeneratedQuestionResult(result.question, 1),
   );
 }
 
 function isSavedAnswerResult(result) {
+  const isScore = (value) =>
+    Number.isInteger(value) && value >= 0 && value <= 100;
+  const isFeedbackList = (value) =>
+    Array.isArray(value) &&
+    value.length >= 1 &&
+    value.length <= maxFeedbackItems &&
+    value.every(
+      (item) =>
+        typeof item === "string" &&
+        item.trim().length >= 1 &&
+        item.length <= maxFeedbackItemLength,
+    );
+
   return Boolean(
     result?.answer?.id &&
     result.answer.inputMode === "text" &&
     typeof result.answer.text === "string" &&
     result.answer.text.trim() &&
+    result.answer.text.length <= maxTextAnswerLength &&
     typeof result.answer.submittedAt === "string" &&
-    Number.isInteger(result.feedback?.overallScore) &&
-    Number.isInteger(result.feedback?.accuracyScore) &&
-    Number.isInteger(result.feedback?.clarityScore) &&
-    Number.isInteger(result.feedback?.confidenceScore) &&
-    Array.isArray(result.feedback?.strengths) &&
-    Array.isArray(result.feedback?.improvements) &&
-    typeof result.feedback?.nextStep === "string",
-  );
-}
-
-function isGeneratedQuestionResult(question) {
-  return Boolean(
-    question?.id &&
-    Number.isInteger(question.order) &&
-    question.order > 0 &&
-    typeof question.prompt === "string" &&
-    question.prompt.trim(),
+    !Number.isNaN(Date.parse(result.answer.submittedAt)) &&
+    isScore(result.feedback?.overallScore) &&
+    isScore(result.feedback?.accuracyScore) &&
+    isScore(result.feedback?.clarityScore) &&
+    isScore(result.feedback?.confidenceScore) &&
+    isFeedbackList(result.feedback?.strengths) &&
+    isFeedbackList(result.feedback?.improvements) &&
+    typeof result.feedback?.nextStep === "string" &&
+    result.feedback.nextStep.trim() &&
+    result.feedback.nextStep.length <= maxNextStepLength,
   );
 }
 
@@ -128,6 +170,9 @@ function isCompletedInterviewResult(result) {
 
 function PracticePage() {
   const navigate = useNavigate();
+  const answerIdempotencyKey = useRef(createIdempotencyKey());
+  const nextQuestionIdempotencyKey = useRef(createIdempotencyKey());
+  const startIdempotencyKey = useRef(createIdempotencyKey());
   const [activeInterview, setActiveInterview] = useState(null);
   const [answerDrafts, setAnswerDrafts] = useState({});
   const [answerError, setAnswerError] = useState("");
@@ -149,12 +194,18 @@ function PracticePage() {
   const isReady = Boolean(selectedType && selectedLevel);
 
   function selectType(value) {
+    if (value !== selectedType) {
+      startIdempotencyKey.current = createIdempotencyKey();
+    }
     setSelectedType(value);
     setFormError("");
     setStatusMessage("");
   }
 
   function selectLevel(value) {
+    if (value !== selectedLevel) {
+      startIdempotencyKey.current = createIdempotencyKey();
+    }
     setSelectedLevel(value);
     setFormError("");
     setStatusMessage("");
@@ -174,11 +225,12 @@ function PracticePage() {
 
     try {
       const result = await startInterview({
+        idempotencyKey: startIdempotencyKey.current,
         interviewType: selectedType,
         level: selectedLevel,
       });
 
-      if (!isInterviewStartResult(result)) {
+      if (!isInterviewStartResult(result, selectedType, selectedLevel)) {
         throw new Error("Interview could not be started. Please try again.");
       }
 
@@ -222,6 +274,7 @@ function PracticePage() {
 
     try {
       const result = await submitTextAnswer({
+        idempotencyKey: answerIdempotencyKey.current,
         interviewId,
         questionId,
         text: answer,
@@ -239,6 +292,7 @@ function PracticePage() {
         ...currentFeedback,
         [questionId]: result.feedback,
       }));
+      answerIdempotencyKey.current = createIdempotencyKey();
       setAnswerStatusMessage("Your answer is saved. Feedback is ready.");
     } catch (error) {
       setAnswerStatusMessage("");
@@ -271,15 +325,20 @@ function PracticePage() {
     }
   }
 
-  async function handleNextQuestion(interviewId) {
+  async function handleNextQuestion(interviewId, currentQuestionOrder) {
     setIsNextQuestionLoading(true);
     setNextQuestionError("");
     setNextQuestionStatusMessage("Preparing your next question...");
 
     try {
-      const result = await generateNextQuestion({ interviewId });
+      const result = await generateNextQuestion({
+        idempotencyKey: nextQuestionIdempotencyKey.current,
+        interviewId,
+      });
 
-      if (!isGeneratedQuestionResult(result?.question)) {
+      if (
+        !isGeneratedQuestionResult(result?.question, currentQuestionOrder + 1)
+      ) {
         throw new Error("Next question could not be loaded. Please try again.");
       }
 
@@ -291,6 +350,7 @@ function PracticePage() {
       setAnswerError("");
       setAnswerStatusMessage("");
       setNextQuestionStatusMessage("");
+      nextQuestionIdempotencyKey.current = createIdempotencyKey();
     } catch (error) {
       setNextQuestionStatusMessage("");
       setNextQuestionError(
@@ -453,7 +513,9 @@ function PracticePage() {
                     disabled={isCompleting}
                     isLoading={isNextQuestionLoading}
                     loadingLabel="Preparing next question..."
-                    onClick={() => handleNextQuestion(interview.id)}
+                    onClick={() =>
+                      handleNextQuestion(interview.id, question.order)
+                    }
                   >
                     Next question
                   </Button>

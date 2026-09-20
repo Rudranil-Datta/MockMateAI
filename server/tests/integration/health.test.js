@@ -52,6 +52,23 @@ describe("GET /health", () => {
     });
   });
 
+  it("returns a stable safe error for malformed JSON", async () => {
+    const response = await request(app)
+      .post("/api/auth/login")
+      .set("Content-Type", "application/json")
+      .send('{"password":"private-value",');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: "MALFORMED_JSON",
+        message: "Request body must contain valid JSON.",
+      },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("private-value");
+    expect(JSON.stringify(response.body)).not.toContain("position");
+  });
+
   it("sets baseline security headers", async () => {
     const response = await request(app).get("/health");
 

@@ -19,12 +19,14 @@ describe("interviewApi", () => {
 
   it("maps interview start input to documented request", () => {
     startInterview({
+      idempotencyKey: "00000000-0000-4000-8000-000000000001",
       interviewType: "DSA",
       level: "intermediate",
     });
 
     expect(apiRequest).toHaveBeenCalledWith("interviews", {
       body: {
+        idempotencyKey: "00000000-0000-4000-8000-000000000001",
         interviewType: "DSA",
         level: "intermediate",
       },
@@ -34,6 +36,7 @@ describe("interviewApi", () => {
 
   it("includes optional resume id only when provided", () => {
     startInterview({
+      idempotencyKey: "00000000-0000-4000-8000-000000000002",
       interviewType: "HR",
       level: "beginner",
       resumeId: "resume-123",
@@ -41,6 +44,7 @@ describe("interviewApi", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("interviews", {
       body: {
+        idempotencyKey: "00000000-0000-4000-8000-000000000002",
         interviewType: "HR",
         level: "beginner",
         resumeId: "resume-123",
@@ -51,6 +55,7 @@ describe("interviewApi", () => {
 
   it("maps typed answer input to documented persistence request", () => {
     submitTextAnswer({
+      idempotencyKey: "00000000-0000-4000-8000-000000000004",
       interviewId: "interview-123",
       questionId: "question-123",
       text: "Use a stack.",
@@ -60,6 +65,7 @@ describe("interviewApi", () => {
       "interviews/interview-123/answers",
       {
         body: {
+          idempotencyKey: "00000000-0000-4000-8000-000000000004",
           questionId: "question-123",
           text: "Use a stack.",
         },
@@ -83,11 +89,17 @@ describe("interviewApi", () => {
   });
 
   it("maps next-question request to documented route", () => {
-    generateNextQuestion({ interviewId: "interview-123" });
+    generateNextQuestion({
+      idempotencyKey: "00000000-0000-4000-8000-000000000003",
+      interviewId: "interview-123",
+    });
 
     expect(apiRequest).toHaveBeenCalledWith(
       "interviews/interview-123/questions",
       {
+        body: {
+          idempotencyKey: "00000000-0000-4000-8000-000000000003",
+        },
         method: "POST",
       },
     );
