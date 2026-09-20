@@ -134,7 +134,7 @@ Uploads a supported resume, creates owned `pending` metadata, and performs bound
 }
 ```
 
-Reject missing, empty, unsupported, invalid-signature, oversized, multiple, or unexpected-field uploads before persistence. Multiple or unexpected files return `400 INVALID_RESUME_UPLOAD`; unsupported types return `415`, and oversized files return `413`. Treat malformed, password-protected, image-only, empty-text, or timed-out parsing as a safe recoverable `failed` state. Do not return extracted resume text, extraction details, or internal storage references.
+Reject missing, empty, unsupported, invalid-signature, oversized, multiple, or unexpected-field uploads before persistence. Multiple or unexpected files return `400 INVALID_RESUME_UPLOAD`; unsupported types return `415`, and oversized files return `413`. Local extraction rejects documents above 20 pages, processes accepted pages one at a time, stops normalized accumulation at 50,000 characters, and runs in a resource-limited worker that is terminated before a 5-second timeout is reported. Treat malformed, password-protected, image-only, empty-text, timed-out, crashed, or resource-exhausted parsing as a safe recoverable `failed` state. Do not return extracted resume text, extraction details, or internal storage references.
 
 ### `GET /api/resumes`
 

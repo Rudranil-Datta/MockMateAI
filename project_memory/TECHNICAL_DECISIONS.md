@@ -36,7 +36,7 @@ This is a deployment/storage concern, not a reason to replace Multer: Multer rem
 
 **Status:** Implemented for V1 local PDF extraction.
 
-Use `pdf-parse` on the backend only. Extraction is synchronous with the bounded upload request, limited to 5 MiB, 20 pages, 50,000 persisted characters, and 5 seconds. Parser failures persist a recoverable safe `failed` state without exposing text or parser details. Question generation receives only an owned completed resume's normalized first 2,000 characters. OCR, cloud document parsing, and client-side extraction remain deferred.
+Use `pdf-parse` on the backend only. Extraction remains synchronous with the bounded upload request but runs in a terminable resource-limited worker. Reject files above 5 MiB or 20 pages, process accepted pages sequentially, stop normalized accumulation at 50,000 characters, and terminate work before reporting the 5-second timeout. Parser crash/resource failures persist a recoverable safe `failed` state without exposing text or parser details. Question generation receives only an owned completed resume's normalized first 2,000 characters. OCR, cloud document parsing, and client-side extraction remain deferred.
 
 ## Answer Evaluation Recovery Decision
 

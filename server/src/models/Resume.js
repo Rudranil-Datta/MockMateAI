@@ -38,6 +38,7 @@ const resumeSchema = new mongoose.Schema(
       required() {
         return this.extractionStatus === "completed";
       },
+      trim: true,
       type: String,
     },
     mimeType: {

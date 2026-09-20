@@ -286,6 +286,7 @@ describe("resume routes", () => {
   it("persists safe recoverable failure metadata when PDF parsing fails", async () => {
     const { app, resumeUploadDir } = await createUploadApp();
     const { cookie } = await signup(app);
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
     const response = await request(app)
       .post("/api/resumes")
@@ -307,6 +308,95 @@ describe("resume routes", () => {
     });
     expect(resume.extractedText).toBeUndefined();
     expect(await readdir(resumeUploadDir)).toEqual([resume.storage.key]);
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(
+      "%PDF-1.7\\nnot a complete PDF",
+    );
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(
+      resume.storage.key,
+    );
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("broken.pdf");
+  });
+
+  it("keeps pending state after an extraction transition conflict and permits retry", async () => {
+    const extractPdfText = vi.fn().mockResolvedValue("Backend Engineer");
+    const resumeService = createResumeService({ extractPdfText });
+    const { app, resumeUploadDir } = await createUploadApp({ resumeService });
+    const { cookie, user } = await signup(app);
+    const updateSpy = vi
+      .spyOn(Resume, "findOneAndUpdate")
+      .mockResolvedValueOnce(null);
+
+    const response = await request(app)
+      .post("/api/resumes")
+      .set("Cookie", cookie)
+      .attach("resume", validPdf, {
+        contentType: "application/pdf",
+        filename: "resume.pdf",
+      });
+    updateSpy.mockRestore();
+    const pendingResume = await Resume.findOne({ userId: user.id });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("RESUME_EXTRACTION_CONFLICT");
+    expect(pendingResume.extractionStatus).toBe("pending");
+    expect(pendingResume.extractedText).toBeUndefined();
+
+    const recoveredResume = await resumeService.extractPendingResume({
+      path: join(resumeUploadDir, pendingResume.storage.key),
+      resumeId: pendingResume.id,
+      userId: user.id,
+    });
+
+    expect(recoveredResume.extractionStatus).toBe("completed");
+    expect(recoveredResume.extractedText).toBe("Backend Engineer");
+    expect(extractPdfText).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps pending state after failed-state persistence failure and permits retry", async () => {
+    const extractPdfText = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Private parser detail"))
+      .mockResolvedValueOnce("Recovered resume text");
+    const resumeService = createResumeService({ extractPdfText });
+    const { app, resumeUploadDir } = await createUploadApp({ resumeService });
+    const { cookie, user } = await signup(app);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const updateSpy = vi
+      .spyOn(Resume, "findOneAndUpdate")
+      .mockRejectedValueOnce(new Error("Private database detail"));
+
+    const response = await request(app)
+      .post("/api/resumes")
+      .set("Cookie", cookie)
+      .attach("resume", validPdf, {
+        contentType: "application/pdf",
+        filename: "resume.pdf",
+      });
+    updateSpy.mockRestore();
+    const pendingResume = await Resume.findOne({ userId: user.id });
+
+    expect(response.status).toBe(500);
+    expect(response.body.error).toEqual({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Something went wrong. Please try again later.",
+    });
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("Private parser");
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(
+      "Private database",
+    );
+    expect(pendingResume.extractionStatus).toBe("pending");
+    expect(pendingResume.extractionError).toBeUndefined();
+    expect(pendingResume.extractedText).toBeUndefined();
+
+    const recoveredResume = await resumeService.extractPendingResume({
+      path: join(resumeUploadDir, pendingResume.storage.key),
+      resumeId: pendingResume.id,
+      userId: user.id,
+    });
+
+    expect(recoveredResume.extractionStatus).toBe("completed");
+    expect(recoveredResume.extractedText).toBe("Recovered resume text");
+    expect(extractPdfText).toHaveBeenCalledTimes(2);
   });
 
   it("allows only the owner to transition a pending resume", async () => {

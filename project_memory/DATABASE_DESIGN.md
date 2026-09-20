@@ -77,7 +77,7 @@ Represents a resume uploaded by a user and the extracted text that can be used a
 
 - Validate authentication, ownership, content type, file extension/signature as appropriate, and the 5 MiB upload/extraction file limit before saving or extracting.
 - `userId` is required and must be taken from the authenticated request—not a client-supplied ownership field.
-- Extract at most 20 pages and persist at most 50,000 normalized text characters. `completed` requires extracted text; `failed` stores only the safe operational message needed for recovery.
+- Reject PDFs above 20 pages. Extract accepted pages sequentially and stop normalized accumulation at 50,000 characters; the model independently rejects blank or oversized completed text. `completed` requires extracted text; `failed` stores only the safe operational message needed for recovery.
 - Index: `{ userId: 1, createdAt: -1 }` for a user's resume list.
 - Do not return `extractedText` unless the client genuinely needs it; question generation reads it only on the backend.
 

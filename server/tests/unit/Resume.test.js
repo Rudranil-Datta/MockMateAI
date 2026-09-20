@@ -58,6 +58,22 @@ describe("Resume", () => {
     await expect(
       new Resume(
         validResume({
+          extractedText: "   ",
+          extractionStatus: "completed",
+        }),
+      ).validate(),
+    ).rejects.toThrow();
+    await expect(
+      new Resume(
+        validResume({
+          extractedText: "x".repeat(50_001),
+          extractionStatus: "completed",
+        }),
+      ).validate(),
+    ).rejects.toThrow();
+    await expect(
+      new Resume(
+        validResume({
           extractionError: "Resume text could not be extracted.",
           extractionStatus: "failed",
         }),

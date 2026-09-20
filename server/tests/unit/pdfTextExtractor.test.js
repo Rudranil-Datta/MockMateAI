@@ -11,6 +11,7 @@ import { createTestPdf } from "../helpers/createTestPdf.js";
 const temporaryDirectories = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -34,6 +35,31 @@ function createFakeWorker(run) {
 }
 
 describe("pdfTextExtractor", () => {
+  it("uses the documented default extraction and worker resource limits", async () => {
+    const workerFactory = vi.fn(() =>
+      createFakeWorker((worker) => {
+        worker.emit("message", { ok: true, text: "Backend Engineer" });
+      }),
+    );
+    const extractPdfText = createPdfTextExtractor({ workerFactory });
+
+    await extractPdfText("/private/resume.pdf");
+
+    expect(workerFactory).toHaveBeenCalledWith({
+      resourceLimits: {
+        maxOldGenerationSizeMb: 128,
+        maxYoungGenerationSizeMb: 32,
+        stackSizeMb: 4,
+      },
+      workerData: {
+        maxFileSizeBytes: 5 * 1024 * 1024,
+        maxPages: 20,
+        maxTextLength: 50_000,
+        path: "/private/resume.pdf",
+      },
+    });
+  });
+
   it("passes hard resource and extraction limits to its worker", async () => {
     const workerFactory = vi.fn(() =>
       createFakeWorker((worker) => {
@@ -75,6 +101,38 @@ describe("pdfTextExtractor", () => {
     });
 
     await expect(extractPdfText(path)).resolves.toBe("Backend Engineer");
+  });
+
+  it("rejects malformed, empty-text, and over-page PDFs in the real worker", async () => {
+    const malformedPath = await createTemporaryPdf(
+      Buffer.from("%PDF-1.7\nnot a complete PDF"),
+    );
+    const emptyPath = await createTemporaryPdf(createTestPdf(""));
+    const overPagePath = await createTemporaryPdf(
+      createTestPdf((page) => `Page ${page}`, { pageCount: 2 }),
+    );
+    const extractPdfText = createPdfTextExtractor({ maxPages: 1 });
+
+    await expect(extractPdfText(malformedPath)).rejects.toThrow(
+      "PDF text could not be extracted.",
+    );
+    await expect(extractPdfText(emptyPath)).rejects.toThrow(
+      "PDF text could not be extracted.",
+    );
+    await expect(extractPdfText(overPagePath)).rejects.toThrow(
+      "PDF text could not be extracted.",
+    );
+  });
+
+  it("bounds large real-worker text output", async () => {
+    const path = await createTemporaryPdf(createTestPdf("x".repeat(20_000)));
+    const extractPdfText = createPdfTextExtractor({ maxTextLength: 100 });
+
+    const text = await extractPdfText(path);
+
+    expect(text).toMatch(/^x+$/);
+    expect(text.length).toBeGreaterThan(0);
+    expect(text.length).toBeLessThanOrEqual(100);
   });
 
   it("rejects files above the extraction limit before parsing", async () => {
@@ -119,6 +177,16 @@ describe("pdfTextExtractor", () => {
     const exitExtractor = createPdfTextExtractor({
       workerFactory: () => createFakeWorker((worker) => worker.emit("exit", 0)),
     });
+    const resourceExtractor = createPdfTextExtractor({
+      workerFactory: () =>
+        createFakeWorker((worker) => {
+          const error = new Error(
+            "Worker terminated due to reaching memory limit",
+          );
+          error.code = "ERR_WORKER_OUT_OF_MEMORY";
+          worker.emit("error", error);
+        }),
+    });
 
     await expect(errorExtractor("resume.pdf")).rejects.toThrow(
       "PDF text could not be extracted.",
@@ -126,21 +194,41 @@ describe("pdfTextExtractor", () => {
     await expect(exitExtractor("resume.pdf")).rejects.toThrow(
       "PDF text could not be extracted.",
     );
+    await expect(resourceExtractor("resume.pdf")).rejects.toThrow(
+      "PDF text could not be extracted.",
+    );
   });
 
-  it("terminates the worker at the configured extraction timeout", async () => {
+  it("waits for hard worker termination before reporting timeout", async () => {
+    vi.useFakeTimers();
     let worker;
+    let finishTermination;
     const extractPdfText = createPdfTextExtractor({
-      timeoutMs: 5,
       workerFactory: () => {
         worker = createFakeWorker(() => undefined);
+        worker.terminate = vi.fn(
+          () =>
+            new Promise((resolve) => {
+              finishTermination = resolve;
+            }),
+        );
         return worker;
       },
     });
+    const outcome = extractPdfText("resume.pdf").then(
+      () => "resolved",
+      (error) => error,
+    );
 
-    await expect(extractPdfText("resume.pdf")).rejects.toMatchObject({
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    await expect(
+      Promise.race([outcome, Promise.resolve("still-pending")]),
+    ).resolves.toBe("still-pending");
+
+    finishTermination(1);
+    await expect(outcome).resolves.toMatchObject({
       name: "TimeoutError",
     });
-    expect(worker.terminate).toHaveBeenCalledOnce();
   });
 });

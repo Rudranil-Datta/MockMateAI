@@ -81,7 +81,7 @@ Resume and voice uploads are the highest-risk V1 input path. Apply all of the fo
 - Generate server-side storage names. Never use a user-provided filename as a filesystem path or object-storage key.
 - Store uploads outside the public web root; serve them only through authorized access or time-limited controlled URLs if they must be retrievable.
 - Reject archives, executables, macro-enabled formats, and unsupported document/audio types for V1.
-- Extract PDF text locally with `pdf-parse`, a 5-second timeout, a 20-page cap, the existing 5 MiB file cap, and a 50,000-character persisted-text cap. Treat malformed, password-protected, image-only, and empty-text documents as controlled recoverable failures; OCR and cloud parsing remain out of scope.
+- Extract PDF text locally with `pdf-parse` inside a resource-limited worker. Reject files above 5 MiB or 20 pages, process accepted pages sequentially, and stop normalized accumulation at 50,000 characters. At the 5-second deadline, terminate the worker before reporting timeout. Treat malformed, password-protected, image-only, empty-text, crashed, and resource-exhausted parsing as controlled recoverable failures; OCR and cloud parsing remain out of scope.
 - Delete temporary upload files after processing, including error paths.
 - Retain raw audio only if required for a stated feature; the lowest-risk V1 option is to retain the transcription and discard raw audio after processing.
 

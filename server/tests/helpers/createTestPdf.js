@@ -2,15 +2,31 @@ function escapePdfText(text) {
   return text.replaceAll(/([\\()])/g, "\\$1");
 }
 
-export function createTestPdf(text = "Backend Engineer Node MongoDB") {
-  const stream = `BT\n/F1 12 Tf\n72 720 Td\n(${escapePdfText(text)}) Tj\nET`;
+export function createTestPdf(
+  text = "Backend Engineer Node MongoDB",
+  { pageCount = 1 } = {},
+) {
+  const fontId = 3 + pageCount * 2;
+  const pageIds = Array.from(
+    { length: pageCount },
+    (_, index) => 3 + index * 2,
+  );
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageCount} >>`,
   ];
+
+  pageIds.forEach((pageId, index) => {
+    const contentId = pageId + 1;
+    const pageText = typeof text === "function" ? text(index + 1) : text;
+    const stream = `BT\n/F1 12 Tf\n72 720 Td\n(${escapePdfText(pageText)}) Tj\nET`;
+
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    );
+  });
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
 
