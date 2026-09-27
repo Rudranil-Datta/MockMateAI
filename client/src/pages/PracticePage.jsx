@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Code2,
@@ -6,17 +6,20 @@ import {
   MessageCircle,
   Network,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   completeInterview,
   generateNextQuestion,
   startInterview,
   submitTextAnswer,
+  submitVoiceAnswer,
 } from "../api/interviewApi.js";
+import { listResumes } from "../api/resumeApi.js";
 import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
+import VoiceRecorder from "../components/interview/VoiceRecorder.jsx";
 
 const interviewTypes = [
   {
@@ -125,7 +128,7 @@ function isInterviewStartResult(result, expectedType, expectedLevel) {
   );
 }
 
-function isSavedAnswerResult(result) {
+function isSavedAnswerResult(result, expectedInputMode = "text") {
   const isScore = (value) =>
     Number.isInteger(value) && value >= 0 && value <= 100;
   const isFeedbackList = (value) =>
@@ -141,7 +144,7 @@ function isSavedAnswerResult(result) {
 
   return Boolean(
     result?.answer?.id &&
-    result.answer.inputMode === "text" &&
+    result.answer.inputMode === expectedInputMode &&
     typeof result.answer.text === "string" &&
     result.answer.text.trim() &&
     result.answer.text.length <= maxTextAnswerLength &&
@@ -170,11 +173,14 @@ function isCompletedInterviewResult(result) {
 
 function PracticePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedResumeId = searchParams.get("resumeId") || "";
   const answerIdempotencyKey = useRef(createIdempotencyKey());
   const nextQuestionIdempotencyKey = useRef(createIdempotencyKey());
   const startIdempotencyKey = useRef(createIdempotencyKey());
   const [activeInterview, setActiveInterview] = useState(null);
   const [answerDrafts, setAnswerDrafts] = useState({});
+  const [answerModes, setAnswerModes] = useState({});
   const [answerError, setAnswerError] = useState("");
   const [answerStatusMessage, setAnswerStatusMessage] = useState("");
   const [feedbackByQuestion, setFeedbackByQuestion] = useState({});
@@ -188,10 +194,56 @@ function PracticePage() {
   const [submittedAnswerIds, setSubmittedAnswerIds] = useState({});
   const [selectedType, setSelectedType] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
+  const [selectedResumeId, setSelectedResumeId] = useState("");
+  const [resumes, setResumes] = useState([]);
+  const [isResumeLoading, setIsResumeLoading] = useState(true);
+  const [resumeLoadError, setResumeLoadError] = useState("");
+  const [resumeLoadAttempt, setResumeLoadAttempt] = useState(0);
   const [formError, setFormError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isReady = Boolean(selectedType && selectedLevel);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadResumeOptions() {
+      setIsResumeLoading(true);
+      setResumeLoadError("");
+
+      try {
+        const ownedResumes = await listResumes({ signal: controller.signal });
+        setResumes(ownedResumes);
+        const requestedResume = ownedResumes.find(
+          (resume) =>
+            resume.id === requestedResumeId &&
+            resume.extractionStatus === "completed",
+        );
+
+        if (requestedResume) {
+          setSelectedResumeId((currentResumeId) => {
+            if (requestedResume.id !== currentResumeId) {
+              startIdempotencyKey.current = createIdempotencyKey();
+            }
+            return requestedResume.id;
+          });
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setResumeLoadError(
+            error?.message || "Resume options could not be loaded.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsResumeLoading(false);
+        }
+      }
+    }
+
+    loadResumeOptions();
+    return () => controller.abort();
+  }, [requestedResumeId, resumeLoadAttempt]);
 
   function selectType(value) {
     if (value !== selectedType) {
@@ -207,6 +259,15 @@ function PracticePage() {
       startIdempotencyKey.current = createIdempotencyKey();
     }
     setSelectedLevel(value);
+    setFormError("");
+    setStatusMessage("");
+  }
+
+  function selectResume(value) {
+    if (value !== selectedResumeId) {
+      startIdempotencyKey.current = createIdempotencyKey();
+    }
+    setSelectedResumeId(value);
     setFormError("");
     setStatusMessage("");
   }
@@ -228,6 +289,7 @@ function PracticePage() {
         idempotencyKey: startIdempotencyKey.current,
         interviewType: selectedType,
         level: selectedLevel,
+        ...(selectedResumeId ? { resumeId: selectedResumeId } : {}),
       });
 
       if (!isInterviewStartResult(result, selectedType, selectedLevel)) {
@@ -252,6 +314,15 @@ function PracticePage() {
     setAnswerDrafts((currentDrafts) => ({
       ...currentDrafts,
       [questionId]: value,
+    }));
+    setAnswerError("");
+    setAnswerStatusMessage("");
+  }
+
+  function selectAnswerMode(questionId, mode) {
+    setAnswerModes((currentModes) => ({
+      ...currentModes,
+      [questionId]: mode,
     }));
     setAnswerError("");
     setAnswerStatusMessage("");
@@ -299,6 +370,47 @@ function PracticePage() {
       setAnswerError(
         `${error?.message || "Answer could not be saved."} Your draft is still here. Press Submit for feedback to retry.`,
       );
+    } finally {
+      setIsAnswerSubmitting(false);
+    }
+  }
+
+  async function handleVoiceAnswer(recording, signal, interviewId, questionId) {
+    setIsAnswerSubmitting(true);
+    setAnswerError("");
+    setAnswerStatusMessage(
+      "Transcribing, saving, and evaluating your answer...",
+    );
+
+    try {
+      const result = await submitVoiceAnswer({
+        audioBlob: recording.blob,
+        idempotencyKey: recording.idempotencyKey,
+        interviewId,
+        questionId,
+        signal,
+      });
+
+      if (!isSavedAnswerResult(result, "voice")) {
+        throw new Error("Voice answer could not be saved. Please try again.");
+      }
+
+      setSubmittedAnswerIds((currentIds) => ({
+        ...currentIds,
+        [questionId]: result.answer.id,
+      }));
+      setFeedbackByQuestion((currentFeedback) => ({
+        ...currentFeedback,
+        [questionId]: result.feedback,
+      }));
+      setAnswerStatusMessage("Your voice answer is saved. Feedback is ready.");
+      return result.answer.text;
+    } catch (error) {
+      setAnswerStatusMessage("");
+      setAnswerError(
+        `${error?.message || "Voice answer could not be saved."} Your typed draft is still here. Retry this recording or type your answer instead.`,
+      );
+      throw error;
     } finally {
       setIsAnswerSubmitting(false);
     }
@@ -364,6 +476,7 @@ function PracticePage() {
   if (activeInterview) {
     const { interview, question } = activeInterview;
     const answerDraft = answerDrafts[question.id] || "";
+    const answerMode = answerModes[question.id] || "text";
     const feedback = feedbackByQuestion[question.id];
     const progress = Math.min(
       (question.order / maxQuestionsPerInterview) * 100,
@@ -408,36 +521,76 @@ function PracticePage() {
             handleAnswerSubmit(event, interview.id, question.id)
           }
         >
-          <label className="answer-label" htmlFor={`answer-${question.id}`}>
-            Your answer
-          </label>
-          <textarea
-            aria-describedby={`answer-count-${question.id}`}
-            className="answer-input"
-            id={`answer-${question.id}`}
-            onChange={(event) =>
-              updateAnswerDraft(question.id, event.target.value)
-            }
-            placeholder="Organize your response, explain your reasoning, and include a concrete example."
-            value={answerDraft}
-          />
-          <div className="answer-footer">
-            <p className="character-count" id={`answer-count-${question.id}`}>
-              {answerDraft.length} characters
-            </p>
+          <div
+            aria-label="Answer method"
+            className="answer-mode-switch"
+            role="group"
+          >
             <Button
+              aria-pressed={answerMode === "text"}
+              className={answerMode === "text" ? "" : "button--secondary"}
+              disabled={Boolean(submittedAnswerIds[question.id])}
+              onClick={() => selectAnswerMode(question.id, "text")}
+            >
+              Type answer
+            </Button>
+            <Button
+              aria-pressed={answerMode === "voice"}
+              className={answerMode === "voice" ? "" : "button--secondary"}
+              disabled={Boolean(submittedAnswerIds[question.id])}
+              onClick={() => selectAnswerMode(question.id, "voice")}
+            >
+              Record answer
+            </Button>
+          </div>
+          {answerMode === "text" ? (
+            <>
+              <label className="answer-label" htmlFor={`answer-${question.id}`}>
+                Your answer
+              </label>
+              <textarea
+                aria-describedby={`answer-count-${question.id}`}
+                className="answer-input"
+                id={`answer-${question.id}`}
+                onChange={(event) =>
+                  updateAnswerDraft(question.id, event.target.value)
+                }
+                placeholder="Organize your response, explain your reasoning, and include a concrete example."
+                value={answerDraft}
+              />
+              <div className="answer-footer">
+                <p
+                  className="character-count"
+                  id={`answer-count-${question.id}`}
+                >
+                  {answerDraft.length} characters
+                </p>
+                <Button
+                  disabled={
+                    isAnswerSubmitting ||
+                    Boolean(submittedAnswerIds[question.id])
+                  }
+                  isLoading={isAnswerSubmitting}
+                  loadingLabel="Saving answer..."
+                  type="submit"
+                >
+                  {submittedAnswerIds[question.id]
+                    ? "Answer saved"
+                    : "Submit for feedback"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <VoiceRecorder
               disabled={
                 isAnswerSubmitting || Boolean(submittedAnswerIds[question.id])
               }
-              isLoading={isAnswerSubmitting}
-              loadingLabel="Saving answer..."
-              type="submit"
-            >
-              {submittedAnswerIds[question.id]
-                ? "Answer saved"
-                : "Submit for feedback"}
-            </Button>
-          </div>
+              onTranscribe={(recording, signal) =>
+                handleVoiceAnswer(recording, signal, interview.id, question.id)
+              }
+              onUseText={() => selectAnswerMode(question.id, "text")}
+            />
+          )}
           {answerError ? (
             <InlineAlert tone="error">{answerError}</InlineAlert>
           ) : null}
@@ -641,9 +794,51 @@ function PracticePage() {
         <Card className="resume-context-card">
           <h2>Resume context</h2>
           <p>
-            Resume tailoring is optional and arrives in Week 5. You can start
-            practice without a resume today.
+            Optional. We use relevant details to tailor questions. Full resume
+            text stays private.
           </p>
+          <label htmlFor="resume-select">Use a resume?</label>
+          <select
+            disabled={isResumeLoading}
+            id="resume-select"
+            onChange={(event) => selectResume(event.target.value)}
+            value={selectedResumeId}
+          >
+            <option value="">No resume</option>
+            {resumes.map((resume) => (
+              <option
+                disabled={resume.extractionStatus !== "completed"}
+                key={resume.id}
+                value={resume.id}
+              >
+                {resume.originalName} —{" "}
+                {resume.extractionStatus === "completed"
+                  ? "Ready"
+                  : resume.extractionStatus === "failed"
+                    ? "Could not read"
+                    : "Reading"}
+              </option>
+            ))}
+          </select>
+          {isResumeLoading ? (
+            <p className="field-help" role="status">
+              Loading resume options… You can still continue without one.
+            </p>
+          ) : null}
+          {!isResumeLoading && resumeLoadError ? (
+            <InlineAlert tone="error">
+              {resumeLoadError} You can still continue without a resume.
+              <Button
+                className="inline-alert-action"
+                onClick={() => setResumeLoadAttempt((attempt) => attempt + 1)}
+              >
+                Retry resumes
+              </Button>
+            </InlineAlert>
+          ) : null}
+          <Link className="text-link" to="/resumes">
+            Upload or manage resumes
+          </Link>
         </Card>
 
         <div className="setup-actions">

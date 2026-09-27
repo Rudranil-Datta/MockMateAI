@@ -14,6 +14,8 @@ describe("loadConfig", () => {
       aiProvider: "gemini",
       aiRequestTimeoutMs: 8000,
       clientOrigin: "http://localhost:5173",
+      geminiTranscriptionModel: "gemini-3.6-flash",
+      maxAudioSizeBytes: 5 * 1024 * 1024,
       maxResumeSizeBytes: 5 * 1024 * 1024,
       nodeEnv: "development",
       port: 4444,
@@ -90,6 +92,24 @@ describe("loadConfig", () => {
       }),
     ).toThrow(
       new ConfigurationError("MAX_RESUME_SIZE_BYTES must not exceed 5242880."),
+    );
+  });
+
+  it("rejects an invalid audio size limit", () => {
+    expect(() =>
+      loadConfig({ ...validEnvironment, MAX_AUDIO_SIZE_BYTES: "0" }),
+    ).toThrow(
+      new ConfigurationError(
+        "MAX_AUDIO_SIZE_BYTES must be a positive integer.",
+      ),
+    );
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        MAX_AUDIO_SIZE_BYTES: String(5 * 1024 * 1024 + 1),
+      }),
+    ).toThrow(
+      new ConfigurationError("MAX_AUDIO_SIZE_BYTES must not exceed 5242880."),
     );
   });
 });

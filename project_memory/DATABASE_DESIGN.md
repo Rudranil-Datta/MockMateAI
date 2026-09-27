@@ -112,12 +112,21 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
       generationKey: String,            // idempotency key; omitted from API responses
       prompt: String,
       generatedAt: Date,
+      voiceTranscription: {             // private temporary handoff; never returned
+        claimId: String,                // processing only
+        idempotencyKey: String,
+        mimeType: String,
+        startedAt: Date,                // processing only
+        completedAt: Date,
+        status: String,                 // processing | completed
+        text: String                    // validated transcript; consumed on answer creation
+      },
       answers: [
         {
           _id: ObjectId,
           inputMode: String,            // text | voice
           text: String,                 // typed or transcribed answer
-          voiceStorageKey: String,      // optional; retain only if configured
+          voiceStorageKey: String,      // optional schema field; unset for V1 voice answers
           submittedAt: Date,
           evaluationKey: String,        // client operation UUID; omitted from API responses
           evaluationStatus: String,     // not_started | pending | completed
@@ -172,6 +181,8 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
 - Require an active session and a non-empty answer text before evaluation.
 - Accept feedback only after server-side validation of its structured shape and score ranges.
 - Persist only the first answer text for a question. Repeated evaluation requests must use the same operation UUID; a completed replay returns the same saved result.
+- For voice input, atomically consume only a matching owned completed `voiceTranscription` into one `inputMode: "voice"` answer, then remove the private handoff. Preserve exact validated transcript text and operation UUID; never persist raw audio or `voiceStorageKey` in the V1 flow.
+- Voice evaluation uses the same answer claim, staged-output, finalization, replay, and stale-lease rules as typed evaluation. A failed evaluation leaves the saved voice answer retryable without retranscription.
 - A `pending` evaluation requires a private claim ID and start time. Only that claim may stage output, complete, or release itself; claims older than 30 seconds may be replaced.
 - A recoverable non-completed answer may retain private validated `evaluationOutput` after final feedback persistence fails. Completion moves that output to `feedback` and removes all private claim/output fields.
 - Set top-level `completedAt` and `summary` only when the session transitions to `completed`. A completed session requires at least one evaluated answer and cannot retain pending/staged evaluation or question-generation work; `completedAt` cannot precede `startedAt`.

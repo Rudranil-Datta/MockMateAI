@@ -26,9 +26,12 @@ function safeOriginalName(originalName) {
 
 function toSafeResume(resume) {
   return {
-    createdAt: resume.createdAt.toISOString(),
+    createdAt:
+      resume.createdAt instanceof Date
+        ? resume.createdAt.toISOString()
+        : resume.createdAt,
     extractionStatus: resume.extractionStatus,
-    id: resume.id,
+    id: resume.id || resume._id?.toString(),
     mimeType: resume.mimeType,
     originalName: resume.originalName,
     sizeBytes: resume.sizeBytes,
@@ -57,6 +60,19 @@ export function createResumeService({
   resumeModel = Resume,
 } = {}) {
   const service = {
+    async listOwnedResumes({ userId }) {
+      const resumes = await resumeModel
+        .find({ userId })
+        .select(
+          "_id createdAt extractionStatus mimeType originalName sizeBytes",
+        )
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean();
+
+      return resumes.map(toSafeResume);
+    },
+
     async createResume({ file, userId }) {
       if (!file) {
         throw new AppError(

@@ -30,7 +30,7 @@ Ambiguous plan language must be resolved against success criteria and affected c
 
 ### 2. Plan independent verification
 
-Acceptance tests come from the specification, not from the code being written. For every affected category below, record a test or a justified `N/A`:
+Acceptance tests come from the specification, not from the code being written. Use the matrix to classify risk. Record a direct test only for categories the approved change can affect; record `N/A` with a reason for the rest. The matrix is not a mandate to exercise every category for every task.
 
 | Category                    | Required evidence                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------- |
@@ -57,11 +57,14 @@ Tests must assert meaningful outputs and state invariants. A test that merely re
 
 ### 4. Verify in layers
 
-1. Run focused tests while implementing.
-2. Inspect the final diff against every traceability row.
-3. Run the complete required workspace checks once, including `npm run validate:delivery`.
-4. Perform only approved bounded live/manual checks; stop temporary processes and confirm their ports are free.
-5. Update each evidence cell with the exact test, check, file, or manual observation.
+1. Run the narrowest deterministic tests that exercise the changed feature and its directly affected contracts after the implementation is stable enough to evaluate.
+2. Run lint only for an affected source workspace. Run a production build only when client/build behavior changed or a release gate requires it.
+3. Inspect the final diff against every traceability row for scope creep, missing handling, and documentation mismatch.
+4. Run `npm run validate:delivery` when `IMPLEMENTATION_STATUS.md`, this assurance policy, or related delivery-governance structure changes.
+5. Run the complete workspace suite only for a named milestone or release gate, a cross-cutting/shared-infrastructure/security/schema/provider change, or an explicit user request. Do not use it as the routine daily default.
+6. Browser automation and runtime smoke are not routine checks. Use at most one focused smoke only when browser-only, deployment, CORS, cookie, permission, upload, or similar behavior cannot reasonably be established through code-level verification, or when the user explicitly asks for it. Do not repeat a successful smoke unless the relevant executable code, configuration, or environment changed.
+7. A documentation-only change requires only targeted formatting, applicable documentation validation, and diff inspection. It does not trigger code tests, lint, builds, servers, or browser automation, including when documentation is updated after successful code verification.
+8. Rerun only a failed check or a check affected by a subsequent executable change. Record exact commands and results as evidence.
 
 Green tests do not override a missing requirement, weak invariant, documentation conflict, or untested risk.
 
@@ -120,7 +123,7 @@ Audit order for the current V1 checkpoint:
 2. Days 11-20: interview schema, question/answer/evaluation lifecycle, completion and results.
 3. Days 21-22: upload privacy, bounded extraction, resume ownership and provider context.
 
-Fix approved P0/P1 findings before Day 23. Record P2/P3 items for user disposition. After remediation, rerun the primary text journey and all full workspace checks before resuming feature work.
+Fix approved P0/P1 findings before Day 23. Record P2/P3 items for user disposition. After remediation, rerun the focused checks affected by the finding. Rerun the primary text journey or full workspace checks only when the finding is cross-cutting, affects that journey, belongs to a named milestone/release gate, or the user explicitly requests it.
 
 ## Required Status Structure
 

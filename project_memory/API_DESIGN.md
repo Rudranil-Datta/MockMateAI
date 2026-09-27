@@ -138,13 +138,29 @@ Reject missing, empty, unsupported, invalid-signature, oversized, multiple, or u
 
 ### `GET /api/resumes`
 
-**Planned for Day 23; not implemented yet.**
+Returns up to 100 of the authenticated user's resume metadata records, newest first. Protected route. Ownership comes only from the authenticated session.
 
-Returns the authenticated user's resume metadata, newest first. Protected route.
+```json
+// 200 response
+{
+  "resumes": [
+    {
+      "id": "...",
+      "originalName": "Asha-Kumar-Resume.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 124000,
+      "extractionStatus": "completed",
+      "createdAt": "2026-09-02T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+The empty state is `{ "resumes": [] }`. Never return `userId`, `storage`, `extractedText`, `extractionError`, or another user's metadata. Persistence failures use the central safe error response.
 
 ### `DELETE /api/resumes/:id`
 
-**Planned for Week 5 resume management; not implemented yet.**
+**Deferred during Day 23 pending an approved reference/retention policy; not implemented.**
 
 Optional but recommended for privacy. Deletes an owned resume under the documented reference/retention policy. Protected route.
 
@@ -231,13 +247,13 @@ A private 30-second database claim permits only one active evaluation. Stale cla
 
 ### `POST /api/interviews/:id/voice-answers`
 
-**Planned for Day 27; not implemented yet.**
-
-Recommended dedicated voice route for clarity. Validates and transcribes an audio answer, then runs the same evaluation flow.
+Validates and transcribes one audio answer, atomically converts the completed transcript into an immutable voice answer, and evaluates it through the same provider-neutral claim/staging/finalization service used by typed answers.
 
 - Content type: `multipart/form-data`
-- Required fields: `questionId`, `audio`
-- Protected route.
+- Required fields: exactly one `audio`, `questionId`, and client-generated `idempotencyKey` UUID.
+- Protected route; the session must be owned and active and the question must be unanswered.
+- Accepted declared formats/extensions: WebM (`.webm`), Ogg (`.ogg`), Opus (`.opus`), and ISO-BMFF MP4 (`.mp4`/`.m4a`), subject to matching signature checks and a 5 MiB ceiling.
+- Audio is stored under a generated private temporary name and deleted before success or error is returned. Only bounded validated transcript text is staged privately.
 
 ```json
 // 200 response
@@ -246,21 +262,25 @@ Recommended dedicated voice route for clarity. Validates and transcribes an audi
     "id": "...",
     "inputMode": "voice",
     "text": "Transcribed answer text",
-    "submittedAt": "2026-09-02T00:00:00.000Z"
+    "submittedAt": "2026-09-27T00:00:00.000Z"
   },
   "feedback": {
-    "overallScore": 80,
-    "accuracyScore": 82,
-    "clarityScore": 78,
-    "confidenceScore": 75,
-    "strengths": [],
-    "improvements": [],
-    "nextStep": "..."
+    "overallScore": 84,
+    "accuracyScore": 90,
+    "clarityScore": 85,
+    "confidenceScore": 76,
+    "strengths": ["Clear explanation."],
+    "improvements": ["Add a concrete example."],
+    "nextStep": "Practise the answer once more with an example."
   }
 }
 ```
 
-If implementation instead uses the same answers endpoint, retain these validation and response semantics. A transcription failure returns a clear retryable error and must not create evaluated feedback from unusable text.
+The first operation acquires a private 30-second transcription claim. A validated completed transcript is atomically consumed into one `inputMode: "voice"` answer using the same operation UUID, then evaluated by the shared answer-evaluation service. The private transcript handoff is removed after conversion; raw audio and `voiceStorageKey` are never retained. A completed same-key replay returns the saved answer and feedback without another transcription or evaluation call. Same-key concurrent evaluation returns the controlled evaluation-in-progress conflict; different operations and mixed typed/voice submissions return a controlled conflict.
+
+Blank, unsafe, or over-10,000-character provider transcription output returns `422 UNUSABLE_TRANSCRIPTION`. Transcription or evaluation quota, timeout, malformed-output, provider, and persistence failures are normalized without exposing provider details. A saved voice answer remains retryable with the same UUID, and retry does not retranscribe. Validated staged evaluation output is reused after a final feedback-write failure. No feedback is invented.
+
+The first Day 27 Gemini `audio/mp4` evidence request returned normalized `502 TRANSCRIPTION_UNAVAILABLE`. A separately approved diagnostic on 2026-09-27 repeated the exact model, request options, MIME, and representative 2.7-second ISO-BMFF sample and returned a non-empty bounded transcript. Direct configured-provider MP4 transcription is therefore empirically supported. No conversion dependency was added. Provider failures now retain only safe categories for quota, timeout, rejected input, configuration/access, network, upstream availability, or unknown failure; raw provider details remain private.
 
 ### `GET /api/interviews/:id`
 
@@ -329,8 +349,6 @@ Requires at least one evaluated answer and no pending or staged evaluation or qu
 
 ### `GET /api/analytics/summary`
 
-**Planned for Day 24; not implemented yet.**
-
 Returns dashboard-ready history and simple aggregated progress for the current user.
 
 ```json
@@ -342,22 +360,31 @@ Returns dashboard-ready history and simple aggregated progress for the current u
     "averageClarityScore": 76,
     "averageConfidenceScore": 74
   },
+  "typeAverages": [
+    { "interviewType": "DSA", "averageOverallScore": 81 },
+    { "interviewType": "HR", "averageOverallScore": 75 }
+  ],
   "recentSessions": [
     {
       "id": "...",
       "interviewType": "DSA",
+      "level": "intermediate",
       "completedAt": "2026-09-02T00:00:00.000Z",
       "overallScore": 82
     }
   ],
   "trend": [
-    { "date": "2026-08-27", "overallScore": 72 },
-    { "date": "2026-09-02", "overallScore": 82 }
+    { "completedAt": "2026-08-27T00:00:00.000Z", "overallScore": 72 },
+    { "completedAt": "2026-09-02T00:00:00.000Z", "overallScore": 82 }
   ]
 }
 ```
 
-The endpoint reads only the authenticated user's completed sessions. It returns an empty, well-formed summary when no sessions are complete.
+The endpoint reads only the authenticated user's valid completed sessions. A valid analytics record has a supported interview type and level, a completion date, and all four summary scores within `0` to `100`. Malformed legacy records are excluded without exposing their contents. All averages are rounded to the nearest whole number, with half values rounded toward positive infinity.
+
+`typeAverages` contains only interview types with valid completed sessions and follows the supported order: DSA, HR, System Design. `recentSessions` contains at most the latest 10 records, ordered by `completedAt` descending and then ID descending. `trend` contains those same records in chronological order, with ID ascending as the equal-time tie-breaker. Full ISO completion timestamps keep multiple same-day sessions distinct.
+
+When no valid completed sessions exist, the endpoint returns zero for the count and all averages, plus empty `typeAverages`, `recentSessions`, and `trend` arrays.
 
 ## Cross-Cutting Requirements
 

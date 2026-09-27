@@ -44,9 +44,22 @@ Use `pdf-parse` on the backend only. Extraction remains synchronous with the bou
 
 Each logical answer submission carries a client-generated UUID retained across explicit retry. The backend persists the first accepted answer text, acquires a private 30-second database claim, evaluates only that saved text, and validates provider output before storage. Valid output is staged privately before the final feedback transition so a final-write failure can retry without another provider call. Claim ownership prevents an expired worker from releasing or overwriting a newer evaluation. Completed same-key replay returns the saved result; different-key duplicates are rejected. Internal keys, claim metadata, and staged output never enter API responses.
 
+## Voice Transcription Decision
+
+**Status:** Implemented and verified for Day 27.
+
+Use the existing backend-only Gemini SDK behind a provider-neutral transcription service, with a deterministic mock for routine tests. Authenticate and verify ownership before accepting one bounded temporary audio file. Validate MIME, extension, and signature; make one finite-timeout provider call with no automatic retry; accept only 1–10,000 characters of safe transcript text; and delete raw audio before responding. A private question-level UUID claim prevents duplicate/concurrent cost and stages validated text for Day 28 without creating feedback or a completed answer.
+
+WebM, Ogg, Opus, and ISO-BMFF MP4 remain in the local input contract. The first direct Gemini MP4 smoke returned normalized `TRANSCRIPTION_UNAVAILABLE`; a separately approved 2026-09-27 diagnostic repeated the exact request and produced a bounded transcript. This proves the configured direct MP4 path and indicates the first failure was transient at the provider/network boundary, though its exact upstream status was not retained. Safe error categorization now distinguishes quota, timeout, rejected input, configuration/access, network, upstream availability, and unknown failure without exposing provider details. No FFmpeg, byte relabelling, or conversion dependency is needed.
+
+## Voice Answer Evaluation Decision
+
+**Status:** Implemented for Day 28.
+
+After successful transcription, atomically consume the matching private completed transcript into one immutable `inputMode: "voice"` answer and remove the handoff state. Use the original operation UUID across transcription, answer persistence, evaluation, retry, and replay. Typed and voice answers invoke the same provider-neutral evaluation claim/staging/finalization service and return the same structured feedback contract. Raw audio and `voiceStorageKey` are not retained. Evaluation failure preserves the saved answer; same-key retry skips transcription and reuses validated staged output when available.
+
 ## Deferred Decisions
 
-- Speech-to-text provider and audio retention: decide Week 6.
 - Hosting provider: decide Week 7.
 
 ## Constraints

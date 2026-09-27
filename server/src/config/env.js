@@ -5,6 +5,9 @@ const allowedAiProviders = new Set(["gemini", "mock"]);
 const defaultResumeUploadDir = fileURLToPath(
   new URL("../../uploads/resumes", import.meta.url),
 );
+const defaultAudioUploadDir = fileURLToPath(
+  new URL("../../uploads/audio", import.meta.url),
+);
 
 export class ConfigurationError extends Error {
   constructor(message) {
@@ -117,6 +120,16 @@ export function loadConfig(environment = process.env) {
       20_000,
     ),
     geminiModel: environment.GEMINI_MODEL?.trim() || "gemini-3.6-flash",
+    geminiTranscriptionModel:
+      environment.GEMINI_TRANSCRIPTION_MODEL?.trim() ||
+      environment.GEMINI_MODEL?.trim() ||
+      "gemini-3.6-flash",
+    maxAudioSizeBytes: optionalPositiveInteger(
+      environment.MAX_AUDIO_SIZE_BYTES,
+      "MAX_AUDIO_SIZE_BYTES",
+      5 * 1024 * 1024,
+      5 * 1024 * 1024,
+    ),
     maxResumeSizeBytes: optionalPositiveInteger(
       environment.MAX_RESUME_SIZE_BYTES,
       "MAX_RESUME_SIZE_BYTES",
@@ -125,6 +138,9 @@ export function loadConfig(environment = process.env) {
     ),
     resumeUploadDir: resolve(
       environment.RESUME_UPLOAD_DIR?.trim() || defaultResumeUploadDir,
+    ),
+    audioUploadDir: resolve(
+      environment.AUDIO_UPLOAD_DIR?.trim() || defaultAudioUploadDir,
     ),
   };
 

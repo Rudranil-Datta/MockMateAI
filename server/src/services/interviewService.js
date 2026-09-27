@@ -7,7 +7,6 @@ import { AppError } from "../utils/AppError.js";
 import { getOwnedResourceFilter } from "../utils/getOwnedResourceFilter.js";
 import { createResumeService } from "./resumeService.js";
 
-const evaluationLeaseMs = 30_000;
 const questionGenerationLeaseMs = 30_000;
 
 function toQuestion(question) {
@@ -36,13 +35,6 @@ function toFeedback(feedback) {
     nextStep: feedback.nextStep,
     overallScore: feedback.overallScore,
     strengths: feedback.strengths,
-  };
-}
-
-function toAnswerResult(answer) {
-  return {
-    answer: toAnswer(answer),
-    feedback: toFeedback(answer.feedback),
   };
 }
 
@@ -130,43 +122,9 @@ function questionRequestConflict() {
 
 export function createInterviewService({
   aiProviderService,
+  answerEvaluationService,
   resumeService = createResumeService(),
 }) {
-  async function releaseEvaluationClaim({
-    answerId,
-    claimId,
-    interviewId,
-    questionId,
-    userId,
-  }) {
-    await InterviewSession.updateOne(
-      {
-        ...getOwnedResourceFilter(interviewId, userId),
-        status: "active",
-      },
-      {
-        $set: {
-          "questions.$[question].answers.$[answer].evaluationStatus":
-            "not_started",
-        },
-        $unset: {
-          "questions.$[question].answers.$[answer].evaluationClaimId": "",
-          "questions.$[question].answers.$[answer].evaluationStartedAt": "",
-        },
-      },
-      {
-        arrayFilters: [
-          { "question._id": questionId },
-          {
-            "answer._id": answerId,
-            "answer.evaluationClaimId": claimId,
-            "answer.evaluationStatus": "pending",
-          },
-        ],
-      },
-    );
-  }
-
   async function claimQuestionGeneration({
     expectedQuestionCount,
     idempotencyKey,
@@ -630,6 +588,14 @@ export function createInterviewService({
         });
       }
 
+      if (question.voiceTranscription) {
+        throw new AppError(
+          "ANSWER_SUBMISSION_CONFLICT",
+          "A voice answer is already being processed for this question.",
+          { status: 409 },
+        );
+      }
+
       let answer;
 
       if (question.answers.length === 0) {
@@ -642,6 +608,7 @@ export function createInterviewService({
               $elemMatch: {
                 _id: questionId,
                 answers: { $size: 0 },
+                voiceTranscription: { $exists: false },
               },
             },
           },
@@ -672,18 +639,6 @@ export function createInterviewService({
         answer = question.answers[0];
       }
 
-      if (answer.evaluationStatus === "completed" || answer.feedback) {
-        if (answer.evaluationKey === idempotencyKey && answer.feedback) {
-          return toAnswerResult(answer);
-        }
-
-        throw new AppError(
-          "ANSWER_ALREADY_SUBMITTED",
-          "An answer has already been submitted for this question.",
-          { status: 409 },
-        );
-      }
-
       if (answer.evaluationKey && answer.evaluationKey !== idempotencyKey) {
         throw new AppError(
           "ANSWER_ALREADY_SUBMITTED",
@@ -692,237 +647,13 @@ export function createInterviewService({
         );
       }
 
-      const evaluationClaimedBefore = new Date(Date.now() - evaluationLeaseMs);
-
-      if (
-        answer.evaluationStatus === "pending" &&
-        answer.evaluationStartedAt > evaluationClaimedBefore
-      ) {
-        throw new AppError(
-          "EVALUATION_IN_PROGRESS",
-          "Answer evaluation is already in progress. Please wait.",
-          { status: 409 },
-        );
-      }
-
-      const evaluationStartedAt = new Date();
-      const evaluationClaimId = randomUUID();
-      const claimedSession = await InterviewSession.findOneAndUpdate(
-        {
-          ...getOwnedResourceFilter(interviewId, userId),
-          status: "active",
-          questions: {
-            $elemMatch: {
-              _id: questionId,
-              answers: {
-                $elemMatch: {
-                  _id: answer.id,
-                  $and: [
-                    {
-                      $or: [
-                        { evaluationKey: idempotencyKey },
-                        { evaluationKey: { $exists: false } },
-                      ],
-                    },
-                    {
-                      $or: [
-                        { evaluationStatus: "not_started" },
-                        {
-                          evaluationStartedAt: {
-                            $lte: evaluationClaimedBefore,
-                          },
-                          evaluationStatus: "pending",
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          },
-        },
-        {
-          $set: {
-            "questions.$[question].answers.$[answer].evaluationClaimId":
-              evaluationClaimId,
-            "questions.$[question].answers.$[answer].evaluationKey":
-              idempotencyKey,
-            "questions.$[question].answers.$[answer].evaluationStartedAt":
-              evaluationStartedAt,
-            "questions.$[question].answers.$[answer].evaluationStatus":
-              "pending",
-          },
-        },
-        {
-          arrayFilters: [
-            { "question._id": questionId },
-            { "answer._id": answer.id },
-          ],
-          returnDocument: "after",
-          runValidators: true,
-        },
-      );
-
-      if (!claimedSession) {
-        throw new AppError(
-          "EVALUATION_SUBMISSION_CONFLICT",
-          "Interview changed. Please try again.",
-          { status: 409 },
-        );
-      }
-
-      answer = claimedSession.questions.id(questionId).answers.id(answer.id);
-
-      let evaluationOutput = answer.evaluationOutput;
-      if (!evaluationOutput) {
-        try {
-          const feedback = await aiProviderService.evaluateAnswer({
-            answer: answer.text,
-            interviewType: session.interviewType,
-            level: session.level,
-            question: question.prompt,
-          });
-          evaluationOutput = { ...feedback, evaluatedAt: new Date() };
-
-          const stagedSession = await InterviewSession.findOneAndUpdate(
-            {
-              ...getOwnedResourceFilter(interviewId, userId),
-              status: "active",
-              questions: {
-                $elemMatch: {
-                  _id: questionId,
-                  answers: {
-                    $elemMatch: {
-                      _id: answer.id,
-                      evaluationClaimId,
-                      evaluationStatus: "pending",
-                    },
-                  },
-                },
-              },
-            },
-            {
-              $set: {
-                "questions.$[question].answers.$[answer].evaluationOutput":
-                  evaluationOutput,
-              },
-            },
-            {
-              arrayFilters: [
-                { "question._id": questionId },
-                {
-                  "answer._id": answer.id,
-                  "answer.evaluationClaimId": evaluationClaimId,
-                  "answer.evaluationStatus": "pending",
-                },
-              ],
-              returnDocument: "after",
-              runValidators: true,
-            },
-          );
-
-          if (!stagedSession) {
-            throw new AppError(
-              "EVALUATION_SUBMISSION_CONFLICT",
-              "Interview changed. Please try again.",
-              { status: 409 },
-            );
-          }
-        } catch (error) {
-          await releaseEvaluationClaim({
-            answerId: answer.id,
-            claimId: evaluationClaimId,
-            interviewId,
-            questionId,
-            userId,
-          }).catch(() => undefined);
-          throw error;
-        }
-      }
-
-      let evaluatedSession;
-      try {
-        evaluatedSession = await InterviewSession.findOneAndUpdate(
-          {
-            ...getOwnedResourceFilter(interviewId, userId),
-            status: "active",
-            questions: {
-              $elemMatch: {
-                _id: questionId,
-                answers: {
-                  $elemMatch: {
-                    _id: answer.id,
-                    evaluationClaimId,
-                    evaluationStatus: "pending",
-                  },
-                },
-              },
-            },
-          },
-          {
-            $set: {
-              "questions.$[question].answers.$[answer].evaluationStatus":
-                "completed",
-              "questions.$[question].answers.$[answer].feedback": {
-                accuracyScore: evaluationOutput.accuracyScore,
-                clarityScore: evaluationOutput.clarityScore,
-                confidenceScore: evaluationOutput.confidenceScore,
-                evaluatedAt: evaluationOutput.evaluatedAt,
-                improvements: evaluationOutput.improvements,
-                nextStep: evaluationOutput.nextStep,
-                overallScore: evaluationOutput.overallScore,
-                strengths: evaluationOutput.strengths,
-              },
-            },
-            $unset: {
-              "questions.$[question].answers.$[answer].evaluationClaimId": "",
-              "questions.$[question].answers.$[answer].evaluationOutput": "",
-              "questions.$[question].answers.$[answer].evaluationStartedAt": "",
-            },
-          },
-          {
-            arrayFilters: [
-              { "question._id": questionId },
-              {
-                "answer._id": answer.id,
-                "answer.evaluationClaimId": evaluationClaimId,
-                "answer.evaluationStatus": "pending",
-              },
-            ],
-            returnDocument: "after",
-            runValidators: true,
-          },
-        );
-      } catch (error) {
-        await releaseEvaluationClaim({
-          answerId: answer.id,
-          claimId: evaluationClaimId,
-          interviewId,
-          questionId,
-          userId,
-        }).catch(() => undefined);
-        throw error;
-      }
-
-      if (!evaluatedSession) {
-        await releaseEvaluationClaim({
-          answerId: answer.id,
-          claimId: evaluationClaimId,
-          interviewId,
-          questionId,
-          userId,
-        }).catch(() => undefined);
-        throw new AppError(
-          "EVALUATION_SUBMISSION_CONFLICT",
-          "Interview changed. Please try again.",
-          { status: 409 },
-        );
-      }
-
-      const evaluatedAnswer = evaluatedSession.questions
-        .id(questionId)
-        .answers.id(answer.id);
-      return toAnswerResult(evaluatedAnswer);
+      return answerEvaluationService.evaluateSavedAnswer({
+        answerId: answer.id,
+        idempotencyKey,
+        interviewId,
+        questionId,
+        userId,
+      });
     },
 
     async completeInterview({ interviewId, userId }) {

@@ -57,6 +57,113 @@ async function signup(app, credentials = validSignup) {
 }
 
 describe("resume routes", () => {
+  it("lists only owned safe metadata newest first", async () => {
+    const { app } = await createUploadApp();
+    const { cookie, user } = await signup(app);
+    const { cookie: otherCookie, user: otherUser } = await signup(app, {
+      ...validSignup,
+      email: "resume.list.other@example.com",
+    });
+    const older = await Resume.create({
+      extractionStatus: "failed",
+      extractionError: "Resume text could not be extracted.",
+      mimeType: "application/pdf",
+      originalName: "older.pdf",
+      sizeBytes: 120,
+      storage: { key: "older-private.pdf", provider: "local" },
+      userId: user.id,
+      createdAt: new Date("2026-09-19T00:00:00.000Z"),
+    });
+    const newer = await Resume.create({
+      extractionStatus: "completed",
+      extractedText: "Private completed resume text",
+      mimeType: "application/pdf",
+      originalName: "newer.pdf",
+      sizeBytes: 240,
+      storage: { key: "newer-private.pdf", provider: "local" },
+      userId: user.id,
+      createdAt: new Date("2026-09-20T00:00:00.000Z"),
+    });
+    await Resume.create({
+      extractionStatus: "completed",
+      extractedText: "Other user's private text",
+      mimeType: "application/pdf",
+      originalName: "foreign.pdf",
+      sizeBytes: 360,
+      storage: { key: "foreign-private.pdf", provider: "local" },
+      userId: otherUser.id,
+    });
+
+    const response = await request(app)
+      .get("/api/resumes")
+      .set("Cookie", cookie);
+    const otherResponse = await request(app)
+      .get("/api/resumes")
+      .set("Cookie", otherCookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      resumes: [
+        {
+          createdAt: "2026-09-20T00:00:00.000Z",
+          extractionStatus: "completed",
+          id: newer.id,
+          mimeType: "application/pdf",
+          originalName: "newer.pdf",
+          sizeBytes: 240,
+        },
+        {
+          createdAt: "2026-09-19T00:00:00.000Z",
+          extractionStatus: "failed",
+          id: older.id,
+          mimeType: "application/pdf",
+          originalName: "older.pdf",
+          sizeBytes: 120,
+        },
+      ],
+    });
+    expect(JSON.stringify(response.body)).not.toContain("private");
+    expect(JSON.stringify(response.body)).not.toContain(otherUser.id);
+    expect(otherResponse.body.resumes).toHaveLength(1);
+    expect(otherResponse.body.resumes[0].originalName).toBe("foreign.pdf");
+  });
+
+  it("protects listing, returns an empty list, and maps persistence failure safely", async () => {
+    const { app } = await createUploadApp();
+    const { cookie } = await signup(app);
+    const unauthenticatedResponse = await request(app).get("/api/resumes");
+    const emptyResponse = await request(app)
+      .get("/api/resumes")
+      .set("Cookie", cookie);
+    const failingApp = createApp({
+      resumeService: {
+        listOwnedResumes: vi
+          .fn()
+          .mockRejectedValue(new Error("Private database list detail")),
+      },
+    });
+    const { cookie: failingCookie } = await signup(failingApp, {
+      ...validSignup,
+      email: "resume.list.failure@example.com",
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failureResponse = await request(failingApp)
+      .get("/api/resumes")
+      .set("Cookie", failingCookie);
+
+    expect(unauthenticatedResponse.status).toBe(401);
+    expect(emptyResponse.body).toEqual({ resumes: [] });
+    expect(failureResponse.status).toBe(500);
+    expect(failureResponse.body.error).toEqual({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Something went wrong. Please try again later.",
+    });
+    expect(JSON.stringify(failureResponse.body)).not.toContain("database");
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(
+      "Private database list detail",
+    );
+  });
+
   it("extracts an owned valid PDF without exposing storage or text", async () => {
     const { app, resumeUploadDir } = await createUploadApp();
     const { cookie, user } = await signup(app);

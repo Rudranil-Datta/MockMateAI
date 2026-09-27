@@ -16,6 +16,8 @@ export function createResumeRouter({
     resumeUploadDir,
   });
 
+  resumeRouter.get("/", requireAuth, resumeController.listResumes);
+
   resumeRouter.post(
     "/",
     requireAuth,

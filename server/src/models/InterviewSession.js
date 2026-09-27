@@ -140,6 +140,56 @@ answerSchema.pre("validate", function validateEvaluationState() {
   }
 });
 
+const voiceTranscriptionSchema = new mongoose.Schema(
+  {
+    claimId: { maxlength: 100, trim: true, type: String },
+    completedAt: Date,
+    idempotencyKey: {
+      maxlength: 100,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    mimeType: {
+      enum: ["audio/mp4", "audio/ogg", "audio/opus", "audio/webm"],
+      required: true,
+      type: String,
+    },
+    startedAt: Date,
+    status: {
+      enum: ["processing", "completed"],
+      required: true,
+      type: String,
+    },
+    text: { maxlength: 10000, trim: true, type: String },
+  },
+  { _id: false },
+);
+
+voiceTranscriptionSchema.pre("validate", function validateTranscriptionState() {
+  if (this.status === "processing") {
+    if (!this.claimId || !this.startedAt) {
+      this.invalidate(
+        "status",
+        "Processing transcription requires claim ownership and start time.",
+      );
+    }
+  } else {
+    if (!this.text || !this.completedAt) {
+      this.invalidate(
+        "status",
+        "Completed transcription requires bounded text and completion time.",
+      );
+    }
+    if (this.claimId || this.startedAt) {
+      this.invalidate(
+        "status",
+        "Completed transcription cannot retain claim ownership.",
+      );
+    }
+  }
+});
+
 const questionSchema = new mongoose.Schema({
   answers: {
     default: () => [],
@@ -166,6 +216,7 @@ const questionSchema = new mongoose.Schema({
     trim: true,
     type: String,
   },
+  voiceTranscription: voiceTranscriptionSchema,
 });
 
 const questionGenerationSchema = new mongoose.Schema(

@@ -106,3 +106,33 @@ export function validateTextAnswerRequest(body) {
 
   return { idempotencyKey, questionId, text };
 }
+
+export function validateVoiceAnswerRequest(body) {
+  const request = body && typeof body === "object" ? body : {};
+  const allowedFields = new Set(["idempotencyKey", "questionId"]);
+  const unexpectedFields = Object.keys(request).filter(
+    (field) => !allowedFields.has(field),
+  );
+  const idempotencyKey = normalizeString(request.idempotencyKey);
+  const questionId = normalizeString(request.questionId);
+  const fields = {};
+
+  if (unexpectedFields.length > 0) {
+    fields.request = "Voice upload contains unexpected fields.";
+  }
+  if (!mongoose.isObjectIdOrHexString(questionId)) {
+    fields.questionId = "Question ID is invalid.";
+  }
+  if (!idempotencyKeyPattern.test(idempotencyKey)) {
+    fields.idempotencyKey = "Request identifier is invalid.";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw new AppError("VALIDATION_ERROR", "Check the highlighted fields.", {
+      fields,
+      status: 400,
+    });
+  }
+
+  return { idempotencyKey, questionId };
+}

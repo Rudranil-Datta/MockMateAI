@@ -6,19 +6,50 @@ import PracticePage from "./PracticePage.jsx";
 
 const startInterview = vi.hoisted(() => vi.fn());
 const submitTextAnswer = vi.hoisted(() => vi.fn());
+const submitVoiceAnswer = vi.hoisted(() => vi.fn());
 const completeInterview = vi.hoisted(() => vi.fn());
 const generateNextQuestion = vi.hoisted(() => vi.fn());
+const listResumes = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/interviewApi.js", () => ({
   startInterview,
   submitTextAnswer,
+  submitVoiceAnswer,
   completeInterview,
   generateNextQuestion,
 }));
 
-function renderPracticePage() {
+vi.mock("../api/resumeApi.js", () => ({ listResumes }));
+
+vi.mock("../components/interview/VoiceRecorder.jsx", () => ({
+  default: ({ disabled, onTranscribe, onUseText }) => (
+    <section>
+      <h2>Record your answer</h2>
+      <button disabled={disabled} onClick={onUseText} type="button">
+        Type instead
+      </button>
+      <button
+        disabled={disabled}
+        onClick={() =>
+          onTranscribe(
+            {
+              blob: new Blob(["voice"], { type: "audio/webm" }),
+              idempotencyKey: "00000000-0000-4000-8000-000000000028",
+            },
+            new AbortController().signal,
+          ).catch(() => undefined)
+        }
+        type="button"
+      >
+        Submit test voice
+      </button>
+    </section>
+  ),
+}));
+
+function renderPracticePage(initialEntry = "/practice") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <PracticePage />
     </MemoryRouter>,
   );
@@ -68,8 +99,11 @@ describe("PracticePage", () => {
   beforeEach(() => {
     startInterview.mockReset();
     submitTextAnswer.mockReset();
+    submitVoiceAnswer.mockReset();
     completeInterview.mockReset();
     generateNextQuestion.mockReset();
+    listResumes.mockReset();
+    listResumes.mockResolvedValue([]);
   });
 
   it("requires interview type and level before submission", () => {
@@ -117,6 +151,125 @@ describe("PracticePage", () => {
       expect(screen.getByText(prompt)).toBeVisible();
     },
   );
+
+  it("selects a completed resume and preserves it across start retry", async () => {
+    listResumes.mockResolvedValue([
+      {
+        createdAt: "2026-09-21T00:00:00.000Z",
+        extractionStatus: "completed",
+        id: "resume-123",
+        mimeType: "application/pdf",
+        originalName: "engineer.pdf",
+        sizeBytes: 1024,
+      },
+      {
+        createdAt: "2026-09-20T00:00:00.000Z",
+        extractionStatus: "failed",
+        id: "resume-failed",
+        mimeType: "application/pdf",
+        originalName: "broken.pdf",
+        sizeBytes: 512,
+      },
+    ]);
+    startInterview
+      .mockRejectedValueOnce(new Error("Question generation failed."))
+      .mockResolvedValueOnce(interviewStartResult());
+    renderPracticePage();
+
+    const resumeSelect = await screen.findByLabelText("Use a resume?");
+    expect(
+      screen.getByRole("option", { name: "broken.pdf — Could not read" }),
+    ).toBeDisabled();
+    fireEvent.change(resumeSelect, { target: { value: "resume-123" } });
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    expect(await screen.findByText(/Question generation failed/)).toBeVisible();
+    expect(resumeSelect).toHaveValue("resume-123");
+    const firstKey = startInterview.mock.calls[0][0].idempotencyKey;
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    await screen.findByRole("heading", { name: "DSA practice" });
+    expect(startInterview).toHaveBeenLastCalledWith({
+      idempotencyKey: firstKey,
+      interviewType: "DSA",
+      level: "intermediate",
+      resumeId: "resume-123",
+    });
+  });
+
+  it("keeps no-resume interview available when resume loading fails", async () => {
+    listResumes.mockRejectedValue(new Error("Resume list unavailable."));
+    startInterview.mockResolvedValue(
+      interviewStartResult({
+        interviewType: "HR",
+        level: "beginner",
+        prompt: "Tell me about yourself.",
+      }),
+    );
+    renderPracticePage();
+
+    expect(await screen.findByText(/Resume list unavailable/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /HR/i }));
+    fireEvent.click(screen.getByLabelText(/Beginner/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    await waitFor(() => {
+      expect(startInterview).toHaveBeenCalledWith({
+        idempotencyKey: expect.any(String),
+        interviewType: "HR",
+        level: "beginner",
+      });
+    });
+  });
+
+  it("rotates setup key when resume choice changes", async () => {
+    listResumes.mockResolvedValue([
+      {
+        createdAt: "2026-09-21T00:00:00.000Z",
+        extractionStatus: "completed",
+        id: "resume-123",
+        mimeType: "application/pdf",
+        originalName: "engineer.pdf",
+        sizeBytes: 1024,
+      },
+    ]);
+    startInterview.mockRejectedValue(new Error("Retry later."));
+    renderPracticePage();
+    const resumeSelect = await screen.findByLabelText("Use a resume?");
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.change(resumeSelect, { target: { value: "resume-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await screen.findByText(/Retry later/);
+    const resumeKey = startInterview.mock.calls[0][0].idempotencyKey;
+
+    fireEvent.change(resumeSelect, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await waitFor(() => expect(startInterview).toHaveBeenCalledTimes(2));
+
+    expect(startInterview.mock.calls[1][0]).not.toHaveProperty("resumeId");
+    expect(startInterview.mock.calls[1][0].idempotencyKey).not.toBe(resumeKey);
+  });
+
+  it("preselects a completed resume requested from resume management", async () => {
+    listResumes.mockResolvedValue([
+      {
+        createdAt: "2026-09-21T00:00:00.000Z",
+        extractionStatus: "completed",
+        id: "resume-123",
+        mimeType: "application/pdf",
+        originalName: "engineer.pdf",
+        sizeBytes: 1024,
+      },
+    ]);
+    renderPracticePage("/practice?resumeId=resume-123");
+
+    expect(await screen.findByLabelText("Use a resume?")).toHaveValue(
+      "resume-123",
+    );
+  });
 
   it("rejects malformed start response before rendering active state", async () => {
     startInterview.mockResolvedValueOnce(
@@ -219,6 +372,29 @@ describe("PracticePage", () => {
     expect(screen.getByText("12 characters")).toBeVisible();
   });
 
+  it("preserves typed draft while switching through voice fallback", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    const answer = await screen.findByLabelText("Your answer");
+    fireEvent.change(answer, { target: { value: "Draft stays safe." } });
+    fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Record your answer" }),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Your answer")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Type instead" }));
+
+    expect(screen.getByLabelText("Your answer")).toHaveValue(
+      "Draft stays safe.",
+    );
+  });
+
   it("requires a non-empty answer before feedback submission", async () => {
     startInterview.mockResolvedValueOnce(interviewStartResult());
     renderPracticePage();
@@ -235,6 +411,69 @@ describe("PracticePage", () => {
     expect(
       screen.getByText("Enter an answer before requesting feedback."),
     ).toBeVisible();
+  });
+
+  it("renders saved voice feedback through the shared feedback view", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitVoiceAnswer.mockResolvedValueOnce(
+      savedAnswerResult({
+        answer: {
+          inputMode: "voice",
+          text: "Spoken stack explanation.",
+        },
+      }),
+    );
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    const typedAnswer = await screen.findByLabelText("Your answer");
+    fireEvent.change(typedAnswer, { target: { value: "Preserved draft." } });
+    fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit test voice" }));
+
+    expect(
+      await screen.findByText("Your voice answer is saved. Feedback is ready."),
+    ).toBeVisible();
+    expect(submitVoiceAnswer).toHaveBeenCalledWith({
+      audioBlob: expect.any(Blob),
+      idempotencyKey: "00000000-0000-4000-8000-000000000028",
+      interviewId: "session-123",
+      questionId: "question-123",
+      signal: expect.any(AbortSignal),
+    });
+    expect(screen.getByRole("heading", { name: "Feedback" })).toBeVisible();
+    expect(screen.getByText("Explains the core idea.")).toBeVisible();
+  });
+
+  it("keeps the typed draft available after voice evaluation failure", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitVoiceAnswer.mockRejectedValueOnce(
+      new Error("Feedback is temporarily unavailable."),
+    );
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    const typedAnswer = await screen.findByLabelText("Your answer");
+    fireEvent.change(typedAnswer, { target: { value: "Preserved draft." } });
+    fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit test voice" }));
+
+    expect(
+      await screen.findByText(
+        /Feedback is temporarily unavailable.*typed draft is still here/,
+      ),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Type instead" }));
+    expect(screen.getByLabelText("Your answer")).toHaveValue(
+      "Preserved draft.",
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Feedback" }),
+    ).not.toBeInTheDocument();
   });
 
   it("saves typed answer once and preserves draft while request is pending", async () => {

@@ -66,14 +66,18 @@ async function requestUrl(url, options = {}) {
   } = options;
   const request = createRequestSignal(signal, timeoutMs);
   const hasBody = body !== undefined;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   try {
     const response = await fetchImpl(url, {
-      body: hasBody ? JSON.stringify(body) : undefined,
+      body: hasBody ? (isFormData ? body : JSON.stringify(body)) : undefined,
       credentials,
       headers: {
         Accept: "application/json",
-        ...(hasBody ? { "Content-Type": "application/json" } : {}),
+        ...(hasBody && !isFormData
+          ? { "Content-Type": "application/json" }
+          : {}),
         ...headers,
       },
       method,

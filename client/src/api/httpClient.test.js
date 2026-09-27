@@ -48,6 +48,28 @@ describe("apiRequest", () => {
     });
   });
 
+  it("sends FormData without overriding the multipart boundary", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ ok: true }));
+    const formData = new FormData();
+    formData.append("resume", new File(["%PDF-"], "resume.pdf"));
+
+    await apiRequest("resumes", {
+      body: formData,
+      fetchImpl,
+      method: "POST",
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/resumes$/),
+      expect.objectContaining({
+        body: formData,
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        method: "POST",
+      }),
+    );
+  });
+
   it("returns a safe error for malformed JSON", async () => {
     const fetchImpl = vi
       .fn()
