@@ -8,6 +8,7 @@ export function createResumeRouter({
   maxResumeSizeBytes,
   resumeService,
   resumeUploadDir,
+  uploadRateLimit,
 }) {
   const resumeRouter = Router();
   const resumeController = createResumeController({ resumeService });
@@ -21,6 +22,7 @@ export function createResumeRouter({
   resumeRouter.post(
     "/",
     requireAuth,
+    uploadRateLimit,
     uploadResume,
     resumeController.createResume,
   );

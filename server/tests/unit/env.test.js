@@ -12,13 +12,21 @@ describe("loadConfig", () => {
   it("returns validated local configuration", () => {
     expect(loadConfig(validEnvironment)).toMatchObject({
       aiProvider: "gemini",
+      aiRequestsPerDay: 200,
+      aiRequestsPerIpPerHour: 60,
+      aiRequestsPerUserPerHour: 20,
       aiRequestTimeoutMs: 8000,
+      authRequestsPerIpPer15Minutes: 20,
       clientOrigin: "http://localhost:5173",
       geminiTranscriptionModel: "gemini-3.6-flash",
+      jsonBodyLimitBytes: 100 * 1024,
       maxAudioSizeBytes: 5 * 1024 * 1024,
       maxResumeSizeBytes: 5 * 1024 * 1024,
       nodeEnv: "development",
       port: 4444,
+      questionCacheTtlMs: 60_000,
+      uploadsPerIpPerHour: 30,
+      uploadsPerUserPerHour: 10,
     });
   });
 
@@ -110,6 +118,21 @@ describe("loadConfig", () => {
       }),
     ).toThrow(
       new ConfigurationError("MAX_AUDIO_SIZE_BYTES must not exceed 5242880."),
+    );
+  });
+
+  it.each([
+    ["AI_REQUESTS_PER_USER_PER_HOUR", "0", "must be a positive integer"],
+    ["AI_REQUESTS_PER_IP_PER_HOUR", "5001", "must not exceed 5000"],
+    ["AI_REQUESTS_PER_DAY", "100001", "must not exceed 100000"],
+    ["AUTH_REQUESTS_PER_IP_PER_15_MINUTES", "0", "must be a positive integer"],
+    ["UPLOADS_PER_USER_PER_HOUR", "1001", "must not exceed 1000"],
+    ["UPLOADS_PER_IP_PER_HOUR", "0", "must be a positive integer"],
+    ["JSON_BODY_LIMIT_BYTES", "102401", "must not exceed 102400"],
+    ["QUESTION_CACHE_TTL_MS", "300001", "must not exceed 300000"],
+  ])("rejects invalid %s", (name, value, expectedMessage) => {
+    expect(() => loadConfig({ ...validEnvironment, [name]: value })).toThrow(
+      new ConfigurationError(`${name} ${expectedMessage}.`),
     );
   });
 });

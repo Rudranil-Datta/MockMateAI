@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import app from "../../src/app.js";
 import User from "../../src/models/User.js";
@@ -121,5 +121,39 @@ describe("POST /api/auth/signup", () => {
         message: "An account with this email already exists.",
       },
     });
+  });
+
+  it("maps signup persistence failure safely without setting a session", async () => {
+    const privateFailure = new Error("Private database signup detail");
+    const createUser = vi
+      .spyOn(User, "create")
+      .mockRejectedValue(privateFailure);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const response = await request(app)
+        .post("/api/auth/signup")
+        .send(validSignup);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Something went wrong. Please try again later.",
+        },
+      });
+      expect(response.headers["set-cookie"]).toBeUndefined();
+      expect(JSON.stringify(response.body)).not.toContain(
+        privateFailure.message,
+      );
+      expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+        privateFailure.message,
+      );
+      expect(createUser).toHaveBeenCalledOnce();
+      await expect(User.countDocuments()).resolves.toBe(0);
+    } finally {
+      createUser.mockRestore();
+      errorLog.mockRestore();
+    }
   });
 });

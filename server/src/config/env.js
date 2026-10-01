@@ -111,7 +111,31 @@ export function loadConfig(environment = process.env) {
     port: parsePort(environment.PORT),
     mongoUri: parseMongoUri(environment),
     aiProvider,
+    aiRequestsPerDay: optionalPositiveInteger(
+      environment.AI_REQUESTS_PER_DAY,
+      "AI_REQUESTS_PER_DAY",
+      200,
+      100_000,
+    ),
+    aiRequestsPerIpPerHour: optionalPositiveInteger(
+      environment.AI_REQUESTS_PER_IP_PER_HOUR,
+      "AI_REQUESTS_PER_IP_PER_HOUR",
+      60,
+      5_000,
+    ),
+    aiRequestsPerUserPerHour: optionalPositiveInteger(
+      environment.AI_REQUESTS_PER_USER_PER_HOUR,
+      "AI_REQUESTS_PER_USER_PER_HOUR",
+      20,
+      1_000,
+    ),
     authSecret: parseAuthSecret(environment, nodeEnv),
+    authRequestsPerIpPer15Minutes: optionalPositiveInteger(
+      environment.AUTH_REQUESTS_PER_IP_PER_15_MINUTES,
+      "AUTH_REQUESTS_PER_IP_PER_15_MINUTES",
+      20,
+      1_000,
+    ),
     clientOrigin: parseClientOrigin(environment),
     aiRequestTimeoutMs: optionalPositiveInteger(
       environment.AI_REQUEST_TIMEOUT_MS,
@@ -124,6 +148,12 @@ export function loadConfig(environment = process.env) {
       environment.GEMINI_TRANSCRIPTION_MODEL?.trim() ||
       environment.GEMINI_MODEL?.trim() ||
       "gemini-3.6-flash",
+    jsonBodyLimitBytes: optionalPositiveInteger(
+      environment.JSON_BODY_LIMIT_BYTES,
+      "JSON_BODY_LIMIT_BYTES",
+      100 * 1024,
+      100 * 1024,
+    ),
     maxAudioSizeBytes: optionalPositiveInteger(
       environment.MAX_AUDIO_SIZE_BYTES,
       "MAX_AUDIO_SIZE_BYTES",
@@ -136,11 +166,29 @@ export function loadConfig(environment = process.env) {
       5 * 1024 * 1024,
       5 * 1024 * 1024,
     ),
+    questionCacheTtlMs: optionalPositiveInteger(
+      environment.QUESTION_CACHE_TTL_MS,
+      "QUESTION_CACHE_TTL_MS",
+      60_000,
+      5 * 60_000,
+    ),
     resumeUploadDir: resolve(
       environment.RESUME_UPLOAD_DIR?.trim() || defaultResumeUploadDir,
     ),
     audioUploadDir: resolve(
       environment.AUDIO_UPLOAD_DIR?.trim() || defaultAudioUploadDir,
+    ),
+    uploadsPerIpPerHour: optionalPositiveInteger(
+      environment.UPLOADS_PER_IP_PER_HOUR,
+      "UPLOADS_PER_IP_PER_HOUR",
+      30,
+      5_000,
+    ),
+    uploadsPerUserPerHour: optionalPositiveInteger(
+      environment.UPLOADS_PER_USER_PER_HOUR,
+      "UPLOADS_PER_USER_PER_HOUR",
+      10,
+      1_000,
     ),
   };
 

@@ -41,10 +41,14 @@ CLIENT_ORIGIN=https://app.example.com
 MAX_RESUME_SIZE_BYTES=
 RESUME_UPLOAD_DIR=
 MAX_AUDIO_SIZE_BYTES=
-MAX_QUESTIONS_PER_SESSION=
 AI_REQUESTS_PER_USER_PER_HOUR=
+AI_REQUESTS_PER_IP_PER_HOUR=
+AI_REQUESTS_PER_DAY=
 AUTH_REQUESTS_PER_IP_PER_15_MINUTES=
 UPLOADS_PER_USER_PER_HOUR=
+UPLOADS_PER_IP_PER_HOUR=
+JSON_BODY_LIMIT_BYTES=
+QUESTION_CACHE_TTL_MS=
 AI_REQUEST_TIMEOUT_MS=
 ```
 
@@ -105,13 +109,16 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 - Require structured output and validate it before database writes or UI rendering. Reject missing fields, wrong types, and out-of-range scores.
 - Enforce a maximum prompt/input size and a maximum completion/output size. Truncate only with deliberate, documented handling so prompts remain coherent.
 - Cap questions per session. Require client operation UUIDs plus bounded database-backed generation claims so repeated, concurrent, or replayed start/next-question requests do not multiply provider calls or persisted questions. Recover stale claims after the documented lease; never expose claim metadata to clients.
-- **Day 29 planned control:** rate-limit AI-consuming routes by authenticated user and by IP. Use a conservative initial allowance, such as a small number of evaluations per hour, then adjust from real usage and budget.
+- Day 29 rate-limits AI-consuming routes to 20 authenticated-user requests per hour and 60 direct-IP requests per hour. A 200-request application cap resets at UTC midnight. `AI_RATE_LIMITED` is distinct from provider-originated `AI_QUOTA_EXCEEDED`, and includes `Retry-After` while its reset is known.
 - Use a deterministic mock provider for UI development and automated tests, so routine development does not consume live Gemini quota.
-- Cache generated questions for a short configured period only when type/level/context compatibility is safe. Never cache or share answer feedback/resume content between users.
-- **Day 29 planned control:** track per-user and total request counts/cost indicators without logging sensitive prompt content unnecessarily. Add an application-wide circuit breaker or daily development budget cap when feasible.
+- Cache generated questions for 60 seconds by default, configurable up to five minutes, only when type/level compatibility is safe and no resume context or previous question exists. Never cache or share answer feedback, transcription, or resume content between users.
+- Day 29 tracks per-user, direct-IP, and application request counts in bounded process memory without logging prompt or answer content. This matches the approved single-process V1 deployment. Counters reset on process restart and are not shared across instances; Day 34 must replace or externalize them if the chosen host runs multiple API instances.
 - Set `AI_REQUEST_TIMEOUT_MS` to a positive value no greater than 20,000 ms, below the 30-second generation/evaluation recovery lease. On timeout, provider error, quota exhaustion, or malformed output, return a retryable state—never invented feedback.
 - Avoid automatic unlimited retries. At most one controlled retry may be used for transient provider errors; subsequent attempts require an explicit user action and remain rate-limited.
 - On quota exhaustion, normalize the provider error to `429 AI_QUOTA_EXCEEDED`, preserve session state, log safe quota metadata, and show the active user an immediate in-app notification. V1 does not send external owner alerts or rotate keys/projects.
+- Signup and login allow 20 attempts per direct IP per 15 minutes. Resume and voice uploads allow 10 attempts per authenticated user and 30 per direct IP per hour. Rate-limited uploads are rejected before multipart parsing or disk writes.
+- Standard JSON bodies are limited to 100 KiB. Resume and voice multipart bodies keep their independent 5 MiB file ceilings and strict field/file-count limits.
+- V1 keeps a fixed five-question session cap and one answer per question. This is an application invariant, not a deployment-tunable environment value, so server and client progression remain consistent.
 - Gemini free-tier use may have lower quotas and different data handling than paid tiers. Use synthetic resumes during development or obtain explicit consent before sending a real resume; never send a complete resume where a short relevant excerpt suffices.
 - Do not switch providers immediately before deployment. Test the configured Gemini implementation, including malformed output, quota, timeout, and JSON validation behavior, on the environment used for the demo.
 
@@ -140,7 +147,8 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 
 ## Availability and Safe Failure Behaviour
 
-- Add `GET /health` (or equivalent) that reports basic API availability without exposing credentials or detailed infrastructure internals.
+- Keep `GET /health` as a liveness check that reports basic API-process availability without exposing credentials or detailed infrastructure internals.
+- On Day 34, add a separate dependency-readiness endpoint such as `GET /ready`. It must verify that MongoDB can accept application traffic, return a safe `503` unavailable response when that dependency is not ready, and never expose connection strings, hostnames, credentials, driver errors, or topology details.
 - Treat MongoDB persistence as mandatory for operations that claim to create, answer, or complete a session. If saving fails, return failure rather than a misleading success response.
 - Make text input and evaluation the primary, best-tested path. Voice and resume enrichment must not block a user from completing a text-based interview.
 - Preserve an active session when a question/evaluation call fails so the user can retry rather than start over.
@@ -161,9 +169,9 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 - [ ] `.env`, secrets, upload directories, and build output are ignored by version control as appropriate.
 - [ ] Database network access is restricted to the deployed backend where the provider supports it.
 - [ ] CORS, HTTPS, cookie/token settings, and frontend API base URL work on the deployed domains.
-- [ ] Rate limits, body limits, upload limits, AI timeouts, and question/session caps are enabled.
+- [x] Rate limits, body limits, upload limits, AI timeouts, and fixed question/session caps are enabled in application configuration. Deployed proxy/IP behavior remains a Day 34 check.
 - [ ] Error handler returns safe, consistent API errors; unexpected stack traces are hidden from users.
-- [ ] Frontend SPA rewrite and backend health endpoint are configured.
+- [ ] Frontend SPA rewrite, backend liveness health endpoint, and separate MongoDB-aware readiness endpoint are configured and verified on the selected host during Day 34.
 - [ ] A deployed smoke test covers the complete text flow and dashboard persistence.
 - [ ] Resume/voice failures, AI outage, and expired login each show clear recovery behavior.
 

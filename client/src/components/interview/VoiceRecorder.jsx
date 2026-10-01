@@ -272,8 +272,10 @@ function VoiceRecorder({ disabled = false, onTranscribe, onUseText }) {
     } catch (error) {
       if (!controller.signal.aborted && isMountedRef.current) {
         setErrorMessage(
-          error?.message ||
-            "Voice transcription failed. Retry or type your answer instead.",
+          error?.code === "AI_QUOTA_EXCEEDED"
+            ? ""
+            : error?.message ||
+                "Voice transcription failed. Retry or type your answer instead.",
         );
         setStatus("transcription-error");
       }
@@ -451,7 +453,9 @@ function VoiceRecorder({ disabled = false, onTranscribe, onUseText }) {
 
       {status === "transcription-error" ? (
         <div className="voice-recorder-error">
-          <InlineAlert tone="error">{errorMessage}</InlineAlert>
+          {errorMessage ? (
+            <InlineAlert tone="error">{errorMessage}</InlineAlert>
+          ) : null}
           <div className="voice-recorder-actions">
             <Button disabled={disabled} onClick={transcribeRecording}>
               Retry voice answer

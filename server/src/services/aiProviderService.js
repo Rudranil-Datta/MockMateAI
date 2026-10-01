@@ -86,9 +86,20 @@ export function createAiProviderService({
   geminiApiKey,
   geminiModel = "gemini-3.6-flash",
   generateContent,
+  now = Date.now,
   questionCacheTtlMs = defaultQuestionCacheTtlMs,
   timeoutMs = 8000,
 } = {}) {
+  if (
+    !Number.isInteger(questionCacheTtlMs) ||
+    questionCacheTtlMs < 1 ||
+    questionCacheTtlMs > 5 * 60_000
+  ) {
+    throw new TypeError(
+      "questionCacheTtlMs must be an integer between 1 and 300000.",
+    );
+  }
+
   const provider = createProvider({
     aiProvider,
     geminiApiKey,
@@ -107,8 +118,12 @@ export function createAiProviderService({
       const key = cacheKey(validatedInput);
       const cached = questionCache.get(key);
 
-      if (canUseCache && cached && cached.expiresAt > Date.now()) {
+      if (canUseCache && cached && cached.expiresAt > now()) {
         return cached.question;
+      }
+
+      if (cached) {
+        questionCache.delete(key);
       }
 
       try {
@@ -118,7 +133,7 @@ export function createAiProviderService({
 
         if (canUseCache) {
           questionCache.set(key, {
-            expiresAt: Date.now() + questionCacheTtlMs,
+            expiresAt: now() + questionCacheTtlMs,
             question,
           });
         }

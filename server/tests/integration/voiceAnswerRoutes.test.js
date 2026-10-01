@@ -18,6 +18,7 @@ import {
 
 import { createApp } from "../../src/app.js";
 import InterviewSession from "../../src/models/InterviewSession.js";
+import { createTranscriptionService } from "../../src/services/transcriptionService.js";
 import { AppError } from "../../src/utils/AppError.js";
 import useMongoTestDatabase from "../helpers/useMongoTestDatabase.js";
 
@@ -288,6 +289,71 @@ describe("POST /api/interviews/:id/voice-answers", () => {
     expect(wrongQuestion.status).toBe(404);
     expect(inactive.status).toBe(409);
     expect(transcribe).not.toHaveBeenCalled();
+    expect(await readdir(audioUploadDir)).toEqual([]);
+  });
+
+  it("rejects a malformed interview ID before upload or provider work", async () => {
+    const { cookie } = await signup("malformed-id@example.com");
+
+    const response = await uploadVoice(
+      cookie,
+      "not-an-object-id",
+      "507f1f77bcf86cd799439011",
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(JSON.stringify(response.body)).not.toContain("CastError");
+    expect(transcribe).not.toHaveBeenCalled();
+    expect(await readdir(audioUploadDir)).toEqual([]);
+  });
+
+  it("rejects unusable transcription output, cleans up, and recovers with the same key", async () => {
+    const generateContent = vi
+      .fn()
+      .mockResolvedValueOnce({ text: "" })
+      .mockResolvedValueOnce({ text: "Recovered transcript." });
+    const recoveryApp = createApp({
+      audioUploadDir,
+      transcriptionService: createTranscriptionService({
+        aiProvider: "gemini",
+        generateContent,
+      }),
+    });
+    const { cookie } = await signup(
+      "unusable-transcript@example.com",
+      recoveryApp,
+    );
+    const started = await startInterview(cookie, recoveryApp);
+    const key = randomUUID();
+
+    const malformed = await uploadVoice(
+      cookie,
+      started.interview.id,
+      started.question.id,
+      { app: recoveryApp, idempotencyKey: key },
+    );
+    const afterMalformed = await InterviewSession.findById(
+      started.interview.id,
+    );
+    const recovered = await uploadVoice(
+      cookie,
+      started.interview.id,
+      started.question.id,
+      { app: recoveryApp, idempotencyKey: key },
+    );
+
+    expect(malformed.status).toBe(422);
+    expect(malformed.body.error.code).toBe("UNUSABLE_TRANSCRIPTION");
+    expect(
+      afterMalformed.questions.id(started.question.id).answers,
+    ).toHaveLength(0);
+    expect(
+      afterMalformed.questions.id(started.question.id).voiceTranscription,
+    ).toBeUndefined();
+    expect(recovered.status).toBe(200);
+    expect(recovered.body.answer.text).toBe("Recovered transcript.");
+    expect(generateContent).toHaveBeenCalledTimes(2);
     expect(await readdir(audioUploadDir)).toEqual([]);
   });
 

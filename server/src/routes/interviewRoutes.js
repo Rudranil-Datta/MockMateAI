@@ -7,11 +7,13 @@ import { requireAuth } from "../middlewares/requireAuth.js";
 import { createInterviewService } from "../services/interviewService.js";
 
 export function createInterviewRouter({
+  aiRateLimit,
   aiProviderService,
   answerEvaluationService,
   audioUploadDir,
   maxAudioSizeBytes,
   resumeService,
+  uploadRateLimit,
   voiceAnswerService,
 }) {
   const interviewRouter = Router();
@@ -29,21 +31,30 @@ export function createInterviewRouter({
     maxAudioSizeBytes,
   });
 
-  interviewRouter.post("/", requireAuth, interviewController.startInterview);
+  interviewRouter.post(
+    "/",
+    requireAuth,
+    aiRateLimit,
+    interviewController.startInterview,
+  );
   interviewRouter.get("/:id", requireAuth, interviewController.getInterview);
   interviewRouter.post(
     "/:id/questions",
     requireAuth,
+    aiRateLimit,
     interviewController.generateNextQuestion,
   );
   interviewRouter.post(
     "/:id/answers",
     requireAuth,
+    aiRateLimit,
     interviewController.submitTextAnswer,
   );
   interviewRouter.post(
     "/:id/voice-answers",
     requireAuth,
+    aiRateLimit,
+    uploadRateLimit,
     voiceAnswerController.preflight,
     uploadAudio,
     voiceAnswerController.transcribe,

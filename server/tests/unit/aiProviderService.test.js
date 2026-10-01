@@ -100,6 +100,39 @@ describe("aiProviderService", () => {
     expect(generateContent).toHaveBeenCalledTimes(2);
   });
 
+  it("expires cached questions at the configured bounded TTL", async () => {
+    let currentTime = 1_000;
+    const generateContent = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{"prompt":"First generic question?"}' })
+      .mockResolvedValueOnce({ text: '{"prompt":"Fresh generic question?"}' });
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent,
+      now: () => currentTime,
+      questionCacheTtlMs: 1_000,
+    });
+
+    await expect(service.generateQuestion(dsaInput)).resolves.toEqual({
+      prompt: "First generic question?",
+    });
+    currentTime = 1_999;
+    await expect(service.generateQuestion(dsaInput)).resolves.toEqual({
+      prompt: "First generic question?",
+    });
+    currentTime = 2_000;
+    await expect(service.generateQuestion(dsaInput)).resolves.toEqual({
+      prompt: "Fresh generic question?",
+    });
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects unsafe cache TTL configuration", () => {
+    expect(() =>
+      createAiProviderService({ aiProvider: "mock", questionCacheTtlMs: 0 }),
+    ).toThrow("questionCacheTtlMs must be an integer between 1 and 300000.");
+  });
+
   it("rejects invalid input and malformed provider output", async () => {
     const mockService = createAiProviderService({ aiProvider: "mock" });
     const malformedService = createAiProviderService({

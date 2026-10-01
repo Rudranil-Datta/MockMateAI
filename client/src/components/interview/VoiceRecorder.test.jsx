@@ -214,6 +214,30 @@ describe("VoiceRecorder", () => {
     );
   });
 
+  it("leaves quota notice ownership to the parent while keeping retry controls", async () => {
+    const stream = createStream();
+    const onTranscribe = vi.fn().mockRejectedValue({
+      code: "AI_QUOTA_EXCEEDED",
+      message: "Provider quota detail.",
+    });
+    getUserMedia.mockResolvedValueOnce(stream);
+    render(<VoiceRecorder onTranscribe={onTranscribe} onUseText={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recording" }));
+    await screen.findByText("Recording");
+    fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
+    MockMediaRecorder.instances[0].finish();
+    await screen.findByText("Recording ready on this device");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit voice answer" }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Retry voice answer" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("maps an interrupted recording to safe recovery and stops tracks", async () => {
     const stream = createStream();
     getUserMedia.mockResolvedValueOnce(stream);

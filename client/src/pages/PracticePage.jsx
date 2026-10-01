@@ -66,6 +66,8 @@ const maxTextAnswerLength = 10000;
 const maxFeedbackItemLength = 500;
 const maxFeedbackItems = 3;
 const maxNextStepLength = 1000;
+const quotaNoticeMessage =
+  "AI practice is temporarily unavailable. Your saved work is safe; try again later.";
 
 const feedbackDimensions = [
   { key: "accuracyScore", label: "Accuracy" },
@@ -191,6 +193,7 @@ function PracticePage() {
   const [nextQuestionError, setNextQuestionError] = useState("");
   const [nextQuestionStatusMessage, setNextQuestionStatusMessage] =
     useState("");
+  const [quotaNotice, setQuotaNotice] = useState("");
   const [submittedAnswerIds, setSubmittedAnswerIds] = useState({});
   const [selectedType, setSelectedType] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
@@ -203,6 +206,15 @@ function PracticePage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isReady = Boolean(selectedType && selectedLevel);
+
+  function handleQuotaError(error) {
+    if (error?.code !== "AI_QUOTA_EXCEEDED") {
+      return false;
+    }
+
+    setQuotaNotice(quotaNoticeMessage);
+    return true;
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -282,6 +294,7 @@ function PracticePage() {
 
     setIsSubmitting(true);
     setFormError("");
+    setQuotaNotice("");
     setStatusMessage("Preparing your first question...");
 
     try {
@@ -300,11 +313,13 @@ function PracticePage() {
       setStatusMessage("");
     } catch (error) {
       setStatusMessage("");
-      setFormError(
-        `${
-          error?.message || "Unable to start this interview."
-        } Your choices are still here. Press Start interview to retry.`,
-      );
+      if (!handleQuotaError(error)) {
+        setFormError(
+          `${
+            error?.message || "Unable to start this interview."
+          } Your choices are still here. Press Start interview to retry.`,
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -341,6 +356,7 @@ function PracticePage() {
 
     setIsAnswerSubmitting(true);
     setAnswerError("");
+    setQuotaNotice("");
     setAnswerStatusMessage("Saving your answer...");
 
     try {
@@ -367,9 +383,11 @@ function PracticePage() {
       setAnswerStatusMessage("Your answer is saved. Feedback is ready.");
     } catch (error) {
       setAnswerStatusMessage("");
-      setAnswerError(
-        `${error?.message || "Answer could not be saved."} Your draft is still here. Press Submit for feedback to retry.`,
-      );
+      if (!handleQuotaError(error)) {
+        setAnswerError(
+          `${error?.message || "Answer could not be saved."} Your draft is still here. Press Submit for feedback to retry.`,
+        );
+      }
     } finally {
       setIsAnswerSubmitting(false);
     }
@@ -378,6 +396,7 @@ function PracticePage() {
   async function handleVoiceAnswer(recording, signal, interviewId, questionId) {
     setIsAnswerSubmitting(true);
     setAnswerError("");
+    setQuotaNotice("");
     setAnswerStatusMessage(
       "Transcribing, saving, and evaluating your answer...",
     );
@@ -407,9 +426,11 @@ function PracticePage() {
       return result.answer.text;
     } catch (error) {
       setAnswerStatusMessage("");
-      setAnswerError(
-        `${error?.message || "Voice answer could not be saved."} Your typed draft is still here. Retry this recording or type your answer instead.`,
-      );
+      if (!handleQuotaError(error)) {
+        setAnswerError(
+          `${error?.message || "Voice answer could not be saved."} Your typed draft is still here. Retry this recording or type your answer instead.`,
+        );
+      }
       throw error;
     } finally {
       setIsAnswerSubmitting(false);
@@ -440,6 +461,7 @@ function PracticePage() {
   async function handleNextQuestion(interviewId, currentQuestionOrder) {
     setIsNextQuestionLoading(true);
     setNextQuestionError("");
+    setQuotaNotice("");
     setNextQuestionStatusMessage("Preparing your next question...");
 
     try {
@@ -465,9 +487,11 @@ function PracticePage() {
       nextQuestionIdempotencyKey.current = createIdempotencyKey();
     } catch (error) {
       setNextQuestionStatusMessage("");
-      setNextQuestionError(
-        `${error?.message || "Next question could not be loaded."} Your saved feedback is still here. Press Next question to retry.`,
-      );
+      if (!handleQuotaError(error)) {
+        setNextQuestionError(
+          `${error?.message || "Next question could not be loaded."} Your saved feedback is still here. Press Next question to retry.`,
+        );
+      }
     } finally {
       setIsNextQuestionLoading(false);
     }
@@ -488,6 +512,9 @@ function PracticePage() {
 
     return (
       <>
+        {quotaNotice ? (
+          <InlineAlert tone="error">{quotaNotice}</InlineAlert>
+        ) : null}
         <section className="page-heading compact-heading">
           <div>
             <p className="eyebrow">Interview active</p>
@@ -723,6 +750,9 @@ function PracticePage() {
           </p>
         </div>
       </section>
+      {quotaNotice ? (
+        <InlineAlert tone="error">{quotaNotice}</InlineAlert>
+      ) : null}
       {formError ? <InlineAlert tone="error">{formError}</InlineAlert> : null}
       {statusMessage ? (
         <InlineAlert tone="info">

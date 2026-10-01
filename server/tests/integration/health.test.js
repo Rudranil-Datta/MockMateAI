@@ -24,6 +24,19 @@ describe("GET /health", () => {
     expect(response.headers["access-control-allow-credentials"]).toBe("true");
   });
 
+  it("allows preflight only for the configured credentialed origin", async () => {
+    const response = await request(app)
+      .options("/api/interviews")
+      .set("Origin", "http://localhost:5173")
+      .set("Access-Control-Request-Method", "POST");
+
+    expect(response.status).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "http://localhost:5173",
+    );
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
+  });
+
   it("rejects a different browser origin safely", async () => {
     const response = await request(app)
       .get("/health")

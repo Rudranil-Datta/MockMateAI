@@ -58,6 +58,16 @@ WebM, Ogg, Opus, and ISO-BMFF MP4 remain in the local input contract. The first 
 
 After successful transcription, atomically consume the matching private completed transcript into one immutable `inputMode: "voice"` answer and remove the handoff state. Use the original operation UUID across transcription, answer persistence, evaluation, retry, and replay. Typed and voice answers invoke the same provider-neutral evaluation claim/staging/finalization service and return the same structured feedback contract. Raw audio and `voiceStorageKey` are not retained. Evaluation failure preserves the saved answer; same-key retry skips transcription and reuses validated staged output when available.
 
+## Day 29 Usage-Control Decision
+
+**Status:** Implemented for the single-process V1 modular monolith.
+
+Use a dependency-free bounded in-memory fixed-window limiter at route boundaries. Signup/login use a direct-IP bucket; AI-consuming interview actions use authenticated-user, direct-IP, and application buckets; resume and voice uploads use authenticated-user and direct-IP buckets before multipart parsing. Known reset times return `Retry-After`. Provider quota remains the separate `AI_QUOTA_EXCEEDED` contract.
+
+Configured production defaults are 20 authentication attempts per IP per 15 minutes, 20 AI actions per user and 60 per IP per hour, 200 application AI actions per UTC day, and 10 uploads per user and 30 per IP per hour. Counters reset on process restart and are not distributed. Day 34 must revisit this decision if hosting uses multiple API instances or requires trusted-proxy configuration.
+
+Keep the V1 interview limit fixed at five questions and one answer per question. Cache only validated context-free first questions by interview type and level for 60 seconds by default, with a five-minute configuration ceiling. Do not cache feedback, transcription, resume context, or follow-up questions. Keep AI timeout between 1 and 20 seconds and perform zero automatic provider retries; explicit user retry retains existing operation identifiers and remains rate-limited.
+
 ## Deferred Decisions
 
 - Hosting provider: decide Week 7.

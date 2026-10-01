@@ -8,6 +8,7 @@ import InterviewSession, {
   maxQuestionsPerInterview,
 } from "../../src/models/InterviewSession.js";
 import Resume from "../../src/models/Resume.js";
+import { createAiProviderService } from "../../src/services/aiProviderService.js";
 import { AppError } from "../../src/utils/AppError.js";
 import useMongoTestDatabase from "../helpers/useMongoTestDatabase.js";
 
@@ -163,6 +164,68 @@ describe("interview session routes", () => {
     expect(session.userId.toString()).toBe(user.id);
     expect(session.questions).toHaveLength(1);
   });
+
+  it.each([
+    ["DSA", "beginner", "A DSA question."],
+    ["HR", "intermediate", "An HR question."],
+    ["System Design", "advanced", "A system design question."],
+  ])(
+    "persists an owned %s session at %s level",
+    async (interviewType, level, prompt) => {
+      const generateQuestion = vi.fn().mockResolvedValue({ prompt });
+      const typeApp = createApp({
+        aiProviderService: {
+          evaluateAnswer: vi.fn(),
+          generateQuestion,
+        },
+      });
+      const signupResponse = await request(typeApp)
+        .post("/api/auth/signup")
+        .send(validSignup);
+      const cookie = getSessionCookie(signupResponse);
+
+      const response = await request(typeApp)
+        .post("/api/interviews")
+        .set("Cookie", cookie)
+        .send({
+          idempotencyKey: randomUUID(),
+          interviewType,
+          level,
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        interview: {
+          id: expect.any(String),
+          interviewType,
+          level,
+          startedAt: expect.any(String),
+          status: "active",
+        },
+        question: {
+          id: expect.any(String),
+          order: 1,
+          prompt,
+        },
+      });
+      expect(generateQuestion).toHaveBeenCalledOnce();
+      expect(generateQuestion).toHaveBeenCalledWith(
+        expect.objectContaining({ interviewType, level }),
+      );
+
+      const session = await InterviewSession.findById(
+        response.body.interview.id,
+      );
+      expect(session).toMatchObject({
+        interviewType,
+        level,
+        status: "active",
+      });
+      expect(session.userId.toString()).toBe(signupResponse.body.user.id);
+      expect(session.questions).toHaveLength(1);
+      expect(session.questions[0]).toMatchObject({ order: 1, prompt });
+    },
+  );
 
   it("reuses completed start and next-question operations without another provider call", async () => {
     const generateQuestion = vi
@@ -357,6 +420,72 @@ describe("interview session routes", () => {
     expect(missingKeyResponse.body.error.fields).toEqual({
       idempotencyKey: "Request identifier is invalid.",
     });
+    await expect(InterviewSession.countDocuments()).resolves.toBe(0);
+  });
+
+  it("rejects malformed resource IDs before provider or persistence work", async () => {
+    const generateQuestion = vi.fn();
+    const evaluateAnswer = vi.fn();
+    const validationApp = createApp({
+      aiProviderService: { evaluateAnswer, generateQuestion },
+    });
+    const signupResponse = await request(validationApp)
+      .post("/api/auth/signup")
+      .send(validSignup);
+    const cookie = getSessionCookie(signupResponse);
+    const malformedId = "not-an-object-id";
+    const validInterviewId = "507f1f77bcf86cd799439012";
+    const validQuestionId = "507f1f77bcf86cd799439011";
+
+    const responses = await Promise.all([
+      request(validationApp)
+        .get(`/api/interviews/${malformedId}`)
+        .set("Cookie", cookie),
+      request(validationApp)
+        .post(`/api/interviews/${malformedId}/questions`)
+        .set("Cookie", cookie)
+        .send({ idempotencyKey: randomUUID() }),
+      request(validationApp)
+        .post(`/api/interviews/${malformedId}/answers`)
+        .set("Cookie", cookie)
+        .send({
+          idempotencyKey: randomUUID(),
+          questionId: validQuestionId,
+          text: "A valid answer.",
+        }),
+      request(validationApp)
+        .post(`/api/interviews/${malformedId}/complete`)
+        .set("Cookie", cookie),
+      request(validationApp)
+        .post("/api/interviews")
+        .set("Cookie", cookie)
+        .send({
+          idempotencyKey: randomUUID(),
+          interviewType: "DSA",
+          level: "intermediate",
+          resumeId: malformedId,
+        }),
+      request(validationApp)
+        .post(`/api/interviews/${validInterviewId}/answers`)
+        .set("Cookie", cookie)
+        .send({
+          idempotencyKey: randomUUID(),
+          questionId: malformedId,
+          text: "A valid answer.",
+        }),
+      request(validationApp)
+        .post(`/api/interviews/${validInterviewId}/questions`)
+        .set("Cookie", cookie)
+        .send({ idempotencyKey: malformedId }),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(JSON.stringify(response.body)).not.toContain("CastError");
+    }
+    expect(generateQuestion).not.toHaveBeenCalled();
+    expect(evaluateAnswer).not.toHaveBeenCalled();
     await expect(InterviewSession.countDocuments()).resolves.toBe(0);
   });
 
@@ -633,7 +762,13 @@ describe("interview session routes", () => {
 
     const activeResponse = await getInterview(cookie, interviewId);
     const completeResponse = await completeInterview(cookie, interviewId);
-    const completedResponse = await getInterview(cookie, interviewId);
+    const freshLoginResponse = await request(app)
+      .post("/api/auth/login")
+      .send({ email: validSignup.email, password: validSignup.password });
+    const completedResponse = await getInterview(
+      getSessionCookie(freshLoginResponse),
+      interviewId,
+    );
 
     expect(activeResponse.status).toBe(200);
     expect(activeResponse.body.interview).toMatchObject({
@@ -667,6 +802,7 @@ describe("interview session routes", () => {
         strengths: ["Explains the core idea clearly."],
       },
     });
+    expect(freshLoginResponse.status).toBe(200);
     expect(completedResponse.body.interview).toMatchObject(
       completeResponse.body.interview,
     );
@@ -1595,5 +1731,113 @@ describe("interview session routes", () => {
 
     expect(nextQuestionResponse.status).toBe(502);
     expect(unchangedSession.questions).toHaveLength(1);
+  });
+
+  it("rejects malformed AI output and recovers without invented or duplicate state", async () => {
+    const questionContent = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{"prompt":""}' })
+      .mockResolvedValueOnce({
+        text: '{"prompt":"Explain a hash map."}',
+      });
+    const questionApp = createApp({
+      aiProviderService: createAiProviderService({
+        aiProvider: "gemini",
+        generateContent: questionContent,
+      }),
+    });
+    const questionSignup = await request(questionApp)
+      .post("/api/auth/signup")
+      .send(validSignup);
+    const questionCookie = getSessionCookie(questionSignup);
+    const startKey = randomUUID();
+    const startInput = {
+      idempotencyKey: startKey,
+      interviewType: "DSA",
+      level: "intermediate",
+    };
+
+    const malformedQuestion = await request(questionApp)
+      .post("/api/interviews")
+      .set("Cookie", questionCookie)
+      .send(startInput);
+    const afterMalformedQuestion = await InterviewSession.findOne({
+      startRequestId: startKey,
+    });
+    const recoveredQuestion = await request(questionApp)
+      .post("/api/interviews")
+      .set("Cookie", questionCookie)
+      .send(startInput);
+
+    expect(malformedQuestion.status).toBe(502);
+    expect(malformedQuestion.body.error.code).toBe("INVALID_AI_RESPONSE");
+    expect(afterMalformedQuestion).toMatchObject({
+      questions: [],
+      status: "created",
+    });
+    expect(afterMalformedQuestion.questionGeneration).toBeUndefined();
+    expect(recoveredQuestion.status).toBe(201);
+    expect(questionContent).toHaveBeenCalledTimes(2);
+
+    const feedbackContent = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: '{"prompt":"Explain a hash map."}',
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({ ...evaluationFeedback(), overallScore: 101 }),
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify(evaluationFeedback()),
+      });
+    const feedbackApp = createApp({
+      aiProviderService: createAiProviderService({
+        aiProvider: "gemini",
+        generateContent: feedbackContent,
+      }),
+    });
+    const feedbackSignup = await request(feedbackApp)
+      .post("/api/auth/signup")
+      .send({ ...validSignup, email: "malformed.feedback@example.com" });
+    const feedbackCookie = getSessionCookie(feedbackSignup);
+    const started = await request(feedbackApp)
+      .post("/api/interviews")
+      .set("Cookie", feedbackCookie)
+      .send({
+        idempotencyKey: randomUUID(),
+        interviewType: "DSA",
+        level: "intermediate",
+      });
+    const answerKey = randomUUID();
+    const answerInput = {
+      idempotencyKey: answerKey,
+      questionId: started.body.question.id,
+      text: "A hash map uses buckets.",
+    };
+
+    const malformedFeedback = await request(feedbackApp)
+      .post(`/api/interviews/${started.body.interview.id}/answers`)
+      .set("Cookie", feedbackCookie)
+      .send(answerInput);
+    const afterMalformedFeedback = await InterviewSession.findById(
+      started.body.interview.id,
+    );
+    const recoveredFeedback = await request(feedbackApp)
+      .post(`/api/interviews/${started.body.interview.id}/answers`)
+      .set("Cookie", feedbackCookie)
+      .send({ ...answerInput, text: "Replacement text must not be saved." });
+
+    expect(malformedFeedback.status).toBe(502);
+    expect(malformedFeedback.body.error.code).toBe("INVALID_AI_RESPONSE");
+    expect(
+      afterMalformedFeedback.questions.id(started.body.question.id).answers[0],
+    ).toMatchObject({
+      evaluationStatus: "not_started",
+      text: answerInput.text,
+    });
+    expect(recoveredFeedback.status).toBe(200);
+    expect(recoveredFeedback.body.answer.text).toBe(answerInput.text);
+    expect(recoveredFeedback.body.feedback.overallScore).toBe(80);
+    expect(feedbackContent).toHaveBeenCalledTimes(3);
   });
 });

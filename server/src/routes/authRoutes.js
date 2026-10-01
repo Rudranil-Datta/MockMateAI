@@ -8,11 +8,13 @@ import {
 } from "../controllers/authController.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
-const authRouter = Router();
+export function createAuthRouter({ authRateLimit }) {
+  const authRouter = Router();
 
-authRouter.post("/signup", signup);
-authRouter.post("/login", login);
-authRouter.post("/logout", logout);
-authRouter.get("/me", requireAuth, getCurrentUser);
+  authRouter.post("/signup", authRateLimit, signup);
+  authRouter.post("/login", authRateLimit, login);
+  authRouter.post("/logout", logout);
+  authRouter.get("/me", requireAuth, getCurrentUser);
 
-export default authRouter;
+  return authRouter;
+}

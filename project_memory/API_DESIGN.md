@@ -61,6 +61,17 @@ When the configured provider rejects a request because its quota is exhausted, p
 
 The frontend presents this message once for the failed action and offers a retry only after user action. The backend must not rotate keys, issue unlimited retries, or fabricate a question/evaluation.
 
+### Rate-limit responses
+
+Day 29 applies the following bounded V1 limits before costly route work:
+
+- signup/login: 20 requests per direct IP per 15 minutes;
+- AI-consuming interview actions: 20 per authenticated user and 60 per direct IP per hour;
+- AI-consuming actions across the single API process: 200 per UTC day;
+- resume/voice uploads: 10 per authenticated user and 30 per direct IP per hour.
+
+Local limits return `429` with `AUTH_RATE_LIMITED`, `AI_RATE_LIMITED`, or `UPLOAD_RATE_LIMITED` plus a whole-second `Retry-After` header. These errors never impersonate `AI_QUOTA_EXCEEDED`, which is reserved for configured-provider quota exhaustion. Counters use bounded process memory, reset on restart, and are suitable only for the approved single-process V1 deployment. Authentication identity comes only from the verified cookie; request data cannot select another user's bucket.
+
 ## Authentication
 
 ### `POST /api/auth/signup`
@@ -390,7 +401,8 @@ When no valid completed sessions exist, the endpoint returns zero for the count 
 
 - Validate all input on the server, regardless of frontend validation.
 - Rate-limit or otherwise cap question generation, evaluations, and uploads during development.
-- Set request timeouts for AI calls and provide clear UI retry states.
+- Limit standard JSON bodies to the configured 100 KiB ceiling; multipart upload limits remain independent.
+- Set request timeouts for AI calls to 1-20 seconds and provide clear UI retry states. V1 performs no automatic provider retry; later attempts require explicit user action and remain rate-limited.
 - Keep Gemini/OpenAI API keys and database credentials only in backend environment variables.
 - Log safe operational identifiers/statuses, not passwords, secrets, or unnecessary resume/answer contents.
 - Label returned evaluation as interview-practice feedback, not an automated hiring determination.

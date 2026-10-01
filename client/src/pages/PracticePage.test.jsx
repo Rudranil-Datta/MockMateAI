@@ -306,11 +306,10 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByLabelText(/Advanced/i));
     fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
 
-    expect(
-      await screen.findByText(
-        /AI practice is temporarily unavailable.*Press Start interview to retry\./,
-      ),
-    ).toBeVisible();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "AI practice is temporarily unavailable. Your saved work is safe; try again later.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: /System Design/i }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -474,6 +473,54 @@ describe("PracticePage", () => {
     expect(
       screen.queryByRole("heading", { name: "Feedback" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows one quota notice and preserves typed draft after text evaluation quota", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitTextAnswer.mockRejectedValueOnce({
+      code: "AI_QUOTA_EXCEEDED",
+      message: "Provider quota detail.",
+    });
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    const answer = await screen.findByLabelText("Your answer");
+    fireEvent.change(answer, { target: { value: "Draft stays safe." } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "AI practice is temporarily unavailable. Your saved work is safe; try again later.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(answer).toHaveValue("Draft stays safe.");
+  });
+
+  it("shows one quota notice and preserves typed fallback after voice quota", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitVoiceAnswer.mockRejectedValueOnce({
+      code: "AI_QUOTA_EXCEEDED",
+      message: "Provider quota detail.",
+    });
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    const answer = await screen.findByLabelText("Your answer");
+    fireEvent.change(answer, { target: { value: "Typed fallback." } });
+    fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit test voice" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "AI practice is temporarily unavailable. Your saved work is safe; try again later.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Type instead" }));
+    expect(screen.getByLabelText("Your answer")).toHaveValue("Typed fallback.");
   });
 
   it("saves typed answer once and preserves draft while request is pending", async () => {
@@ -884,6 +931,35 @@ describe("PracticePage", () => {
     ).toBeVisible();
     expect(screen.getByText("Explains the core idea.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Next question" })).toBeEnabled();
+  });
+
+  it("shows one quota notice while preserving feedback after next-question quota", async () => {
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    submitTextAnswer.mockResolvedValueOnce(savedAnswerResult());
+    generateNextQuestion.mockRejectedValueOnce({
+      code: "AI_QUOTA_EXCEEDED",
+      message: "Provider quota detail.",
+    });
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    fireEvent.change(await screen.findByLabelText("Your answer"), {
+      target: { value: "Use a stack." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Next question" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "AI practice is temporarily unavailable. Your saved work is safe; try again later.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByText("Explains the core idea.")).toBeVisible();
   });
 
   it("offers completion instead of next question after fifth feedback", async () => {
