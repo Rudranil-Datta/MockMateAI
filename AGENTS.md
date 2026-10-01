@@ -63,3 +63,14 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 
 - Flag bypassed authentication/ownership, exposed secrets, frontend AI-provider calls, unvalidated AI persistence, broken core text flow, V1 scope creep, broad unrelated refactors, missing affected tests, unsafe uploads, and unbounded external/AI requests.
 - Review against the approved specification and traceability matrix, not only the code's apparent intent. A green test suite is insufficient when required behavior lacks an independent assertion.
+
+## Repository-Owner Commit and Push Rule
+
+- Only the repository owner, operating with the `Rudranil-Datta` GitHub account and its configured branch-rule bypass, may invoke the dual-branch rule. When that owner says `commit and push`, or gives an unambiguously equivalent instruction without naming only one target branch, treat it as standing approval to commit the approved current-scope changes and push the resulting commit to both `dev` and `main` so neither branch is behind.
+- For every teammate or other contributor, `commit and push` means commit the approved changes and push to `dev` only. They must never push directly to `main`; promotion remains a repository-owner-reviewed pull request from `dev` into `main`.
+- If requester identity or owner authority is unclear, default to `dev` only and do not attempt a `main` push. GitHub permissions and branch protection remain the enforcement boundary; never attempt to bypass them for a teammate.
+- The dual-branch behavior is a repository-owner-only automation exception to the normal team workflow. A later owner instruction that names a specific branch or forbids a push overrides this rule.
+- Before committing, review the final diff, stage only intended files, run the approved checks, and confirm `server/.env` and `client/.env` are ignored and absent from staged changes.
+- Before either push, compare `server/.env` with `server/.env.example` and `client/.env` with `client/.env.example`. Their supported variable names, order, and section structure must match. Preserve every private local value, use safe documented defaults for newly introduced optional variables, and never copy secret values into an example file or commit a real `.env` file.
+- Push the same commit history to both branches without force-pushing, resetting, discarding changes, or rewriting shared history. If the branches contain unrelated divergence, safe synchronization is ambiguous, validation fails, or branch protection rejects a push, stop and report the exact state instead of overwriting either branch.
+- Dual-branch commit-and-push approval does not authorize deployment, dependency installation, unrelated edits, secret disclosure, or expansion beyond the otherwise approved task.

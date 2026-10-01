@@ -10,7 +10,9 @@ workflow and use it consistently:
 
 In both workflows, active development targets `dev`. Never commit or push
 directly to `main`. The repository owner promotes approved work through a pull
-request from `dev` to `main`.
+request from `dev` to `main`. The only exception is the repository owner's
+explicit `commit and push` automation instruction documented in `AGENTS.md`;
+this exception never applies to teammates.
 
 ## 1. Prerequisites
 
@@ -170,6 +172,13 @@ merge commit. If `dev` has separate work, review and resolve the merge normally,
 run affected checks, and then push. Never reset or force-push shared `dev` to
 make it match `main`.
 
+Only the repository owner using the `Rudranil-Datta` GitHub account may tell
+Codex to `commit and push` and have it update both branches. For teammates, the
+same instruction pushes only to `dev`; they submit changes for owner review and
+must never push directly to `main`. When identity or authority is unclear, Codex
+defaults to `dev` only. Codex must stop instead of forcing either branch when
+safe synchronization is not possible.
+
 ## 3. Environment Files
 
 The repository owner supplies both private files. After cloning, place them at
@@ -208,6 +217,12 @@ stop and contact the repository owner before committing anything.
 Do not commit, stage, paste, screenshot, or publicly transmit either `.env`
 file. Restart the affected development server after changing an environment
 file.
+
+Before a repository-owner dual-branch commit and push, the client and server
+environment pairs must have matching variable names, order, and section
+structure. Private `.env` values remain local and may differ from the safe
+placeholders or defaults in `.env.example`; synchronization never means copying
+credentials into a tracked example file.
 
 ## 4. Install and Start the Project
 
