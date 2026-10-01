@@ -1,221 +1,145 @@
-# MockMateAI — Team Development Guide
-
-## Repository Workflow
-
-We use two branches:
-
-- `main` → Stable and approved code
-- `dev` → Active development
-
-### Rules
-
-- Everyone works on `dev`.
-- Team members have **Write** access.
-- Do not push directly to `main`.
-- `main` is protected.
-- The repository owner reviews and merges changes into `main`.
-- No feature branches are required.
+<div align="center">
+  <img src="client/public/favicon.svg" width="88" alt="MockMateAI logo" />
+  <h1>MockMateAI</h1>
+  <p><strong>Practice interviews. Understand your performance. Improve with every session.</strong></p>
+  <p>An AI-powered interview preparation platform for students, freshers, and professionals.</p>
+</div>
 
 ---
 
-## 1. First-Time Setup
+## What is MockMateAI?
 
-Clone the repository:
+MockMateAI recreates a focused interview-practice experience in one web
+application. Users can choose an interview track and difficulty, answer
+AI-generated questions by text or voice, receive structured feedback, and track
+their progress over time.
+
+The project is designed to make useful interview practice more accessible and
+self-paced. AI feedback is presented as learning guidance, not as a hiring
+decision or a substitute for professional assessment.
+
+## Highlights
+
+| Feature                       | What it provides                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Three interview tracks        | Practice **DSA**, **HR**, or **System Design** questions at an appropriate level.                                                     |
+| AI-generated questions        | Receive questions based on the selected track, level, and optional resume context.                                                    |
+| Text and voice answers        | Type an answer or submit a short voice response for transcription and evaluation.                                                     |
+| Resume-informed practice      | Upload a supported resume to create more relevant practice questions.                                                                 |
+| Structured feedback           | Review scores for accuracy, clarity, and confidence, plus strengths, improvements, and a practical next step.                         |
+| Saved interview results       | Complete sessions and revisit saved questions, answers, feedback, and final scores.                                                   |
+| Progress dashboard            | View interview history, score summaries, and simple progress trends.                                                                  |
+| Secure application boundaries | Keep AI and database credentials on the backend with authentication, ownership checks, validation, upload limits, and request quotas. |
+
+## How it works
+
+1. Create an account or sign in.
+2. Choose DSA, HR, or System Design and select a level.
+3. Optionally upload a resume for bounded question context.
+4. Receive an interview question.
+5. Answer using text or a short voice recording.
+6. Review structured AI-assisted feedback.
+7. Complete the session and track the result from the dashboard.
+
+## Technology
+
+- **Client:** React, React Router, and Vite
+- **API:** Node.js and Express
+- **Database:** MongoDB with Mongoose
+- **AI:** Gemini Developer API, called only from the backend
+- **Testing:** Vitest, Testing Library, and Supertest
+
+## Run locally
+
+### Prerequisites
+
+Before starting, install or obtain:
+
+- Git
+- Node.js 22 or newer and npm
+- Your own reachable MongoDB connection string
+- Your own Gemini API key
+
+Use development credentials and a test database for local demos. Never commit
+real credentials to the repository.
+
+### 1. Clone the project
 
 ```bash
 git clone https://github.com/Rudranil-Datta/MockMateAI.git
 cd MockMateAI
 ```
 
-Switch to `dev`:
-
-```bash
-git checkout dev
-git pull origin dev
-```
-
-Install workspace dependencies:
+### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-Create local configuration files from the templates. Do not commit these files:
+### 3. Create local environment files
 
 ```bash
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-Run the application in two terminals:
+Open `server/.env` and provide at least:
+
+| Variable         | Required value                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `MONGODB_URI`    | Your MongoDB connection string. The database must be reachable from your machine.  |
+| `GEMINI_API_KEY` | Your Gemini Developer API key. It remains on the server.                           |
+| `AUTH_SECRET`    | A private random secret used to sign authentication tokens. Use at least 32 bytes. |
+
+Generate a suitable local authentication secret with Node.js:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Paste the generated output into `AUTH_SECRET`. Keep the existing local defaults
+for `CLIENT_ORIGIN`, `PORT`, and the other bounded settings unless your setup
+requires different values.
+
+The default `client/.env` points the browser to
+`http://localhost:4444/api`. Never place MongoDB credentials, authentication
+secrets, or Gemini keys in the client environment file because `VITE_` values
+are visible in the browser.
+
+### 4. Start the API
+
+In the first terminal, from the project root:
 
 ```bash
 npm run dev:server
+```
+
+### 5. Start the client
+
+In a second terminal, from the project root:
+
+```bash
 npm run dev:client
 ```
 
-The client runs at `http://localhost:5173`; the API health endpoint is
-`http://localhost:4444/health`.
+Open:
 
-The browser uses only `VITE_API_BASE_URL=http://localhost:4444/api`. Server
-credentials, MongoDB URIs, and AI-provider keys belong only in `server/.env`.
-The shared client request wrapper lives at `client/src/api/httpClient.js`; it
-uses the documented API error envelope and returns safe network/response errors.
+- **Application:** `http://localhost:5173`
+- **API health check:** `http://localhost:4444/health`
 
-The API accepts credentialed browser requests only from `CLIENT_ORIGIN`. Keep
-it as `http://localhost:5173` locally; set it to the exact HTTPS frontend origin
-when deployed. JSON request bodies are limited to `100kb`, and API responses use
-baseline security headers.
+Stop both processes with `Ctrl+C` when the demo is finished.
 
-Before submitting work, run:
+## Suggested demo journey
 
-```bash
-npm run lint
-npm test
-npm run build
-npm run format
-```
+For a clear end-to-end demonstration:
 
-While making a focused change, run the smallest relevant suite first. For
-example, backend work uses:
+1. Sign up with a new account.
+2. Start a text-based interview in one of the three supported tracks.
+3. Submit an answer and review its structured feedback.
+4. Complete the interview and open the saved result.
+5. Return to the dashboard to show interview history and progress.
+6. Optionally demonstrate resume-informed questions or one short voice answer.
 
-```bash
-npm test --workspace=server
-```
-
-Run the full checks above once after the final change. For API smoke checks,
-start one temporary server, verify the relevant endpoint, then stop it and
-confirm its port is free. Integration tests use the cached
-`mongodb-memory-server` binary and never use the configured Atlas database.
-
----
-
-## 2. Using Codex and Caveman
-
-Open Codex from the repository root. Codex automatically reads `AGENTS.md`,
-which contains the project's architecture, security, scope, and daily-work
-rules.
-
-Caveman makes the agent's chat replies shorter while code is being written or
-refactored. It does not change code quality requirements, skip tests, approve
-work, or reduce the need to review changes.
-
-Use these commands in Codex chat:
-
-```text
-/caveman       # Concise full mode
-/caveman lite  # Professional, lightly compressed mode
-/caveman ultra # Most compressed mode
-/caveman off   # Return to normal mode
-```
-
-For this repository, Codex also applies Caveman automatically while writing or
-refactoring code. It must use normal, clear prose when presenting task lists,
-plans, risks, mitigations, reasons, approval requests, security warnings, or
-manual instructions. Project documentation, code comments, commit messages,
-and user-facing application text must remain normal professional English.
-
-### Agent-assisted daily workflow
-
-1. Start in the repository root and pull the latest `dev` branch.
-2. Ask Codex to read `project_memory/IMPLEMENTATION_STATUS.md` and the direct
-   documentation/code relevant to the assigned task.
-3. For implementation work, review the proposed bounded tasks, risks,
-   mitigations, and possible deviations before approving edits.
-4. Use Caveman during coding or refactoring if concise responses help.
-5. Run the required validation commands, review `git diff`, and confirm no
-   `.env` file or secret is staged.
-6. Ask Codex to update `IMPLEMENTATION_STATUS.md` after the day or task is
-   complete. Update another project document only if the implementation changed
-   its documented contract, design, security rule, or scope.
-
-`IMPLEMENTATION_STATUS.md` is the sole live work tracker. Use
-`IMPLEMENTATION_TIMELINE.md` for the approved plan; do not create a separate
-task board.
-
-## 3. Start Working
-
-Always get the latest changes before starting:
-
-```bash
-git checkout dev
-git pull origin dev
-```
-
-Work on your assigned part of the project.
-
----
-
-## 4. Push Your Changes
-
-After completing your work:
-
-```bash
-git add .
-git commit -m "Describe your changes"
-git pull origin dev
-git push origin dev
-```
-
-Your changes will be pushed to the shared `dev` branch.
-
----
-
-## 5. Before Pushing
-
-Since everyone works on the same `dev` branch, always pull the latest changes before pushing:
-
-```bash
-git pull origin dev
-```
-
-If there are conflicts, resolve them, then:
-
-```bash
-git add .
-git commit -m "Resolve merge conflicts"
-git push origin dev
-```
-
----
-
-## 6. Merging into `main`
-
-Do **not** merge or push directly to `main`.
-
-When the `dev` branch is ready:
-
-1. The repository owner creates a Pull Request from `dev` → `main`.
-2. The owner reviews the changes.
-3. The owner merges the Pull Request.
-
-```text
-Team → dev → Pull Request → main
-                    ↓
-               Owner Review
-                    ↓
-                  Merge
-```
-
----
-
-## 7. Important
-
-### Do
-
-```bash
-git checkout dev
-git pull origin dev
-git add .
-git commit -m "Your message"
-git pull origin dev
-git push origin dev
-```
-
-### Don't
-
-```bash
-git push origin main
-```
-
-Always work on `dev`.
+Use synthetic resume content and non-sensitive demo data. Live AI usage may be
+subject to the quota and availability of the Gemini account associated with the
+configured API key.
