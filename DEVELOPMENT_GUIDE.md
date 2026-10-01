@@ -147,6 +147,29 @@ If the rebase reports conflicts, resolve them, stage the resolved files, and run
 to `main`. The repository owner creates and reviews the final pull request from
 the original repository's `dev` branch to `main`.
 
+### Repository owner: keep `dev` current
+
+In the normal workflow, changes begin on `dev` and reach `main` through a pull
+request, so contributors already have the approved content. If an exceptional
+hotfix, documentation update, or administrator bypass lands only on `main`, the
+owner must bring that change back into `dev` before contributors continue.
+
+With a clean working tree:
+
+```bash
+git fetch origin
+git switch dev
+git pull --ff-only origin dev
+git merge origin/main
+git push origin dev
+git switch main
+```
+
+When `dev` has no unique commits, the merge is a fast-forward and creates no
+merge commit. If `dev` has separate work, review and resolve the merge normally,
+run affected checks, and then push. Never reset or force-push shared `dev` to
+make it match `main`.
+
 ## 3. Environment Files
 
 The repository owner supplies both private files. After cloning, place them at
