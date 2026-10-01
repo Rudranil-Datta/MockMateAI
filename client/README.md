@@ -1,7 +1,9 @@
 # MockMateAI Client
 
-React/Vite client for MockMateAI. The root [README](../README.md) is the
-authoritative setup and workflow guide.
+React/Vite client for MockMateAI. Use the root [README](../README.md) for the
+public project overview and demo setup. Team members must use the
+[development guide](../DEVELOPMENT_GUIDE.md) for Git workflow, private
+environment-file placement, Codex usage, and contribution checks.
 
 ## Local commands
 
