@@ -57,7 +57,17 @@ if (
     "IMPLEMENTATION_STATUS.md must contain the current plan before the completed log.",
   );
 } else {
-  const currentPlan = status.slice(currentPlanStart, completedLogStart);
+  const currentPlanBodyStart =
+    currentPlanStart + "## Current Day Execution Plan".length;
+  const nextTopLevelSectionStart = status.indexOf(
+    "\n## ",
+    currentPlanBodyStart,
+  );
+  const currentPlanEnd =
+    nextTopLevelSectionStart === -1
+      ? completedLogStart
+      : Math.min(nextTopLevelSectionStart, completedLogStart);
+  const currentPlan = status.slice(currentPlanStart, currentPlanEnd);
 
   for (const requiredText of [
     "**Current status:**",
