@@ -19,24 +19,19 @@
 | Quota preservation | Caps, duplicate prevention, one controlled retry, short-lived compatible question cache, and per-user/IP/application limits | Reduces free-tier consumption without quota circumvention.                                                      |
 | Quota notification | `429 AI_QUOTA_EXCEEDED`, immediate in-app notice, and safe server log                                                       | Preserves user work and gives an honest retry path; V1 excludes external alerts and key rotation.               |
 
-## Future Storage Decision
+## Day 34 Resume Retention Decision
 
-**Status:** Deferred until deployment architecture is selected; local V1 development remains unchanged.
+**Status:** Implemented for the approved free-tier topology.
 
-Resume PDFs currently use private local backend storage configured by `RESUME_UPLOAD_DIR`. That is suitable for a single persistent development backend. Before deploying to an ephemeral, serverless, or multi-instance host, introduce a small storage adapter with `store`, `read`, and `delete` operations and move files to private object storage.
+Resume PDFs are temporary processing inputs, not retained application files. The backend stages each bounded upload under `RESUME_UPLOAD_DIR`, validates and extracts it during the request, persists only owned metadata plus validated extracted text in MongoDB, and deletes the raw PDF on success, extraction failure, validation failure, or persistence failure. A failed extraction requires a new upload. Legacy records may retain their old private `storage` field for compatibility, but new records do not write it.
 
-- Prefer an object-storage service such as S3, Cloudflare R2, or Google Cloud Storage for private document retention and lifecycle controls. Cloudinary is an acceptable future option only when its private/authenticated raw-file delivery and deletion controls meet the same requirements.
-- Keep the existing stored `provider` and opaque `key` model; do not persist public URLs or user-supplied filenames.
-- Keep provider credentials backend-only. Downloads, when required, must remain authorized through the API or use short-lived controlled URLs.
-- If files exist at migration time, copy each object, update its provider/key only after a successful copy, verify authorized read/delete behavior, and retain a rollback path until the migration is checked.
-
-This is a deployment/storage concern, not a reason to replace Multer: Multer remains the HTTP multipart parser at the API boundary, while the future adapter decides where accepted files are stored.
+This permits Render's ephemeral `/tmp` storage without a disk or object-store dependency. If raw-resume download or retention is later approved, reopen the decision and introduce private object storage with explicit authorization, deletion, lifecycle, migration, and rollback controls before retaining any new file.
 
 ## Resume Extraction Decision
 
 **Status:** Implemented for V1 local PDF extraction.
 
-Use `pdf-parse` on the backend only. Extraction remains synchronous with the bounded upload request but runs in a terminable resource-limited worker. Reject files above 5 MiB or 20 pages, process accepted pages sequentially, stop normalized accumulation at 50,000 characters, and terminate work before reporting the 5-second timeout. Parser crash/resource failures persist a recoverable safe `failed` state without exposing text or parser details. Question generation receives only an owned completed resume's normalized first 2,000 characters. OCR, cloud document parsing, and client-side extraction remain deferred.
+Use `pdf-parse` on the backend only. Extraction remains synchronous with the bounded upload request but runs in a terminable resource-limited worker. Reject files above 5 MiB or 20 pages, process accepted pages sequentially, stop normalized accumulation at 50,000 characters, and terminate work before reporting the 5-second timeout. Parser crash/resource failures persist a safe `failed` state without exposing text or parser details; the user may re-upload because the raw PDF is always deleted. Question generation receives only an owned completed resume's normalized first 2,000 characters. OCR, cloud document parsing, and client-side extraction remain deferred.
 
 ## Answer Evaluation Recovery Decision
 
@@ -64,9 +59,15 @@ After successful transcription, atomically consume the matching private complete
 
 Use a dependency-free bounded in-memory fixed-window limiter at route boundaries. Signup/login use a direct-IP bucket; AI-consuming interview actions use authenticated-user, direct-IP, and application buckets; resume and voice uploads use authenticated-user and direct-IP buckets before multipart parsing. Known reset times return `Retry-After`. Provider quota remains the separate `AI_QUOTA_EXCEEDED` contract.
 
-Configured production defaults are 20 authentication attempts per IP per 15 minutes, 20 AI actions per user and 60 per IP per hour, 200 application AI actions per UTC day, and 10 uploads per user and 30 per IP per hour. Counters reset on process restart and are not distributed. Day 34 must revisit this decision if hosting uses multiple API instances or requires trusted-proxy configuration.
+Configured production defaults are 20 authentication attempts per IP per 15 minutes, 20 AI actions per user and 60 per IP per hour, 200 application AI actions per UTC day, and 10 uploads per user and 30 per IP per hour. Day 34 retained the counters only for one free Render web-service process/instance, with `TRUST_PROXY=render` trusting one proxy hop so the right-most forwarded client address keys IP limits. Counters reset on sleep, restart, or redeploy and are not durable or distributed; externalize them before multiple processes/instances, horizontal scaling, or production-grade enforcement.
 
 Keep the V1 interview limit fixed at five questions and one answer per question. Cache only validated context-free first questions by interview type and level for 60 seconds by default, with a five-minute configuration ceiling. Do not cache feedback, transcription, resume context, or follow-up questions. Keep AI timeout between 1 and 20 seconds and perform zero automatic provider retries; explicit user retry retains existing operation identifiers and remains rate-limited.
+
+## Day 34 Free-Tier Hosting Decision
+
+**Status:** Implemented in repository configuration; external deployment awaits user action.
+
+Use one free Render static site, one free single-process Render Node web service, and the existing MongoDB Atlas free cluster. The static site rewrites `/api/*` to the API and all remaining routes to `index.html`; the browser therefore uses `VITE_API_BASE_URL=/api`. Production startup requires an explicit Atlas database name, exact HTTPS client origin, Render-only proxy mode, strong authentication secret, and absolute ephemeral upload directories. `GET /health` is process-only liveness. `GET /ready` performs a bounded MongoDB ping and returns only `ready` or `unavailable`. Free-service sleep/restart resets caches and counters and can cause cold starts; this topology is approved for demo/staging, not as durable quota enforcement.
 
 ## Deferred Decisions
 

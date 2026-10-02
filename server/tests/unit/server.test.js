@@ -29,6 +29,7 @@ describe("startServer", () => {
     const server = new EventEmitter();
     server.close = vi.fn();
     loadConfig.mockReturnValue({
+      mongoDbName: "mockmateai",
       mongoUri: "mongodb://localhost/mockmateai",
       port: 4444,
     });
@@ -42,6 +43,7 @@ describe("startServer", () => {
     await expect(startServer()).resolves.toBe(server);
     expect(connectToDatabase).toHaveBeenCalledWith(
       "mongodb://localhost/mockmateai",
+      { dbName: "mockmateai" },
     );
     expect(createApp).toHaveBeenCalledWith(
       expect.objectContaining({ port: 4444 }),

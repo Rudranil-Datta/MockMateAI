@@ -8,7 +8,6 @@ function validResume(overrides = {}) {
     mimeType: "application/pdf",
     originalName: "Asha-Kumar-Resume.pdf",
     sizeBytes: 124000,
-    storage: { key: "controlled-file-name.pdf", provider: "local" },
     userId: new mongoose.Types.ObjectId(),
     ...overrides,
   };
@@ -33,8 +32,12 @@ describe("Resume", () => {
       new Resume(validResume({ sizeBytes: 5 * 1024 * 1024 + 1 })).validate(),
     ).rejects.toThrow();
     await expect(
-      new Resume(validResume({ storage: { key: "file.pdf" } })).validate(),
-    ).rejects.toThrow();
+      new Resume(
+        validResume({
+          storage: { key: "legacy-file.pdf", provider: "local" },
+        }),
+      ).validate(),
+    ).resolves.toBeUndefined();
     await expect(
       new Resume(validResume({ userId: undefined })).validate(),
     ).rejects.toThrow();

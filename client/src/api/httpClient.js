@@ -1,7 +1,12 @@
 const defaultApiBaseUrl = "http://localhost:4444/api";
 
+export function resolveApiBaseUrl(configuredUrl, origin) {
+  return new URL(configuredUrl || defaultApiBaseUrl, origin).toString();
+}
+
 function getApiBaseUrl() {
-  return import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl;
+  const configuredUrl = import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl;
+  return resolveApiBaseUrl(configuredUrl, window.location.origin);
 }
 
 function parseResponseBody(responseText) {

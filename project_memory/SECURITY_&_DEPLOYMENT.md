@@ -15,11 +15,11 @@ React frontend (static hosting)
   ▼
 Node.js + Express API (managed application host)
   ├── MongoDB Atlas or another managed MongoDB instance
-  ├── Controlled file/object storage for approved resumes/audio, if retained
+  ├── Ephemeral bounded upload staging; raw resume/audio files are deleted
   └── Gemini Developer API (backend-only for V1)
 ```
 
-Use a separate deployment for the frontend and backend, with a managed MongoDB service. A single backend process/application is enough for V1; microservices, queues, containers, Kubernetes, and multi-region replication are not required.
+Day 34 selects a free Render static site, one free single-process Render web service, and the existing MongoDB Atlas free cluster. Raw resume/audio uploads use bounded ephemeral staging and are deleted before the request finishes. Microservices, queues, containers, Kubernetes, multi-region replication, paid disks, and object storage are not required for this approved demo/staging topology.
 
 ## Environment Configuration
 
@@ -30,6 +30,7 @@ Configure secrets through the deployment provider's environment-variable setting
 NODE_ENV=production
 PORT=4444
 MONGODB_URI=
+MONGODB_DB_NAME=mockmateai
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
 # Optional future provider; leave unset for Gemini-only V1
@@ -40,6 +41,8 @@ CLIENT_ORIGIN=https://app.example.com
 # Operational limits: choose conservative V1 values and document them
 MAX_RESUME_SIZE_BYTES=
 RESUME_UPLOAD_DIR=
+TRUST_PROXY=direct
+MONGODB_READINESS_TIMEOUT_MS=1000
 MAX_AUDIO_SIZE_BYTES=
 AI_REQUESTS_PER_USER_PER_HOUR=
 AI_REQUESTS_PER_IP_PER_HOUR=
@@ -95,9 +98,7 @@ Day 28 atomically consumes the matching completed transcript into one immutable 
 
 ### Resume Storage Migration Trigger
 
-The current `RESUME_UPLOAD_DIR` implementation is private local storage for development or one persistent backend instance. Before deploying to an ephemeral, serverless, or multi-instance host, move resume files behind a backend storage adapter to private object storage. S3, Cloudflare R2, or Google Cloud Storage are preferred for document retention; Cloudinary is a possible option only if private/authenticated raw-file delivery, deletion, and lifecycle controls are configured.
-
-Keep only an opaque provider/key in MongoDB, never public file URLs or user-supplied paths. Keep storage credentials server-side, authorize reads through the API or short-lived controlled URLs, and use a verified copy/update/rollback procedure for any existing files.
+`RESUME_UPLOAD_DIR` is temporary private staging. New uploads persist only safe metadata and validated extracted text in MongoDB, then delete the raw PDF on success or failure. Existing legacy `storage` metadata remains readable but is not written by new uploads. Any later raw-file retention feature requires an approved private object-storage design before implementation.
 
 ## Gemini Integration and Cost Controls
 
@@ -112,7 +113,7 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 - Day 29 rate-limits AI-consuming routes to 20 authenticated-user requests per hour and 60 direct-IP requests per hour. A 200-request application cap resets at UTC midnight. `AI_RATE_LIMITED` is distinct from provider-originated `AI_QUOTA_EXCEEDED`, and includes `Retry-After` while its reset is known.
 - Use a deterministic mock provider for UI development and automated tests, so routine development does not consume live Gemini quota.
 - Cache generated questions for 60 seconds by default, configurable up to five minutes, only when type/level compatibility is safe and no resume context or previous question exists. Never cache or share answer feedback, transcription, or resume content between users.
-- Day 29 tracks per-user, direct-IP, and application request counts in bounded process memory without logging prompt or answer content. This matches the approved single-process V1 deployment. Counters reset on process restart and are not shared across instances; Day 34 must replace or externalize them if the chosen host runs multiple API instances.
+- Day 29 tracks per-user, direct-IP, and application request counts in bounded process memory without logging prompt or answer content. Day 34 retains this only for one free Render process/instance and trusts exactly one Render proxy hop. Counters reset on sleep, restart, or redeploy and are not durable or shared; externalize them before scaling or production-grade quota enforcement.
 - Set `AI_REQUEST_TIMEOUT_MS` to a positive value no greater than 20,000 ms, below the 30-second generation/evaluation recovery lease. On timeout, provider error, quota exhaustion, or malformed output, return a retryable state—never invented feedback.
 - Avoid automatic unlimited retries. At most one controlled retry may be used for transient provider errors; subsequent attempts require an explicit user action and remain rate-limited.
 - On quota exhaustion, normalize the provider error to `429 AI_QUOTA_EXCEEDED`, preserve session state, log safe quota metadata, and show the active user an immediate in-app notification. V1 does not send external owner alerts or rotate keys/projects.
@@ -147,8 +148,8 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 
 ## Availability and Safe Failure Behaviour
 
-- Keep `GET /health` as a liveness check that reports basic API-process availability without exposing credentials or detailed infrastructure internals.
-- On Day 34, add a separate dependency-readiness endpoint such as `GET /ready`. It must verify that MongoDB can accept application traffic, return a safe `503` unavailable response when that dependency is not ready, and never expose connection strings, hostnames, credentials, driver errors, or topology details.
+- Keep `GET /health` as a liveness check that reports basic API-process availability without testing dependencies or exposing internals.
+- Use `GET /ready` for dependency readiness. It performs a bounded MongoDB ping, returns safe `200 ready` or `503 unavailable`, and never exposes connection strings, hostnames, credentials, driver errors, or topology details. Render health checks target `/ready`.
 - Treat MongoDB persistence as mandatory for operations that claim to create, answer, or complete a session. If saving fails, return failure rather than a misleading success response.
 - Make text input and evaluation the primary, best-tested path. Voice and resume enrichment must not block a user from completing a text-based interview.
 - Preserve an active session when a question/evaluation call fails so the user can retry rather than start over.

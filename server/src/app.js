@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 
+import { checkDatabaseReadiness } from "./config/db.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler.js";
 import { createRateLimit, getRequestIp } from "./middlewares/rateLimit.js";
 import { requestLogger } from "./middlewares/requestLogger.js";
@@ -10,6 +11,7 @@ import { createAnalyticsRouter } from "./routes/analyticsRoutes.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
 import healthRouter from "./routes/healthRoutes.js";
 import { createInterviewRouter } from "./routes/interviewRoutes.js";
+import { createReadinessRouter } from "./routes/readinessRoutes.js";
 import { createResumeRouter } from "./routes/resumeRoutes.js";
 import { createAiProviderService } from "./services/aiProviderService.js";
 import { createAnalyticsService } from "./services/analyticsService.js";
@@ -57,17 +59,20 @@ export function createApp({
   audioUploadDir = "/tmp/mockmateai-audio",
   authRequestsPerIpPer15Minutes = 10_000,
   clientOrigin = "http://localhost:5173",
+  databaseReadiness = checkDatabaseReadiness,
   geminiApiKey,
   geminiModel,
   geminiTranscriptionModel,
   jsonBodyLimitBytes = 100 * 1024,
   maxAudioSizeBytes = 5 * 1024 * 1024,
   maxResumeSizeBytes = 5 * 1024 * 1024,
+  mongodbReadinessTimeoutMs = 1000,
   questionCacheTtlMs = 60_000,
   rateLimitNow,
   resumeService,
   resumeUploadDir = "/tmp/mockmateai-resumes",
   transcriptionService,
+  trustProxy = "direct",
   uploadsPerIpPerHour = 10_000,
   uploadsPerUserPerHour = 10_000,
   voiceAnswerService,
@@ -160,6 +165,9 @@ export function createApp({
   });
 
   app.disable("x-powered-by");
+  if (trustProxy === "render") {
+    app.set("trust proxy", 1);
+  }
   app.use(requestLogger);
   app.use(helmet());
   app.use(cors(createCorsOptions(clientOrigin)));
@@ -193,6 +201,13 @@ export function createApp({
     }),
   );
   app.use("/health", healthRouter);
+  app.use(
+    "/ready",
+    createReadinessRouter({
+      checkReadiness: databaseReadiness,
+      timeoutMs: mongodbReadinessTimeoutMs,
+    }),
+  );
   app.use(notFoundHandler);
   app.use(errorHandler);
 

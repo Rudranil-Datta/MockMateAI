@@ -63,6 +63,30 @@ describe("Day 29 route limits", () => {
     expect(serializedLog).not.toContain("secure-password-123");
   });
 
+  it("uses only the client address selected by the single Render proxy hop", async () => {
+    const app = createApp({
+      authRequestsPerIpPer15Minutes: 1,
+      trustProxy: "render",
+    });
+
+    const first = await request(app)
+      .post("/api/auth/login")
+      .set("x-forwarded-for", "203.0.113.10, 198.51.100.20")
+      .send({ email: "missing@example.com", password: "secure-password-123" });
+    const spoofedLeftAddress = await request(app)
+      .post("/api/auth/login")
+      .set("x-forwarded-for", "203.0.113.99, 198.51.100.20")
+      .send({ email: "missing@example.com", password: "secure-password-123" });
+    const differentProxySelectedAddress = await request(app)
+      .post("/api/auth/login")
+      .set("x-forwarded-for", "203.0.113.10, 198.51.100.21")
+      .send({ email: "missing@example.com", password: "secure-password-123" });
+
+    expect(first.status).toBe(401);
+    expect(spoofedLeftAddress.status).toBe(429);
+    expect(differentProxySelectedAddress.status).toBe(401);
+  });
+
   it("limits authenticated AI actions before a second provider call", async () => {
     const generateQuestion = vi
       .fn()

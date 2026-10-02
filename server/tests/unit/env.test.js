@@ -7,6 +7,15 @@ const validEnvironment = {
   CLIENT_ORIGIN: "http://localhost:5173",
   MONGODB_URI: "mongodb://localhost:27017/mockmateai-test",
 };
+const validProductionEnvironment = {
+  ...validEnvironment,
+  AUDIO_UPLOAD_DIR: "/tmp/mockmateai-audio",
+  CLIENT_ORIGIN: "https://mockmateai.example",
+  MONGODB_DB_NAME: "mockmateai",
+  NODE_ENV: "production",
+  RESUME_UPLOAD_DIR: "/tmp/mockmateai-resumes",
+  TRUST_PROXY: "render",
+};
 
 describe("loadConfig", () => {
   it("returns validated local configuration", () => {
@@ -22,11 +31,14 @@ describe("loadConfig", () => {
       jsonBodyLimitBytes: 100 * 1024,
       maxAudioSizeBytes: 5 * 1024 * 1024,
       maxResumeSizeBytes: 5 * 1024 * 1024,
+      mongoDbName: "mockmateai-test",
+      mongodbReadinessTimeoutMs: 1000,
       nodeEnv: "development",
       port: 4444,
       questionCacheTtlMs: 60_000,
       uploadsPerIpPerHour: 30,
       uploadsPerUserPerHour: 10,
+      trustProxy: "direct",
     });
   });
 
@@ -39,22 +51,65 @@ describe("loadConfig", () => {
   });
 
   it("requires the selected provider key in production", () => {
-    expect(() =>
-      loadConfig({ ...validEnvironment, NODE_ENV: "production" }),
-    ).toThrow(new ConfigurationError("GEMINI_API_KEY must be configured."));
+    expect(() => loadConfig(validProductionEnvironment)).toThrow(
+      new ConfigurationError("GEMINI_API_KEY must be configured."),
+    );
   });
 
   it("rejects a weak production authentication secret", () => {
     expect(() =>
       loadConfig({
-        ...validEnvironment,
+        ...validProductionEnvironment,
         AI_PROVIDER: "mock",
         AUTH_SECRET: "too-short",
-        NODE_ENV: "production",
       }),
     ).toThrow(
       new ConfigurationError(
         "AUTH_SECRET must contain at least 32 bytes in production.",
+      ),
+    );
+  });
+
+  it("requires explicit production database, proxy, HTTPS, and upload paths", () => {
+    expect(() =>
+      loadConfig({
+        ...validProductionEnvironment,
+        AI_PROVIDER: "mock",
+        MONGODB_DB_NAME: "",
+        MONGODB_URI: "mongodb+srv://user:password@example.invalid/",
+      }),
+    ).toThrow(
+      new ConfigurationError(
+        "MONGODB_DB_NAME must be configured in production.",
+      ),
+    );
+    expect(() =>
+      loadConfig({
+        ...validProductionEnvironment,
+        AI_PROVIDER: "mock",
+        TRUST_PROXY: "direct",
+      }),
+    ).toThrow(
+      new ConfigurationError("TRUST_PROXY must be render in production."),
+    );
+    expect(() =>
+      loadConfig({
+        ...validProductionEnvironment,
+        AI_PROVIDER: "mock",
+        CLIENT_ORIGIN: "http://mockmateai.example",
+      }),
+    ).toThrow(
+      new ConfigurationError("CLIENT_ORIGIN must be a valid HTTP(S) origin."),
+    );
+    expect(() =>
+      loadConfig({
+        ...validProductionEnvironment,
+        AI_PROVIDER: "mock",
+        RESUME_UPLOAD_DIR: "relative/resumes",
+      }),
+    ).toThrow(
+      new ConfigurationError(
+        "RESUME_UPLOAD_DIR must be an absolute path in production.",
       ),
     );
   });

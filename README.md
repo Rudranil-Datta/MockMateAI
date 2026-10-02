@@ -126,6 +126,7 @@ Open:
 
 - **Application:** `http://localhost:5173`
 - **API health check:** `http://localhost:4444/health`
+- **API dependency readiness:** `http://localhost:4444/ready`
 
 Stop both processes with `Ctrl+C` when the demo is finished.
 

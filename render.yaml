@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: mockmateai-api-rudranil-datta
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run start --workspace=server
+    healthCheckPath: /ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: mockmateai
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: CLIENT_ORIGIN
+        value: https://mockmateai-web-rudranil-datta.onrender.com
+      - key: TRUST_PROXY
+        value: render
+      - key: RESUME_UPLOAD_DIR
+        value: /tmp/mockmateai/resumes
+      - key: AUDIO_UPLOAD_DIR
+        value: /tmp/mockmateai/audio
+      - key: MONGODB_READINESS_TIMEOUT_MS
+        value: 1000
+
+  - type: web
+    name: mockmateai-web-rudranil-datta
+    runtime: static
+    buildCommand: npm ci && npm run build --workspace=client
+    staticPublishPath: ./client/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: /api
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://mockmateai-api-rudranil-datta.onrender.com/api/*
+      - type: rewrite
+        source: /health
+        destination: https://mockmateai-api-rudranil-datta.onrender.com/health
+      - type: rewrite
+        source: /ready
+        destination: https://mockmateai-api-rudranil-datta.onrender.com/ready
+      - type: rewrite
+        source: /*
+        destination: /index.html

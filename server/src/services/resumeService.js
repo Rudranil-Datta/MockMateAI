@@ -84,8 +84,6 @@ export function createResumeService({
         );
       }
 
-      let isPersisted = false;
-
       try {
         if (!(await hasPdfSignature(file.path))) {
           throw new AppError(
@@ -95,91 +93,30 @@ export function createResumeService({
           );
         }
 
-        let resume = await resumeModel.create({
-          extractionStatus: "pending",
+        let extraction;
+        try {
+          extraction = {
+            extractedText: await extractPdfText(file.path),
+            extractionStatus: "completed",
+          };
+        } catch {
+          extraction = {
+            extractionError: safeExtractionError,
+            extractionStatus: "failed",
+          };
+        }
+
+        const resume = await resumeModel.create({
+          ...extraction,
           mimeType: file.mimetype,
           originalName: safeOriginalName(file.originalname),
           sizeBytes: file.size,
-          storage: { key: file.filename, provider: "local" },
-          userId,
-        });
-        isPersisted = true;
-
-        resume = await service.extractPendingResume({
-          path: file.path,
-          resumeId: resume.id,
           userId,
         });
 
         return toSafeResume(resume);
-      } catch (error) {
-        if (!isPersisted) {
-          await removeStoredFile(file.path);
-        }
-        throw error;
-      }
-    },
-
-    async extractPendingResume({ path, resumeId, userId }) {
-      const pendingResume = await resumeModel.findOne({
-        ...getOwnedResourceFilter(resumeId, userId),
-        extractionStatus: "pending",
-      });
-
-      if (!pendingResume) {
-        throw new AppError("RESUME_NOT_FOUND", "Resume not found.", {
-          status: 404,
-        });
-      }
-
-      try {
-        const extractedText = await extractPdfText(path);
-        const completedResume = await resumeModel.findOneAndUpdate(
-          {
-            ...getOwnedResourceFilter(resumeId, userId),
-            extractionStatus: "pending",
-          },
-          {
-            $set: { extractedText, extractionStatus: "completed" },
-            $unset: { extractionError: "" },
-          },
-          { returnDocument: "after", runValidators: true },
-        );
-
-        if (!completedResume) {
-          throw new AppError("RESUME_EXTRACTION_CONFLICT", "Resume changed.", {
-            status: 409,
-          });
-        }
-
-        return completedResume;
-      } catch (error) {
-        if (error instanceof AppError) {
-          throw error;
-        }
-
-        const failedResume = await resumeModel.findOneAndUpdate(
-          {
-            ...getOwnedResourceFilter(resumeId, userId),
-            extractionStatus: "pending",
-          },
-          {
-            $set: {
-              extractionError: safeExtractionError,
-              extractionStatus: "failed",
-            },
-            $unset: { extractedText: "" },
-          },
-          { returnDocument: "after", runValidators: true },
-        );
-
-        if (!failedResume) {
-          throw new AppError("RESUME_EXTRACTION_CONFLICT", "Resume changed.", {
-            status: 409,
-          });
-        }
-
-        return failedResume;
+      } finally {
+        await removeStoredFile(file.path);
       }
     },
 

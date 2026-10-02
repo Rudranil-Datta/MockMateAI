@@ -59,7 +59,6 @@ const resumeSchema = new mongoose.Schema(
       type: Number,
     },
     storage: {
-      required: true,
       type: storageSchema,
     },
     userId: {

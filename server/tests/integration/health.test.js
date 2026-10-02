@@ -1,7 +1,7 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import app from "../../src/app.js";
+import app, { createApp } from "../../src/app.js";
 
 describe("GET /health", () => {
   it("returns a safe health response", async () => {
@@ -101,5 +101,59 @@ describe("GET /health", () => {
         message: "Route not found.",
       },
     });
+  });
+});
+
+describe("GET /ready", () => {
+  it("reports readiness only when MongoDB responds", async () => {
+    const readyApp = createApp({
+      databaseReadiness: async () => true,
+      mongodbReadinessTimeoutMs: 321,
+    });
+    const unavailableApp = createApp({
+      databaseReadiness: async () => false,
+    });
+
+    const readyResponse = await request(readyApp).get("/ready");
+    const unavailableResponse = await request(unavailableApp).get("/ready");
+
+    expect(readyResponse.status).toBe(200);
+    expect(readyResponse.body).toEqual({ status: "ready" });
+    expect(unavailableResponse.status).toBe(503);
+    expect(unavailableResponse.body).toEqual({ status: "unavailable" });
+  });
+
+  it("configures the single trusted Render proxy boundary explicitly", () => {
+    expect(createApp().get("trust proxy")).toBe(false);
+    expect(createApp({ trustProxy: "render" }).get("trust proxy")).toBe(1);
+  });
+});
+
+describe("request logging", () => {
+  it("accepts bounded request IDs and replaces unsafe values", async () => {
+    const safeResponse = await request(app)
+      .get("/health")
+      .set("x-request-id", "render-request_123");
+    const unsafeRequestId = "x".repeat(129);
+    const unsafeResponse = await request(app)
+      .get("/health")
+      .set("x-request-id", unsafeRequestId);
+
+    expect(safeResponse.headers["x-request-id"]).toBe("render-request_123");
+    expect(unsafeResponse.headers["x-request-id"]).not.toBe(unsafeRequestId);
+    expect(unsafeResponse.headers["x-request-id"]).toMatch(/^[a-f0-9-]{36}$/);
+  });
+
+  it("does not log query values or unsafe supplied request IDs", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const unsafeRequestId = "private-token-".repeat(20);
+
+    await request(app)
+      .get("/health?password=private-password")
+      .set("x-request-id", unsafeRequestId);
+
+    const loggedData = JSON.stringify(infoSpy.mock.calls);
+    expect(loggedData).not.toContain("private-password");
+    expect(loggedData).not.toContain(unsafeRequestId);
   });
 });

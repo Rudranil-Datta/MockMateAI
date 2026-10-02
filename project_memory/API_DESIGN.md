@@ -46,6 +46,8 @@ Use suitable HTTP status codes:
 
 Raw database, provider, and stack errors must not be exposed to clients.
 
+`GET /health` is an unauthenticated process-liveness endpoint and returns `200 { "status": "ok" }` without testing dependencies. `GET /ready` is separate readiness: it performs a bounded MongoDB ping and returns `200 { "status": "ready" }` or `503 { "status": "unavailable" }` without dependency details.
+
 ### AI quota exhaustion response
 
 When the configured provider rejects a request because its quota is exhausted, preserve the session/answer state and return:
@@ -125,7 +127,7 @@ Malformed JSON is rejected before route validation with `400 MALFORMED_JSON` and
 
 ### `POST /api/resumes`
 
-Uploads a supported resume, creates owned `pending` metadata, and performs bounded local text extraction before responding. The safe response reports `completed` or `failed`; a failed extraction preserves the owned upload for a future retry and never returns parser details.
+Uploads a supported resume and performs bounded local text extraction before persisting owned final metadata. The safe response reports `completed` or `failed`; the raw PDF is temporary and deleted before the request finishes on every outcome. A failed extraction requires re-upload and never returns parser details.
 
 - Content type: `multipart/form-data`
 - Required field: `resume`
@@ -145,7 +147,7 @@ Uploads a supported resume, creates owned `pending` metadata, and performs bound
 }
 ```
 
-Reject missing, empty, unsupported, invalid-signature, oversized, multiple, or unexpected-field uploads before persistence. Multiple or unexpected files return `400 INVALID_RESUME_UPLOAD`; unsupported types return `415`, and oversized files return `413`. Local extraction rejects documents above 20 pages, processes accepted pages one at a time, stops normalized accumulation at 50,000 characters, and runs in a resource-limited worker that is terminated before a 5-second timeout is reported. Treat malformed, password-protected, image-only, empty-text, timed-out, crashed, or resource-exhausted parsing as a safe recoverable `failed` state. Do not return extracted resume text, extraction details, or internal storage references.
+Reject missing, empty, unsupported, invalid-signature, oversized, multiple, or unexpected-field uploads before persistence. Multiple or unexpected files return `400 INVALID_RESUME_UPLOAD`; unsupported types return `415`, and oversized files return `413`. Local extraction rejects documents above 20 pages, processes accepted pages one at a time, stops normalized accumulation at 50,000 characters, and runs in a resource-limited worker that is terminated before a 5-second timeout is reported. Treat malformed, password-protected, image-only, empty-text, timed-out, crashed, or resource-exhausted parsing as a safe `failed` state. Delete temporary raw bytes on every path. Do not return extracted resume text, extraction details, or legacy internal storage references.
 
 ### `GET /api/resumes`
 

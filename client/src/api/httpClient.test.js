@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { apiRequest, ApiError, healthRequest } from "./httpClient.js";
+import {
+  apiRequest,
+  ApiError,
+  healthRequest,
+  resolveApiBaseUrl,
+} from "./httpClient.js";
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -10,6 +15,12 @@ function jsonResponse(body, status = 200) {
 }
 
 describe("apiRequest", () => {
+  it("resolves a deployment same-origin API path", () => {
+    expect(resolveApiBaseUrl("/api", "https://mockmateai.example")).toBe(
+      "https://mockmateai.example/api",
+    );
+  });
+
   it("returns a successful JSON response", async () => {
     const fetchImpl = vi
       .fn()

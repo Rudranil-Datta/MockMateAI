@@ -11,7 +11,7 @@ Separate collections are used for users and resumes because they have independen
 | Collection          | Purpose                                                          | Primary relationship                          |
 | ------------------- | ---------------------------------------------------------------- | --------------------------------------------- |
 | `users`             | Accounts and basic interview preferences                         | Owns resumes and interview sessions           |
-| `resumes`           | Resume metadata, controlled file reference, and extracted text   | Belongs to one user                           |
+| `resumes`           | Resume metadata and extracted text                               | Belongs to one user                           |
 | `interviewSessions` | Interview setup, questions, answers, feedback, and final summary | Belongs to one user; may reference one resume |
 
 All application records include `createdAt` and `updatedAt` timestamps. IDs below are MongoDB `ObjectId` values unless otherwise stated.
@@ -61,9 +61,9 @@ Represents a resume uploaded by a user and the extracted text that can be used a
   originalName: String,                 // required
   mimeType: String,                     // required; allow-list only
   sizeBytes: Number,                    // required; positive and capped
-  storage: {
-    provider: String,                   // e.g. local-dev or configured object store
-    key: String                          // controlled internal file reference
+  storage: {                             // optional legacy field; not written by new uploads
+    provider: String,
+    key: String
   },
   extractedText: String,                // required after successful extraction
   extractionStatus: String,             // pending | completed | failed
@@ -77,7 +77,7 @@ Represents a resume uploaded by a user and the extracted text that can be used a
 
 - Validate authentication, ownership, content type, file extension/signature as appropriate, and the 5 MiB upload/extraction file limit before saving or extracting.
 - `userId` is required and must be taken from the authenticated request—not a client-supplied ownership field.
-- Reject PDFs above 20 pages. Extract accepted pages sequentially and stop normalized accumulation at 50,000 characters; the model independently rejects blank or oversized completed text. `completed` requires extracted text; `failed` stores only the safe operational message needed for recovery.
+- Reject PDFs above 20 pages. Extract accepted pages sequentially and stop normalized accumulation at 50,000 characters; the model independently rejects blank or oversized completed text. `completed` requires extracted text; `failed` stores only a safe operational message. Delete the temporary raw PDF on every request outcome; a failed extraction requires re-upload.
 - Index: `{ userId: 1, createdAt: -1 }` for a user's resume list.
 - Do not return `extractedText` unless the client genuinely needs it; question generation reads it only on the backend.
 

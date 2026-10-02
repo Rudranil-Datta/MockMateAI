@@ -1,7 +1,9 @@
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 
 const allowedAiProviders = new Set(["gemini", "mock"]);
+const allowedNodeEnvironments = new Set(["development", "production", "test"]);
+const allowedTrustProxyModes = new Set(["direct", "render"]);
 const defaultResumeUploadDir = fileURLToPath(
   new URL("../../uploads/resumes", import.meta.url),
 );
@@ -52,7 +54,32 @@ function parseMongoUri(value) {
   return uri;
 }
 
-function parseClientOrigin(environment) {
+function parseMongoDbName(environment, mongoUri, nodeEnv) {
+  let dbName = environment.MONGODB_DB_NAME?.trim();
+
+  if (!dbName) {
+    try {
+      dbName = decodeURIComponent(new URL(mongoUri).pathname.slice(1));
+    } catch {
+      dbName = "";
+    }
+  }
+
+  if (!dbName && nodeEnv === "production") {
+    throw new ConfigurationError(
+      "MONGODB_DB_NAME must be configured in production.",
+    );
+  }
+
+  dbName ||= "mockmateai";
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(dbName)) {
+    throw new ConfigurationError("MONGODB_DB_NAME is invalid.");
+  }
+
+  return dbName;
+}
+
+function parseClientOrigin(environment, nodeEnv) {
   const origin = requiredValue(environment, "CLIENT_ORIGIN");
 
   try {
@@ -61,12 +88,31 @@ function parseClientOrigin(environment) {
       throw new Error("Unsupported protocol");
     }
 
+    if (nodeEnv === "production" && url.protocol !== "https:") {
+      throw new Error("HTTPS required");
+    }
+
     return url.origin;
   } catch {
     throw new ConfigurationError(
       "CLIENT_ORIGIN must be a valid HTTP(S) origin.",
     );
   }
+}
+
+function parseUploadDirectory(environment, name, defaultValue, nodeEnv) {
+  const configuredValue = environment[name]?.trim();
+  if (nodeEnv === "production" && !configuredValue) {
+    throw new ConfigurationError(`${name} must be configured in production.`);
+  }
+
+  if (nodeEnv === "production" && !isAbsolute(configuredValue)) {
+    throw new ConfigurationError(
+      `${name} must be an absolute path in production.`,
+    );
+  }
+
+  return resolve(configuredValue || defaultValue);
 }
 
 function parseAuthSecret(environment, nodeEnv) {
@@ -102,14 +148,30 @@ export function loadConfig(environment = process.env) {
   const nodeEnv = environment.NODE_ENV?.trim() || "development";
   const aiProvider = environment.AI_PROVIDER?.trim() || "gemini";
 
+  if (!allowedNodeEnvironments.has(nodeEnv)) {
+    throw new ConfigurationError(
+      "NODE_ENV must be development, test, or production.",
+    );
+  }
+
   if (!allowedAiProviders.has(aiProvider)) {
     throw new ConfigurationError("AI_PROVIDER must be gemini or mock.");
+  }
+
+  const mongoUri = parseMongoUri(environment);
+  const trustProxy = environment.TRUST_PROXY?.trim() || "direct";
+  if (!allowedTrustProxyModes.has(trustProxy)) {
+    throw new ConfigurationError("TRUST_PROXY must be direct or render.");
+  }
+  if (nodeEnv === "production" && trustProxy !== "render") {
+    throw new ConfigurationError("TRUST_PROXY must be render in production.");
   }
 
   const config = {
     nodeEnv,
     port: parsePort(environment.PORT),
-    mongoUri: parseMongoUri(environment),
+    mongoDbName: parseMongoDbName(environment, mongoUri, nodeEnv),
+    mongoUri,
     aiProvider,
     aiRequestsPerDay: optionalPositiveInteger(
       environment.AI_REQUESTS_PER_DAY,
@@ -136,7 +198,7 @@ export function loadConfig(environment = process.env) {
       20,
       1_000,
     ),
-    clientOrigin: parseClientOrigin(environment),
+    clientOrigin: parseClientOrigin(environment, nodeEnv),
     aiRequestTimeoutMs: optionalPositiveInteger(
       environment.AI_REQUEST_TIMEOUT_MS,
       "AI_REQUEST_TIMEOUT_MS",
@@ -166,18 +228,31 @@ export function loadConfig(environment = process.env) {
       5 * 1024 * 1024,
       5 * 1024 * 1024,
     ),
+    mongodbReadinessTimeoutMs: optionalPositiveInteger(
+      environment.MONGODB_READINESS_TIMEOUT_MS,
+      "MONGODB_READINESS_TIMEOUT_MS",
+      1000,
+      5000,
+    ),
     questionCacheTtlMs: optionalPositiveInteger(
       environment.QUESTION_CACHE_TTL_MS,
       "QUESTION_CACHE_TTL_MS",
       60_000,
       5 * 60_000,
     ),
-    resumeUploadDir: resolve(
-      environment.RESUME_UPLOAD_DIR?.trim() || defaultResumeUploadDir,
+    resumeUploadDir: parseUploadDirectory(
+      environment,
+      "RESUME_UPLOAD_DIR",
+      defaultResumeUploadDir,
+      nodeEnv,
     ),
-    audioUploadDir: resolve(
-      environment.AUDIO_UPLOAD_DIR?.trim() || defaultAudioUploadDir,
+    audioUploadDir: parseUploadDirectory(
+      environment,
+      "AUDIO_UPLOAD_DIR",
+      defaultAudioUploadDir,
+      nodeEnv,
     ),
+    trustProxy,
     uploadsPerIpPerHour: optionalPositiveInteger(
       environment.UPLOADS_PER_IP_PER_HOUR,
       "UPLOADS_PER_IP_PER_HOUR",

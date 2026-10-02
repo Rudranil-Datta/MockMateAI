@@ -270,9 +270,27 @@ Local addresses:
 
 - Application: `http://localhost:5173`
 - API health check: `http://localhost:4444/health`
+- API dependency readiness: `http://localhost:4444/ready`
 
 Stop each process with `Ctrl+C`. Do not leave development or test servers
 running after the work session.
+
+### Free-tier Render and Atlas preparation
+
+The tracked `render.yaml` defines one free Node web service and one Render static site. It does not contain credentials and does not deploy automatically merely because the file exists.
+
+Before creating the Blueprint:
+
+1. In Atlas, create a dedicated application database user with read/write access limited to `mockmateai`. Keep its password private. The older administrator URI may remain local, but do not use that broader credential in Render.
+2. Keep Atlas network access at the narrowest range Render can reliably use. If the free service has no stable outbound range, `0.0.0.0/0` may be a disclosed demo constraint; compensate with the least-privilege database user and a strong unique password.
+3. In Render, choose **New > Blueprint**, select only this repository, and review both services before applying. Confirm the API service says `Free`; static sites do not have a compute plan.
+4. Supply `MONGODB_URI` and `GEMINI_API_KEY` only in Render's secret prompts. Do not put either value in Git, the static-site environment, screenshots, logs, or chat. Render generates `AUTH_SECRET` from the Blueprint.
+5. If either Blueprint service name is unavailable, change both the service name and every matching URL in `render.yaml`: the backend name, frontend name, `CLIENT_ORIGIN`, and `/api/*` rewrite destination must agree exactly.
+6. Keep `MONGODB_DB_NAME=mockmateai`, `TRUST_PROXY=render`, `RESUME_UPLOAD_DIR=/tmp/mockmateai/resumes`, and `AUDIO_UPLOAD_DIR=/tmp/mockmateai/audio`. New resume uploads retain metadata and extracted text in Atlas but delete the raw PDF from temporary storage.
+7. Disable automatic Blueprint sync until the first manual deployment review is complete. Apply the Blueprint only after the repository changes are committed and deployment is explicitly approved.
+8. After deployment, verify the API `/health` returns liveness, `/ready` returns readiness, the frontend deep-link refresh serves the SPA, and the browser can sign up and remain authenticated through `/api`. Do not run the Day 35 real-device voice or second-browser authentication checks during Day 34.
+
+Free Render services can sleep, restart, and cold-start. Each restart resets the Day 29 in-memory rate counters and short-lived question cache. Use this topology for demo/staging only; externalize counters before scaling or relying on them as durable production quotas.
 
 ## 5. Using Codex and Caveman
 

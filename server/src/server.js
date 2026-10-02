@@ -8,7 +8,7 @@ import { loadConfig } from "./config/env.js";
 
 export async function startServer() {
   const config = loadConfig();
-  await connectToDatabase(config.mongoUri);
+  await connectToDatabase(config.mongoUri, { dbName: config.mongoDbName });
 
   const server = createApp(config).listen(config.port);
   try {
