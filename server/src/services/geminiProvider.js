@@ -48,7 +48,14 @@ export function buildQuestionPrompt({
     `Level: ${level}`,
     "Avoid repeating these prior questions:",
     quotedList(previousQuestions),
-    resumeContext ? `Optional bounded resume context:\n${resumeContext}` : null,
+    resumeContext
+      ? [
+          `Bounded resume context:\n${resumeContext}`,
+          "Meaningfully tailor the question using at least one relevant non-personal technical skill, technology, or project detail from this context.",
+          "Use only details explicitly present in the context; do not invent experience.",
+          "Do not reveal names, contact details, or other personal data.",
+        ].join("\n")
+      : null,
     'Return JSON only. It must match this shape: {"prompt": "question text"}.',
     "Do not include an answer, scoring, hiring advice, markdown, or extra fields.",
   ]

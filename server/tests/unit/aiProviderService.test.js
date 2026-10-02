@@ -81,6 +81,36 @@ describe("aiProviderService", () => {
     );
   });
 
+  it("requires safe resume grounding only for context-aware questions", async () => {
+    const generateContent = vi.fn().mockResolvedValue({
+      text: '{"prompt":"How would you test a Node.js queue implementation?"}',
+    });
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent,
+    });
+
+    await service.generateQuestion({
+      ...dsaInput,
+      resumeContext: "Backend engineer using Node.js and MongoDB.",
+    });
+    await service.generateQuestion(dsaInput);
+
+    const contextPrompt = generateContent.mock.calls[0][0].contents;
+    const genericPrompt = generateContent.mock.calls[1][0].contents;
+    expect(contextPrompt).toContain(
+      "Meaningfully tailor the question using at least one relevant non-personal technical skill, technology, or project detail from this context.",
+    );
+    expect(contextPrompt).toContain(
+      "Use only details explicitly present in the context; do not invent experience.",
+    );
+    expect(contextPrompt).toContain(
+      "Do not reveal names, contact details, or other personal data.",
+    );
+    expect(genericPrompt).not.toContain("Meaningfully tailor the question");
+    expect(genericPrompt).not.toContain("resume context");
+  });
+
   it("reuses only compatible context-free questions", async () => {
     const generateContent = vi.fn().mockResolvedValue({
       text: '{"prompt":"How would you test a queue implementation?"}',
