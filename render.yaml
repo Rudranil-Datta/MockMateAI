@@ -7,6 +7,8 @@ services:
     startCommand: npm run start --workspace=server
     healthCheckPath: /ready
     envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
@@ -15,6 +17,12 @@ services:
         value: mockmateai
       - key: GEMINI_API_KEY
         sync: false
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_TRANSCRIPTION_MODEL
+        value: gemini-3.6-flash
       - key: AUTH_SECRET
         generateValue: true
       - key: CLIENT_ORIGIN
@@ -34,6 +42,8 @@ services:
     buildCommand: npm ci && npm run build --workspace=client
     staticPublishPath: ./client/dist
     envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
       - key: VITE_API_BASE_URL
         value: /api
     routes:
