@@ -63,6 +63,12 @@ Configured production defaults are 20 authentication attempts per IP per 15 minu
 
 Keep the V1 interview limit fixed at five questions and one answer per question. Cache only validated context-free first questions by interview type and level for 60 seconds by default, with a five-minute configuration ceiling. Do not cache feedback, transcription, resume context, or follow-up questions. Keep AI timeout between 1 and 20 seconds and perform zero automatic provider retries; explicit user retry retains existing operation identifiers and remains rate-limited.
 
+## G36-F08 Transient Retry Decision
+
+**Status:** Implemented locally; deployed verification pending.
+
+G36-F08 supersedes the Day 29 zero-automatic-retry rule only for question generation and typed evaluation: retry `provider_unavailable` exactly once after a randomized 500–1,000 ms delay, within the original total timeout, and only when at least 3,000 ms remains after backoff. Voice, quota, timeout, authentication, permission, model-not-found, rejected, invalid-response, and unknown failures remain single-attempt. A final failure retains the explicit user retry with the original operation identifier and outer-request rate-limit accounting. This bounded retry may create a second billed provider call but cannot create an additional outer rate-limit charge, database claim, answer, question, or feedback record.
+
 ## Day 34 Free-Tier Hosting Decision
 
 **Status:** Implemented in repository configuration; external deployment awaits user action.

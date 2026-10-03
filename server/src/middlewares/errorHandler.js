@@ -1,3 +1,10 @@
+import {
+  getRequestDurationMs,
+  getRequestLogPath,
+  markRequestFailureLogged,
+} from "./requestLogger.js";
+import { isProviderErrorCategory } from "../utils/AppError.js";
+
 export function notFoundHandler(request, _response, next) {
   const error = new Error("Route not found.");
   error.status = 404;
@@ -30,13 +37,17 @@ export function errorHandler(error, request, response, _next) {
         ? "Request is too large."
         : error.message;
 
+  markRequestFailureLogged(request);
   console.error("API request failed.", {
     requestId: request.requestId,
     method: request.method,
-    path: request.path,
+    path: getRequestLogPath(request),
     status,
     code,
-    errorName: error.name,
+    durationMs: getRequestDurationMs(request),
+    ...(isProviderErrorCategory(error.errorCategory)
+      ? { errorCategory: error.errorCategory }
+      : {}),
   });
 
   response.status(status).json({

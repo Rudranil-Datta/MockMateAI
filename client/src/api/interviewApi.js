@@ -85,6 +85,7 @@ export function startInterview({
       ...(resumeId ? { resumeId } : {}),
     },
     method: "POST",
+    timeoutMs: 25_000,
   });
 }
 
@@ -97,6 +98,7 @@ export function submitTextAnswer({
   return apiRequest(`interviews/${interviewId}/answers`, {
     body: { idempotencyKey, questionId, text },
     method: "POST",
+    timeoutMs: 25_000,
   });
 }
 
@@ -139,6 +141,7 @@ export function generateNextQuestion({ idempotencyKey, interviewId } = {}) {
   return apiRequest(`interviews/${interviewId}/questions`, {
     body: { idempotencyKey },
     method: "POST",
+    timeoutMs: 25_000,
   });
 }
 

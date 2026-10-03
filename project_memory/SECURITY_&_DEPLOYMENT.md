@@ -114,8 +114,8 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 - Use a deterministic mock provider for UI development and automated tests, so routine development does not consume live Gemini quota.
 - Cache generated questions for 60 seconds by default, configurable up to five minutes, only when type/level compatibility is safe and no resume context or previous question exists. Never cache or share answer feedback, transcription, or resume content between users.
 - Day 29 tracks per-user, direct-IP, and application request counts in bounded process memory without logging prompt or answer content. Day 34 retains this only for one free Render process/instance and trusts exactly one Render proxy hop. Counters reset on sleep, restart, or redeploy and are not durable or shared; externalize them before scaling or production-grade quota enforcement.
-- Set `AI_REQUEST_TIMEOUT_MS` to a positive value no greater than 20,000 ms, below the 30-second generation/evaluation recovery lease. On timeout, provider error, quota exhaustion, or malformed output, return a retryable state—never invented feedback.
-- Avoid automatic unlimited retries. At most one controlled retry may be used for transient provider errors; subsequent attempts require an explicit user action and remain rate-limited.
+- Set `AI_REQUEST_TIMEOUT_MS` to a positive value no greater than 20,000 ms, below the 30-second generation/evaluation recovery lease; production uses 20,000 ms. This is one total provider-operation budget, not a per-attempt budget. On timeout, provider error, quota exhaustion, or malformed output, return a retryable state—never invented feedback.
+- Question generation and typed evaluation retry exactly once only after `provider_unavailable`, with randomized 500–1,000 ms backoff and at least 3,000 ms required for the second attempt. The second adapter deadline receives only the remaining total budget. Voice and every other provider category remain single-attempt. The UI keeps one pending action; only final failure asks the user to retry. The retry stays inside the original claim/idempotency boundary and counts as one outer rate-limited request, but may create a second billed provider call.
 - On quota exhaustion, normalize the provider error to `429 AI_QUOTA_EXCEEDED`, preserve session state, log safe quota metadata, and show the active user an immediate in-app notification. V1 does not send external owner alerts or rotate keys/projects.
 - Signup and login allow 20 attempts per direct IP per 15 minutes. Resume and voice uploads allow 10 attempts per authenticated user and 30 per direct IP per hour. Rate-limited uploads are rejected before multipart parsing or disk writes.
 - Standard JSON bodies are limited to 100 KiB. Resume and voice multipart bodies keep their independent 5 MiB file ceilings and strict field/file-count limits.
@@ -158,7 +158,7 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 
 ## Logging, Monitoring, and Backups
 
-- Log request IDs, route, status, latency, safe user/resource IDs where necessary, upload outcome, and AI operation outcome.
+- Log one terminal event per request with request ID, query-free full route, status, rounded latency, public error code on failure, and allow-listed provider category when present. Capture the route before router mutation; never emit both completion and failure entries for one handled failure.
 - Never log passwords, auth tokens, Gemini/OpenAI keys, database URIs, full resume text, or full answer text by default.
 - Configure error monitoring or at minimum managed-host logs, and review failures during development.
 - Monitor AI requests, errors, timeouts, database connection errors, and storage usage against the chosen provider limits.

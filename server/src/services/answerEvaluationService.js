@@ -194,12 +194,15 @@ export function createAnswerEvaluationService({ aiProviderService }) {
 
       if (!evaluationOutput) {
         try {
-          const feedback = await aiProviderService.evaluateAnswer({
-            answer: answer.text,
-            interviewType: claimedSession.interviewType,
-            level: claimedSession.level,
-            question: claimedSession.questions.id(questionId).prompt,
-          });
+          const feedback = await aiProviderService.evaluateAnswer(
+            {
+              answer: answer.text,
+              interviewType: claimedSession.interviewType,
+              level: claimedSession.level,
+              question: claimedSession.questions.id(questionId).prompt,
+            },
+            { retryUnavailable: answer.inputMode === "text" },
+          );
           evaluationOutput = { ...feedback, evaluatedAt: new Date() };
 
           const stagedSession = await InterviewSession.findOneAndUpdate(

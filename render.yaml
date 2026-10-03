@@ -24,7 +24,7 @@ services:
       - key: GEMINI_TRANSCRIPTION_MODEL
         value: gemini-3.6-flash
       - key: AI_REQUEST_TIMEOUT_MS
-        value: 8000
+        value: 20000
       - key: QUESTION_CACHE_TTL_MS
         value: 60000
       - key: AI_REQUESTS_PER_USER_PER_HOUR

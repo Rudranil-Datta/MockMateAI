@@ -93,10 +93,13 @@ export function createGeminiProvider({
     generateContent || ((request) => client.models.generateContent(request));
 
   return {
-    async generateQuestion(input) {
+    async generateQuestion(
+      input,
+      { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
+    ) {
       const response = await requestContent({
         config: {
-          abortSignal: AbortSignal.timeout(timeoutMs),
+          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
           candidateCount: 1,
           maxOutputTokens: 240,
           responseJsonSchema: questionJsonSchema,
@@ -119,10 +122,13 @@ export function createGeminiProvider({
       }
     },
 
-    async evaluateAnswer(input) {
+    async evaluateAnswer(
+      input,
+      { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
+    ) {
       const response = await requestContent({
         config: {
-          abortSignal: AbortSignal.timeout(timeoutMs),
+          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
           candidateCount: 1,
           maxOutputTokens: 600,
           responseJsonSchema: evaluationJsonSchema,

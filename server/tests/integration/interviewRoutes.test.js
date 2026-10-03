@@ -1167,6 +1167,10 @@ describe("interview session routes", () => {
       text: "A hash map uses buckets.",
     });
     expect(evaluateAnswer).toHaveBeenCalledTimes(2);
+    expect(evaluateAnswer.mock.calls.map(([, options]) => options)).toEqual([
+      { retryUnavailable: true },
+      { retryUnavailable: true },
+    ]);
   });
 
   it("requires an answer operation key and rejects oversized text before persistence", async () => {

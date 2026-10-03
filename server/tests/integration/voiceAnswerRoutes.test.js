@@ -245,6 +245,10 @@ describe("POST /api/interviews/:id/voice-answers", () => {
     });
     expect(transcribe).toHaveBeenCalledTimes(1);
     expect(evaluateAnswer).toHaveBeenCalledTimes(2);
+    expect(evaluateAnswer.mock.calls.map(([, options]) => options)).toEqual([
+      { retryUnavailable: false },
+      { retryUnavailable: false },
+    ]);
 
     const saved = await InterviewSession.findById(started.interview.id);
     expect(saved.questions.id(started.question.id).answers).toHaveLength(1);
