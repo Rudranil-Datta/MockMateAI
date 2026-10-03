@@ -9,8 +9,8 @@ The day numbering follows [IMPLEMENTATION_TIMELINE.md](IMPLEMENTATION_TIMELINE.m
 ## Current Day Execution Plan
 
 **Timeline position:** Revised Week 8, Day 36 — blocker closure and demo preparation
-**Current status:** Blocked — deployed provider remained unavailable at the hard entry gate
-**Approval scope:** On 2026-10-02, the user approved Day 36 in Caveman mode. Approval covers status/documentation edits, safe Render/Atlas metadata inspection, one focused primary-browser deployed flow using the signed-in synthetic account, and at most two Gemini operations: one resume-aware question generation and, only after that succeeds, one typed-answer evaluation. On 2026-10-03, the user separately approved two small deployed Render Gemini retries using the preserved browser session. On 2026-10-03, the user approved the corrected G36-R01 remediation plan covering G36-T1 through G36-T7: bounded code, tests, status documentation, focused checks, and the local release-infrastructure verification gate. On 2026-10-03, the user approved G36-F08 and G36-T8 through G36-T16, including the narrow automatic-retry contract change and tracked `render.yaml` timeout alignment. It does not cover dependency installation, further deployed retries, Render dashboard mutation, live Gemini calls, deployment, commit, push, release tagging, destructive cleanup, rehearsal, Day 36 external continuation, Day 37 work, or deferred Phase 2 assurance.
+**Current status:** Blocked — remediation is deployed, but the deployed provider entry gate has not been rerun
+**Approval scope:** On 2026-10-02, the user approved Day 36 in Caveman mode. Approval covers status/documentation edits, safe Render/Atlas metadata inspection, one focused primary-browser deployed flow using the signed-in synthetic account, and at most two Gemini operations: one resume-aware question generation and, only after that succeeds, one typed-answer evaluation. On 2026-10-03, the user separately approved two small deployed Render Gemini retries using the preserved browser session. On 2026-10-03, the user approved the corrected G36-R01 remediation plan covering G36-T1 through G36-T7: bounded code, tests, status documentation, focused checks, and the local release-infrastructure verification gate. On 2026-10-03, the user approved G36-F08 and G36-T8 through G36-T16, including the narrow automatic-retry contract change and tracked `render.yaml` timeout alignment. On 2026-10-03, the user then approved committing, pushing, and deploying that remediation; this included non-AI verification of the frontend, `/health`, and `/ready`, but no Gemini operation. It does not cover dependency installation, a deployed Gemini request, Render dashboard mutation, release tagging, destructive cleanup, rehearsal, Day 36 external continuation, Day 37 work, or deferred Phase 2 assurance.
 
 ### Objective
 
@@ -67,7 +67,7 @@ Close Day 35's deployed-provider blocker, freeze V1 features, prepare isolated s
 
 ### Manual tasks for user
 
-- Review the completed local G36-F08 diff and evidence, then separately approve commit, push, deployment, and exactly one resume-aware deployed question request with safe log inspection.
+- Separately approve exactly one resume-aware deployed question request with safe log inspection; commit `7bef53a` is already deployed.
 - If the deployed question succeeds with visible synthetic resume grounding, separately approve the Day 36 continuation: one typed evaluation plus dependent result, dashboard, Atlas-safe-metadata, and documentation checks.
 - Local development servers that predated this run remain on ports `4444` and `5173`; stop them manually when local testing is finished.
 - No provider-console, secret, or credential action is currently required. Do not send credentials or provider payloads in chat.
@@ -172,7 +172,7 @@ Approval authorized only G36-T1 through G36-T7 within the listed code, tests, an
 - G36-T7 final diff review found only approved client timeout, provider classification, safe logging, focused tests, and status-documentation changes. No dependency, schema, route, persistence, automatic retry, external configuration, live provider call, server process, commit, push, deployment, release tag, cleanup, or Day 37 work occurred.
 - Local remediation status: `Complete`. Day 36 remains `Blocked` until G36-F07 receives separate approval and one deployed resume-aware question proves the corrected path.
 
-### G36-F08 bounded transient retry — local implementation complete; deployment pending
+### G36-F08 bounded transient retry — deployed; live provider proof pending
 
 **New evidence:** After local `AI_REQUEST_TIMEOUT_MS` was corrected to `20,000ms`, one typed evaluation returned `502 AI_PROVIDER_UNAVAILABLE` after `2,780ms` with `errorCategory: provider_unavailable`. One explicit retry against the same interview then returned `200` after `3,227ms`; the UI confirmed that the answer was saved and feedback was ready. This proves a transient provider/network availability failure rather than quota, authentication, model-not-found, malformed-output, timeout, resume extraction, MongoDB, or frontend-deadline failure for that request. The failed request emitted both a failure log and a completion log with the same request ID, while the successful log rendered a router-relative path and the preceding preflight retained the full API path. These are non-blocking safe-log redundancy and consistency gaps.
 
@@ -233,9 +233,17 @@ No package, schema, route, public API response, database migration, model change
 - G36-T16 found no dependency, schema, route, public response, model, prompt, secret, live provider, Render dashboard, commit, push, deployment, tag, cleanup, voice expansion, Day 36 external continuation, or Day 37 change. One retry can create one additional billed provider call; no availability guarantee is claimed.
 - Local G36-F08 status: `Complete`. External release status is unchanged: Day 35 `Partial`, Day 36 `Blocked`.
 
+#### Commit, push, and deployment evidence — 2026-10-03
+
+- Repository owner identity and `Rudranil-Datta/MockMateAI` remote were confirmed. Real client/server `.env` files remained ignored and unstaged; their supported variable names and order matched the examples without reading values into repository output.
+- Approved remediation commit `7bef53a` (`fix: retry transient AI availability failures`) was pushed without force to both `dev` and `main`; both local and remote branches now share that commit.
+- Render auto-deployed both the API and static frontend from exact commit `7bef53a`. The dashboard reported both services `Deployed`; production `AI_REQUEST_TIMEOUT_MS` remained `20000`.
+- Public non-AI checks passed after deployment: frontend HTTP `200`, `/health` HTTP `200` with `ok`, and `/ready` HTTP `200` with `ready`.
+- No Gemini request, interview action, provider retry, Render configuration mutation, Atlas inspection, dependency installation, release tag, cleanup, Day 36 continuation, or Day 37 work occurred. Day 35 therefore remains `Partial` and Day 36 remains `Blocked` until the separately approved G36-F07 provider entry gate.
+
 #### Closure sequence after local verification
 
-1. **Separate repository/deployment approval:** review final diff, commit/push under the repository-owner rule, deploy, and confirm public frontend, `/health`, and `/ready` without a Gemini call.
+1. **Repository/deployment gate — complete:** commit `7bef53a` was pushed to `dev` and `main`, both Render services deployed it, and public frontend, `/health`, and `/ready` passed without a Gemini call.
 2. **G36-F07 deployed entry gate:** make exactly one resume-aware deployed question request. No second user action, manual retry, or evaluation; the one bounded internal retry may run inside that request. If the request still fails, stop; Day 35 remains `Partial` and Day 36 remains `Blocked`.
 3. **Day 35 closure:** if the deployed question succeeds, visibly uses a safe synthetic technical/project resume anchor, and logs remain safe, close G35-R09/G35-R10 and mark Day 35 `Complete`.
 4. **Separate Day 36 continuation approval:** authorize exactly one synthetic typed evaluation plus dependent safe persistence/dashboard/Atlas metadata checks and remaining demo/operator documentation. This approval is not implied by G36-F08 or G36-F07.
