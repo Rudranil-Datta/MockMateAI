@@ -10,10 +10,29 @@ import { createResumeService } from "./resumeService.js";
 const questionGenerationLeaseMs = 30_000;
 
 function toQuestion(question) {
+  const hasAdaptiveMetadata = [
+    question.topicKey,
+    question.testedSkillKeys,
+    question.difficulty,
+    question.decisionType,
+    question.reasonCode,
+  ].every((value) => value !== undefined);
   return {
     id: question.id,
     order: question.order,
     prompt: question.prompt,
+    ...(hasAdaptiveMetadata
+      ? {
+          decisionType: question.decisionType,
+          difficulty: question.difficulty,
+          ...(question.parentQuestionId
+            ? { parentQuestionId: question.parentQuestionId.toString() }
+            : {}),
+          reasonCode: question.reasonCode,
+          testedSkillKeys: [...question.testedSkillKeys],
+          topicKey: question.topicKey,
+        }
+      : {}),
   };
 }
 
@@ -183,33 +202,82 @@ export function createInterviewService({
 
   async function persistGeneratedQuestion({
     claimId,
+    decision,
     interviewId,
     prompt,
     userId,
   }) {
+    if (decision && decision.prompt !== prompt) {
+      throw questionRequestConflict();
+    }
     return InterviewSession.findOneAndUpdate(
       {
         ...getOwnedResourceFilter(interviewId, userId),
         "questionGeneration.claimId": claimId,
       },
-      { $set: { "questionGeneration.prompt": prompt } },
+      {
+        $set: {
+          ...(decision ? { "questionGeneration.decision": decision } : {}),
+          "questionGeneration.prompt": prompt,
+        },
+      },
       { returnDocument: "after", runValidators: true },
     );
   }
 
   async function finalizeQuestionGeneration({
     claimId,
+    decision,
     expectedQuestionCount,
     generationKey,
     interviewId,
     prompt,
+    questions = [],
     status,
     userId,
   }) {
     const generatedAt = new Date();
+    let adaptiveMetadata = {};
+    if (decision) {
+      if (
+        decision.prompt !== prompt ||
+        !decision.topicKey ||
+        !Array.isArray(decision.testedSkillKeys) ||
+        decision.testedSkillKeys.length === 0 ||
+        !decision.difficulty ||
+        !decision.decisionType ||
+        !decision.reasonCode ||
+        decision.parentQuestionOrder === undefined
+      ) {
+        throw questionRequestConflict();
+      }
+      const parentQuestion =
+        decision.parentQuestionOrder === null ||
+        decision.parentQuestionOrder === undefined
+          ? null
+          : questions.find(
+              ({ order }) => order === decision.parentQuestionOrder,
+            );
+      if (
+        decision.parentQuestionOrder !== null &&
+        decision.parentQuestionOrder !== undefined &&
+        !parentQuestion
+      ) {
+        throw questionRequestConflict();
+      }
+      adaptiveMetadata = {
+        decisionType: decision.decisionType,
+        difficulty: decision.difficulty,
+        ...(parentQuestion ? { parentQuestionId: parentQuestion.id } : {}),
+        reasonCode: decision.reasonCode,
+        testedSkillKeys: [...decision.testedSkillKeys],
+        topicKey: decision.topicKey,
+      };
+    }
     const update = {
       $push: {
         questions: {
+          ...adaptiveMetadata,
           generatedAt,
           generationKey,
           order: expectedQuestionCount + 1,
@@ -317,10 +385,12 @@ export function createInterviewService({
       ) {
         const recoveredSession = await finalizeQuestionGeneration({
           claimId: session.questionGeneration.claimId,
+          decision: session.questionGeneration.decision,
           expectedQuestionCount: 0,
           generationKey: idempotencyKey,
           interviewId: session.id,
           prompt: session.questionGeneration.prompt,
+          questions: session.questions,
           status: "created",
           userId,
         });
@@ -445,11 +515,13 @@ export function createInterviewService({
       ) {
         const recoveredSession = await finalizeQuestionGeneration({
           claimId: session.questionGeneration.claimId,
+          decision: session.questionGeneration.decision,
           expectedQuestionCount:
             session.questionGeneration.expectedQuestionCount,
           generationKey: idempotencyKey,
           interviewId,
           prompt: session.questionGeneration.prompt,
+          questions: session.questions,
           status: "active",
           userId,
         });

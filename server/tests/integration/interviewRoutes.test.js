@@ -641,6 +641,79 @@ describe("interview session routes", () => {
     expect(updatedSession.questions).toHaveLength(2);
   });
 
+  it("recovers one complete staged adaptive decision without provider work", async () => {
+    const generateQuestion = vi.fn();
+    const recoveryApp = createApp({ aiProviderService: { generateQuestion } });
+    const signupResponse = await request(recoveryApp)
+      .post("/api/auth/signup")
+      .send({ ...validSignup, email: "adaptive-recovery@example.com" });
+    const cookie = getSessionCookie(signupResponse);
+    const userId = signupResponse.body.user.id;
+    const idempotencyKey = randomUUID();
+    const firstQuestionId = new InterviewSession().questions.create({
+      generatedAt: new Date(),
+      order: 1,
+      prompt: "Explain a hash map.",
+    }).id;
+    const prompt = "Compare chaining and open addressing.";
+    const session = await InterviewSession.create({
+      interviewType: "DSA",
+      level: "intermediate",
+      questionGeneration: {
+        claimId: randomUUID(),
+        decision: {
+          decisionType: "switch_topic",
+          difficulty: "intermediate",
+          parentQuestionOrder: 1,
+          prompt,
+          reasonCode: "coverage_gap",
+          testedSkillKeys: ["collision-handling"],
+          topicKey: "collision-handling",
+        },
+        expectedQuestionCount: 1,
+        idempotencyKey,
+        prompt,
+        startedAt: new Date(),
+      },
+      questions: [
+        {
+          _id: firstQuestionId,
+          generatedAt: new Date(),
+          order: 1,
+          prompt: "Explain a hash map.",
+        },
+      ],
+      startedAt: new Date(),
+      status: "active",
+      userId,
+    });
+
+    const response = await generateNextQuestion(
+      cookie,
+      session.id,
+      idempotencyKey,
+    );
+    const saved = await InterviewSession.findById(session.id);
+
+    expect(response.status).toBe(200);
+    expect(response.body.question).toEqual({
+      decisionType: "switch_topic",
+      difficulty: "intermediate",
+      id: expect.any(String),
+      order: 2,
+      parentQuestionId: firstQuestionId,
+      prompt,
+      reasonCode: "coverage_gap",
+      testedSkillKeys: ["collision-handling"],
+      topicKey: "collision-handling",
+    });
+    expect(saved.questions[1].parentQuestionId.toString()).toBe(
+      firstQuestionId,
+    );
+    expect(saved.questionGeneration).toBeUndefined();
+    expect(generateQuestion).not.toHaveBeenCalled();
+  });
+
   it("releases a failed next-question persistence claim and retries safely", async () => {
     const generateQuestion = vi
       .fn()

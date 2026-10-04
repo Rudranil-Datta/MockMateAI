@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getInterview } from "../api/interviewApi.js";
 import Button from "../components/common/Button.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
+import { hasValidAdaptiveQuestionMetadata } from "../utils/interviewQuestion.js";
 
 const interviewTypes = ["DSA", "HR", "System Design"];
 const interviewLevels = ["beginner", "intermediate", "advanced"];
@@ -93,7 +94,8 @@ function isSavedQuestion(question, index) {
     isText(question.prompt, maxQuestionPromptLength) &&
     Array.isArray(question.answers) &&
     question.answers.length <= 1 &&
-    question.answers.every(isSavedAnswer),
+    question.answers.every(isSavedAnswer) &&
+    hasValidAdaptiveQuestionMetadata(question),
   );
 }
 

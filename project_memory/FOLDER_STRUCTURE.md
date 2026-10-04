@@ -171,3 +171,80 @@ The existing root-level Markdown documents may remain at the repository root whi
 ## Avoid in V1
 
 Do not create separate microservice repositories, a frontend AI-provider client, a dedicated analytics service, or elaborate infrastructure folders. The above layout is intentionally small enough for a two-month student project while preserving clean separation of concerns.
+
+## V2 Structure
+
+Component ownership follows the exact bounded resources and service boundaries
+in [`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). Planned filenames remain
+non-authoritative until each implementation day inspects the current tree.
+
+Keep the existing folders and responsibility boundaries. Add focused files only
+inside them when the owning day is approved:
+
+- Frontend pages/API wrappers/components for Job Targets, confirmed Projects,
+  skill profile/recommendations, replay, and the upgraded interview cockpit.
+- Backend routes/controllers/validators/services/models for Job Targets,
+  Candidate Projects, adaptive decisions, skill evidence, and derived mastery.
+- Provider adapters expose identical structured V2 methods; feature services do
+  not import Gemini SDK types or perform HTTP response formatting.
+- Shared interview services retain deterministic ownership, state,
+  idempotency, question-cap, persistence, and completion control.
+
+Do not create `agents/`, tool-execution, queue, microservice, graph-database, or
+new infrastructure layers. Add a new dependency only after a concrete approved
+need; the planned UI and analytics can use React, accessible HTML/SVG, and the
+existing styling system.
+
+### Day 2 implemented modules
+
+```text
+server/src/
+  controllers/jobTargetController.js
+  models/JobTarget.js
+  routes/jobTargetRoutes.js
+  services/jobTargetService.js
+  validators/jobTargetSchemas.js
+server/tests/
+  integration/jobTargetRoutes.test.js
+  unit/jobTargetProvider.test.js
+  unit/jobTargetSchemas.test.js
+```
+
+Shared Day 2 extensions remain in `app.js`, `aiSchemas.js`,
+`aiProviderService.js`, `mockAiProvider.js`, and `geminiProvider.js`. No new
+top-level folder, client module, dependency, agent, queue, or service was added.
+
+### Day 3 implemented modules
+
+```text
+client/src/
+  api/projectApi.js
+  pages/ProjectsPage.jsx
+server/src/
+  controllers/projectController.js
+  models/CandidateProject.js
+  routes/projectRoutes.js
+  services/projectService.js
+  validators/projectSchemas.js
+server/tests/
+  integration/projectRoutes.test.js
+  unit/CandidateProject.test.js
+  unit/projectProvider.test.js
+  unit/projectSchemas.test.js
+  unit/projectService.test.js
+```
+
+Focused client tests sit beside the new API/page. Day 3 also extends the
+existing app/router, shell, styles, resume service, provider service/adapters,
+and AI schemas. The documented modular folders were sufficient: no new
+top-level folder, dependency, deployment module, agent, queue, or service was
+needed.
+
+### Day 4 implemented modules
+
+Day 4 extends existing `InterviewSession`, interview service, AI schemas,
+provider service/adapters, practice/result pages, and their focused tests. One
+shared client validator was added at `client/src/utils/interviewQuestion.js` so
+both active and replay screens enforce the same optional metadata group. No new
+top-level folder, route, controller, collection, dependency, deployment module,
+agent, queue, or service was needed.

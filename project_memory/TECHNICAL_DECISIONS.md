@@ -65,22 +65,85 @@ Keep the V1 interview limit fixed at five questions and one answer per question.
 
 ## G36-F08 Transient Retry Decision
 
-**Status:** Implemented locally; deployed verification pending.
+**Status:** Implemented and verified on deployed commit `7bef53a`.
 
 G36-F08 supersedes the Day 29 zero-automatic-retry rule only for question generation and typed evaluation: retry `provider_unavailable` exactly once after a randomized 500–1,000 ms delay, within the original total timeout, and only when at least 3,000 ms remains after backoff. Voice, quota, timeout, authentication, permission, model-not-found, rejected, invalid-response, and unknown failures remain single-attempt. A final failure retains the explicit user retry with the original operation identifier and outer-request rate-limit accounting. This bounded retry may create a second billed provider call but cannot create an additional outer rate-limit charge, database claim, answer, question, or feedback record.
 
 ## Day 34 Free-Tier Hosting Decision
 
-**Status:** Implemented in repository configuration; external deployment awaits user action.
+**Status:** Implemented and deployed on Render with MongoDB Atlas.
 
 Use one free Render static site, one free single-process Render Node web service, and the existing MongoDB Atlas free cluster. The static site rewrites `/api/*` to the API and all remaining routes to `index.html`; the browser therefore uses `VITE_API_BASE_URL=/api`. Production startup requires an explicit Atlas database name, exact HTTPS client origin, Render-only proxy mode, strong authentication secret, and absolute ephemeral upload directories. `GET /health` is process-only liveness. `GET /ready` performs a bounded MongoDB ping and returns only `ready` or `unavailable`. Free-service sleep/restart resets caches and counters and can cause cold starts; this topology is approved for demo/staging, not as durable quota enforcement.
 
 ## Deferred Decisions
 
-- Hosting provider: decide Week 7.
+- Production-scale hosting, durable/distributed rate limits, and any fallback AI provider remain post-V1 decisions. V1 uses the approved single-process Render and Atlas demo/staging topology.
+- Real-device voice, second-browser authentication, and broader reliability evidence remain Phase 2 work for October 11–13, 2026.
 
 ## Constraints
 
 - Use Node 22 or newer compatible packages only.
 - No secrets in repository. Use `server/.env` locally and deployment environment variables.
 - MongoDB and Gemini credentials remain user-managed manual setup items. OpenAI credentials are not required for V1.
+
+## V2 Decisions
+
+The decision-complete Day 1 contracts—including adaptive enums and transition
+rules, immutable evidence ordering, mastery math, compatibility defaults, and
+failure sequencing—are recorded in
+[`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). Later deviations require explicit
+approval.
+
+### Day 2 Job Target lifecycle decision
+
+Job Target analysis uses one owned MongoDB document, an atomic private claim,
+and a 30-second stale lease matching existing interview recovery. Analysis is
+never cached because JD content is private and input-specific. Mock and Gemini
+adapters implement `analyzeJobTarget`; shared validation remains authoritative.
+Provider failure records only a safe category and no analysis. Persistence
+failure cannot be mislabeled as provider failure or returned as success.
+
+### Bounded adaptive engine
+
+Use deterministic service orchestration around validated provider-neutral
+structured outputs. Do not implement autonomous agents, model-invoked tools,
+multi-agent coordination, direct model database access, or model-controlled
+persistence/state transitions.
+
+Day 4 implements only the structural boundary. The exact provider input is
+capped at 1–12 coverage entries, 0–5 prior summaries, 16 KiB context, and 32
+KiB total. Both adapters return one exact decision through the shared validator
+without unavailable retry. Optional metadata is all-or-valid; complete private
+decision staging preserves recovery. V1 generation remains active, while Day 5
+retains all branch, similarity, difficulty-step, follow-up, and coverage rules.
+
+### Job and project context
+
+Store owned Job Targets and user-confirmed Candidate Projects in MongoDB.
+Resume-assisted extraction returns drafts only. Persist bounded context snapshots
+inside sessions so historical replay does not change when source records do.
+
+Day 3 implements Candidate Projects as one owned MongoDB collection plus an
+unsaved extraction path. Extraction uses a separate 8,000-character resume
+context and a 60-second/100-entry process-local replay and in-flight map keyed
+by owner and operation UUID; it is a duplicate/cost control, not persistence.
+Provider output is exact-schema validated and labelled `resume_suggestion`.
+Literal user confirmation is required for create and full-record patch, and the
+server writes/refreshes `confirmedAt`. These fixed privacy and memory caps are
+not environment variables because operator expansion could weaken the approved
+bounds.
+
+### Skill intelligence
+
+Persist immutable categorical answer evidence and derive mastery in backend
+logic using fixed values and bounded difficulty, evidence-strength, recency, and
+attempt-confidence rules. Never persist an LLM-provided final mastery score as
+authoritative.
+
+### Compatibility and release scope
+
+Add `Role Simulation` and `Project Defense` without changing historical V1
+records or the five-question cap. Reuse the existing interview lifecycle for
+targeted practice. Defer the visual skill graph, Story Bank, live copilot,
+peer/video features, coding sandbox, scraping, payments, placement integration,
+and distributed infrastructure beyond the 15-working-day release.

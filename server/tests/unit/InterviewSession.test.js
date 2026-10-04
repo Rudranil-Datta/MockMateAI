@@ -49,6 +49,75 @@ function validSummary() {
 }
 
 describe("InterviewSession", () => {
+  it("accepts complete V2 question metadata while preserving legacy sessions", async () => {
+    const session = new InterviewSession(
+      validSession({
+        focusSkillKey: "hash-maps",
+        questions: [
+          {
+            ...validQuestion(1),
+            decisionType: "retest",
+            difficulty: "intermediate",
+            reasonCode: "targeted_retest",
+            testedSkillKeys: ["hash-maps"],
+            topicKey: "hash-maps",
+          },
+        ],
+        sessionPurpose: "targeted_practice",
+      }),
+    );
+
+    await expect(session.validate()).resolves.toBeUndefined();
+    await expect(
+      new InterviewSession(validSession()).validate(),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects partial metadata and accepts one complete staged decision", async () => {
+    await expect(
+      new InterviewSession(
+        validSession({
+          questions: [{ ...validQuestion(1), topicKey: "hash-maps" }],
+        }),
+      ).validate(),
+    ).rejects.toThrow();
+
+    await expect(
+      new InterviewSession(
+        validSession({
+          questionGeneration: {
+            claimId: "claim-123",
+            decision: {
+              decisionType: "switch_topic",
+              difficulty: "intermediate",
+              parentQuestionOrder: 1,
+              prompt: "Compare chaining and open addressing.",
+              reasonCode: "coverage_gap",
+              testedSkillKeys: ["collision-handling"],
+              topicKey: "collision-handling",
+            },
+            expectedQuestionCount: 1,
+            idempotencyKey: "00000000-0000-4000-8000-000000000001",
+            prompt: "Compare chaining and open addressing.",
+            startedAt: new Date(),
+          },
+          questions: [
+            {
+              ...validQuestion(1),
+              decisionType: "baseline",
+              difficulty: "intermediate",
+              reasonCode: "opening",
+              testedSkillKeys: ["hash-maps"],
+              topicKey: "hash-maps",
+            },
+          ],
+          startedAt: new Date(),
+          status: "active",
+        }),
+      ).validate(),
+    ).resolves.toBeUndefined();
+  });
+
   it.each(["DSA", "HR", "System Design"])(
     "validates %s session type",
     async (interviewType) => {

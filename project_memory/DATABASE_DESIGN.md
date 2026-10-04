@@ -95,6 +95,8 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
   userId: ObjectId,                     // required; references users._id
   interviewType: String,                // required: DSA | HR | System Design
   level: String,                        // required: beginner | intermediate | advanced
+  sessionPurpose: String,               // optional: standard | targeted_practice
+  focusSkillKey: String,                // optional normalized V2 skill key
   resumeId: ObjectId,                   // optional; references an owned resume
   startRequestId: String,               // optional legacy-safe unique per-user start idempotency key
   status: String,                       // created | active | completed
@@ -103,7 +105,16 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
     idempotencyKey: String,
     expectedQuestionCount: Number,
     startedAt: Date,
-    prompt: String                       // optional validated output retained across final-write retry
+    prompt: String,                      // optional validated output retained across final-write retry
+    decision: {                          // optional complete private adaptive decision
+      prompt: String,
+      topicKey: String,
+      testedSkillKeys: [String],
+      difficulty: String,
+      parentQuestionOrder: Number | null,
+      decisionType: String,
+      reasonCode: String
+    }
   },
   questions: [
     {
@@ -111,6 +122,12 @@ Stores one complete DSA, HR, or System Design practice attempt. Embedded questio
       order: Number,
       generationKey: String,            // idempotency key; omitted from API responses
       prompt: String,
+      topicKey: String,                  // optional; present only with complete V2 metadata
+      testedSkillKeys: [String],         // optional 1–3 normalized unique keys
+      difficulty: String,                // optional beginner | intermediate | advanced
+      parentQuestionId: ObjectId,        // optional earlier same-session question
+      decisionType: String,              // optional bounded adaptive decision enum
+      reasonCode: String,                // optional bounded safe reason enum
       generatedAt: Date,
       voiceTranscription: {             // private temporary handoff; never returned
         claimId: String,                // processing only
@@ -231,3 +248,56 @@ The database should be the source of truth. Do not persist a duplicate dashboard
 ## Out of Scope for V1
 
 Separate collections for question-bank administration, payments, employers, jobs, recruiters, proctoring signals, detailed AI prompt logs, and advanced event analytics are not required.
+
+## V2 Data Additions
+
+V2 remains on MongoDB and extends the current design additively. No relational or
+graph database and no mandatory backfill are planned.
+
+Exact Day 1 field bounds, enums, indexes, immutable snapshot rules, evidence
+identity, and mastery derivation are frozen in
+[`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). No migration or backfill is
+authorized by that documentation contract.
+
+| Collection          | Planned purpose                                                                                                | Ownership/integrity rule                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `jobTargets`        | Bounded role, optional company, JD, validated requirements, and prioritized skills.                            | Every query includes authenticated `userId`; analysis failure cannot produce a misleading confirmed summary. |
+| `candidateProjects` | User-confirmed project facts, technologies, responsibilities, architecture, decisions, trade-offs, and claims. | Resume extraction returns drafts only; persistence/use requires explicit confirmation.                       |
+| `skillEvidence`     | Immutable answer-linked categorical evidence used to derive mastery and improvement.                           | Unique per owned answer/skill evidence identity; never accept an LLM-written final mastery value.            |
+
+### Day 2 implemented `jobTargets`
+
+`jobTargets` now implements the Day 1 source fields, exact analysis shape,
+`analysis_pending|ready|analysis_failed` lifecycle, timestamps, and indexes:
+`{userId,updatedAt}`, `{userId,status,updatedAt}`, and unique
+`{userId,analysisRequestId}`. Private `analysisClaimId` and
+`analysisStartedAt` exist only during pending analysis and use a 30-second stale
+lease. Ready records alone contain analysis; failed records alone contain a
+safe `quota|timeout|unavailable|invalid_response` category. All service queries
+include `userId`; no backfill or migration was required.
+
+### Day 3 implemented `candidateProjects`
+
+`candidateProjects` now stores only explicitly confirmed facts with the exact
+Day 1 string, array, uniqueness, claim, and 16 KiB serialized bounds. It stores
+optional owned completed `sourceResumeId`, server-written `confirmedAt`, and
+timestamps. Indexes are `{userId,updatedAt}` and `{userId,confirmedAt}`.
+Every read/update/delete filters by authenticated owner; extraction drafts stay
+only in bounded process memory and never enter MongoDB. No migration or backfill
+was required, and deleting a source resume/project has no cascade.
+
+Day 4 added optional `sessionPurpose`, `focusSkillKey`, complete optional
+question metadata, and complete private adaptive-decision staging. Metadata is
+stored as one valid group; parent IDs must reference an earlier same-session
+question. Existing documents require no migration or backfill.
+
+`interviewSessions` will later add optional `jobTargetId`, `projectId`, and
+bounded context snapshots.
+The interview-type enum will add `Role Simulation` and `Project Defense` while
+preserving the three V1 values.
+
+Existing sessions without V2 fields remain valid. Derived skill profiles use
+recent owned `skillEvidence`, deterministic categorical value mapping, bounded
+difficulty/evidence-strength/recency weights, attempt count, and an explicit
+provisional state when evidence is sparse. Source Target/Project deletion must
+not break a saved session snapshot or replay.

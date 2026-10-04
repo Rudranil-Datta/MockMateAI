@@ -133,6 +133,24 @@
 
 **Week 8 release gate:** every required functional criterion in `SUCCESS_CRITERIA.md` is demonstrated. Text flow, saved feedback, and dashboard history are mandatory. Resume and voice paths must either work as documented or clearly show the designed fallback without breaking the core product.
 
+### Approved final-delivery reconciliation — 2026-10-03
+
+The user approved a shortened final schedule after Day 35 deployment work. Day
+36 combined blocker closure with demo-data and operator-documentation work. The
+revised Day 37 completed the release handoff. Day 39 rehearsal was skipped.
+Original Day 37 reliability breadth, G28-08 real-device voice smoke, and F10-01
+second-browser authentication smoke remain explicit Phase 2 work for October
+11–13, 2026.
+
+V1 is complete within this approved demo/staging scope. The exact deployed
+executable commit is `7bef53a`. Existing full automated, lint, build, deployment,
+and endpoint evidence was reused because no executable code, configuration,
+dependency, schema, security control, deployment, or environment changed during
+final handoff. Final runtime evidence added one deployed typed evaluation,
+persisted result/dashboard/re-login proof, and owner-consistent Atlas metadata.
+No release tag, data export/deletion, commit, push, deployment, or production-
+scale reliability claim is part of this local handoff closure.
+
 ## Daily Work Pattern
 
 Use this cadence every working day to prevent late integration surprises:

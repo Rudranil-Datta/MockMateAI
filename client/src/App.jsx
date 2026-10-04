@@ -7,6 +7,7 @@ import InterviewResultPage from "./pages/InterviewResultPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 import PracticePage from "./pages/PracticePage.jsx";
+import ProjectsPage from "./pages/ProjectsPage.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import PublicOnlyRoute from "./routes/PublicOnlyRoute.jsx";
 import ResumesPage from "./pages/ResumesPage.jsx";
@@ -28,6 +29,9 @@ function App() {
             element={<InterviewResultPage />}
           />
           <Route path="/resumes" element={<ResumesPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/new" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId/edit" element={<ProjectsPage />} />
           <Route path="/account" element={<AccountPage />} />
         </Route>
       </Route>

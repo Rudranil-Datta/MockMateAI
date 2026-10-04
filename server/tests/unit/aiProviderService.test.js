@@ -25,7 +25,114 @@ const validFeedback = {
   strengths: ["Explains bucket-based storage clearly."],
 };
 
+const adaptiveInput = {
+  contextSummary: null,
+  coveragePlan: [
+    {
+      label: "API design",
+      skillKeys: ["api-design", "trade-offs"],
+      topicKey: "api-design",
+    },
+  ],
+  focusSkillKey: null,
+  interviewType: "Role Simulation",
+  level: "intermediate",
+  previousQuestions: [],
+  sessionPurpose: "standard",
+};
+
+const adaptiveDecision = {
+  decisionType: "baseline",
+  difficulty: "intermediate",
+  parentQuestionOrder: null,
+  prompt: "Explain how you would design a stable public API.",
+  reasonCode: "opening",
+  testedSkillKeys: ["api-design"],
+  topicKey: "api-design",
+};
+
 describe("aiProviderService", () => {
+  it("validates one provider-neutral adaptive question contract", async () => {
+    const generateContent = vi.fn().mockResolvedValue({
+      text: JSON.stringify(adaptiveDecision),
+    });
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent,
+      geminiModel: "gemini-test-model",
+    });
+
+    await expect(
+      service.generateAdaptiveQuestion(adaptiveInput),
+    ).resolves.toEqual(adaptiveDecision);
+    expect(generateContent).toHaveBeenCalledOnce();
+    expect(generateContent.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          candidateCount: 1,
+          responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 },
+        }),
+        model: "gemini-test-model",
+      }),
+    );
+
+    const mockService = createAiProviderService({ aiProvider: "mock" });
+    await expect(
+      mockService.generateAdaptiveQuestion(adaptiveInput),
+    ).resolves.toMatchObject({
+      decisionType: "baseline",
+      difficulty: "intermediate",
+      parentQuestionOrder: null,
+      reasonCode: "opening",
+      testedSkillKeys: ["api-design", "trade-offs"],
+      topicKey: "api-design",
+    });
+  });
+
+  it("rejects unsafe adaptive input and output without retry", async () => {
+    const generateContent = vi.fn().mockResolvedValue({
+      text: JSON.stringify({ ...adaptiveDecision, topicKey: "unknown-topic" }),
+    });
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent,
+    });
+
+    await expect(
+      service.generateAdaptiveQuestion({
+        ...adaptiveInput,
+        focusSkillKey: "unknown-skill",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST", status: 400 });
+    expect(generateContent).not.toHaveBeenCalled();
+
+    await expect(
+      service.generateAdaptiveQuestion(adaptiveInput),
+    ).rejects.toMatchObject({ code: "INVALID_AI_RESPONSE", status: 502 });
+    expect(generateContent).toHaveBeenCalledOnce();
+
+    await expect(
+      service.generateAdaptiveQuestion({ ...adaptiveInput, extra: true }),
+    ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST", status: 400 });
+    expect(generateContent).toHaveBeenCalledOnce();
+
+    const unavailable = vi.fn().mockRejectedValue({
+      code: "UNAVAILABLE",
+      status: 503,
+    });
+    await expect(
+      createAiProviderService({
+        aiProvider: "gemini",
+        generateContent: unavailable,
+      }).generateAdaptiveQuestion(adaptiveInput),
+    ).rejects.toMatchObject({
+      code: "AI_PROVIDER_UNAVAILABLE",
+      errorCategory: "provider_unavailable",
+    });
+    expect(unavailable).toHaveBeenCalledOnce();
+  });
+
   it("returns deterministic mock questions for all documented types", async () => {
     const service = createAiProviderService({ aiProvider: "mock" });
 

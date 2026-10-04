@@ -228,3 +228,45 @@ This ordering protects the essential demo flow first. Voice and visual refinemen
 | Voice + text analysis         | One shared feedback pipeline with typed or transcribed answer text.                                                                      |
 | Resume-based questions        | Resume extraction/context at interview setup.                                                                                            |
 | Feedback and analytics        | Stored structured feedback and dashboard summaries.                                                                                      |
+
+## V2 Architecture Extension — Days 2–4 Implemented
+
+V2 preserves the React client, one Node/Express API, MongoDB, and backend-only
+provider adapters. A bounded adaptive interview engine coordinates ordinary
+services; it is not an autonomous agent and cannot invoke arbitrary tools or
+write application state outside validated deterministic services.
+
+```text
+React UI
+  → authenticated REST API
+    → Job Target / Candidate Project services
+    → interview state + adaptive decision service
+    → answer evaluation + immutable skill evidence
+    → deterministic mastery / recommendation queries
+      → provider-neutral AI service
+        → Gemini or mock adapter
+    → MongoDB
+```
+
+Provider output proposes validated requirements, project drafts, questions,
+decision metadata, feedback, and categorical evidence. Backend services enforce
+ownership, confirmation, allowed context, question/difficulty limits,
+idempotency, lifecycle transitions, persistence, mastery calculation, and safe
+responses. V1 remains the compatibility baseline; V2 schemas and APIs are
+additive and historical sessions require no fabricated metadata or backfill.
+
+Day 3 adds `CandidateProject` through the same route/controller/service/model
+layers and extends the provider-neutral boundary with `extractProjectDrafts`.
+The resume service alone reads an owned completed resume and produces a separate
+8,000-character project-extraction context; the existing V1 2,000-character
+question context is unchanged. Draft cache/in-flight state is private, bounded,
+process-local, and non-authoritative. Only the confirmed CRUD path writes
+MongoDB. Adaptive transition, evidence, and mastery modules remain planned.
+
+Day 4 adds a dormant `generateAdaptiveQuestion` method to the existing shared
+provider boundary and both adapters. Shared validators own exact input/output
+bounds and coverage membership. `InterviewSession` stores optional additive
+metadata and one private complete staged decision; `interviewService` alone
+translates an earlier question order into a same-session parent ID and exposes
+safe metadata. No route activates adaptive branching yet. Adaptive transition
+logic, evidence, and mastery modules remain planned.

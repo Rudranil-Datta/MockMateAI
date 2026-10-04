@@ -11,6 +11,7 @@ const navigation = [
   { label: "Dashboard", path: "/dashboard" },
   { label: "Practice", path: "/practice" },
   { label: "Resumes", path: "/resumes" },
+  { label: "Projects", path: "/projects" },
 ];
 
 function AppShell() {

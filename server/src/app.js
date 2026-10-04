@@ -11,11 +11,15 @@ import { createAnalyticsRouter } from "./routes/analyticsRoutes.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
 import healthRouter from "./routes/healthRoutes.js";
 import { createInterviewRouter } from "./routes/interviewRoutes.js";
+import { createJobTargetRouter } from "./routes/jobTargetRoutes.js";
+import { createProjectRouter } from "./routes/projectRoutes.js";
 import { createReadinessRouter } from "./routes/readinessRoutes.js";
 import { createResumeRouter } from "./routes/resumeRoutes.js";
 import { createAiProviderService } from "./services/aiProviderService.js";
 import { createAnalyticsService } from "./services/analyticsService.js";
 import { createAnswerEvaluationService } from "./services/answerEvaluationService.js";
+import { createJobTargetService } from "./services/jobTargetService.js";
+import { createProjectService } from "./services/projectService.js";
 import { createResumeService } from "./services/resumeService.js";
 import { createTranscriptionService } from "./services/transcriptionService.js";
 import { createVoiceAnswerService } from "./services/voiceAnswerService.js";
@@ -64,11 +68,13 @@ export function createApp({
   geminiModel,
   geminiTranscriptionModel,
   jsonBodyLimitBytes = 100 * 1024,
+  jobTargetService,
   maxAudioSizeBytes = 5 * 1024 * 1024,
   maxResumeSizeBytes = 5 * 1024 * 1024,
   mongodbReadinessTimeoutMs = 1000,
   questionCacheTtlMs = 60_000,
   rateLimitNow,
+  projectService,
   resumeService,
   resumeUploadDir = "/tmp/mockmateai-resumes",
   transcriptionService,
@@ -92,6 +98,15 @@ export function createApp({
   const answerEvaluationService = createAnswerEvaluationService({
     aiProviderService: providerService,
   });
+  const ownedJobTargetService =
+    jobTargetService ||
+    createJobTargetService({ aiProviderService: providerService });
+  const ownedProjectService =
+    projectService ||
+    createProjectService({
+      aiProviderService: providerService,
+      resumeService: ownedResumeService,
+    });
   const ownedVoiceAnswerService =
     voiceAnswerService ||
     createVoiceAnswerService({
@@ -192,6 +207,13 @@ export function createApp({
     }),
   );
   app.use(
+    "/api/job-targets",
+    createJobTargetRouter({
+      aiRateLimit,
+      jobTargetService: ownedJobTargetService,
+    }),
+  );
+  app.use(
     "/api/resumes",
     createResumeRouter({
       maxResumeSizeBytes,
@@ -199,6 +221,10 @@ export function createApp({
       resumeUploadDir,
       uploadRateLimit,
     }),
+  );
+  app.use(
+    "/api/projects",
+    createProjectRouter({ aiRateLimit, projectService: ownedProjectService }),
   );
   app.use("/health", healthRouter);
   app.use(

@@ -45,6 +45,64 @@ const mockQuestionSets = {
 
 export function createMockAiProvider() {
   return {
+    async generateAdaptiveQuestion({ coveragePlan, level, previousQuestions }) {
+      const coverage =
+        coveragePlan[previousQuestions.length % coveragePlan.length];
+      const isOpening = previousQuestions.length === 0;
+      return {
+        decisionType: isOpening ? "baseline" : "switch_topic",
+        difficulty: level,
+        parentQuestionOrder: null,
+        prompt: `Explain ${coverage.label} at a ${level} level.`,
+        reasonCode: isOpening ? "opening" : "coverage_gap",
+        testedSkillKeys: coverage.skillKeys.slice(0, 3),
+        topicKey: coverage.topicKey,
+      };
+    },
+
+    async analyzeJobTarget({ title }) {
+      return {
+        requirements: [
+          {
+            evidenceTerms: ["practical examples"],
+            key: "role-fundamentals",
+            label: "Role fundamentals",
+            priority: "required",
+          },
+        ],
+        roleSummary: `Prepare for ${title} responsibilities using clear, evidence-based explanations.`,
+        skills: [
+          {
+            key: "role-fundamentals",
+            label: "Role fundamentals",
+            sourceRequirementKeys: ["role-fundamentals"],
+            weight: 5,
+          },
+        ],
+      };
+    },
+
+    async extractProjectDrafts() {
+      return {
+        drafts: [
+          {
+            architecture: ["Client, API, and database layers"],
+            claims: [],
+            decisions: ["Separated presentation and API responsibilities"],
+            name: "Resume project",
+            responsibilities: [
+              "Implemented and tested the documented project features",
+            ],
+            role: "Project contributor",
+            summary:
+              "A resume-derived project suggestion that must be reviewed and corrected before saving.",
+            technologies: ["JavaScript"],
+            tradeoffs: [],
+          },
+        ],
+      };
+    },
+
     async generateQuestion({ interviewType, level, previousQuestions }) {
       const questions = mockQuestionSets[interviewType][level];
       const prompt = questions[previousQuestions.length % questions.length];

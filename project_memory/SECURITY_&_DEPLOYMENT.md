@@ -156,6 +156,13 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 - Display clear loading, retry, and fallback states in the UI. Do not leave indefinite spinners.
 - Before a live demo, test sign-in, one question, one typed evaluation, dashboard history, resume upload, and voice capability on the actual deployed URL and browser.
 
+Final V1 handoff proved deployed sign-in, resume-aware question generation, one
+typed evaluation, result refresh, dashboard history, logout/login persistence,
+and owner-consistent Atlas metadata on the primary Chrome path. Real-device
+voice capability, second-browser authentication, and broader reliability remain
+approved Phase 2 evidence for October 11–13, 2026. The V1 release claim is
+therefore demo/staging scope, with typed practice as the dependable baseline.
+
 ## Logging, Monitoring, and Backups
 
 - Log one terminal event per request with request ID, query-free full route, status, rounded latency, public error code on failure, and allow-listed provider category when present. Capture the route before router mutation; never emit both completion and failure entries for one handled failure.
@@ -166,16 +173,63 @@ Gemini is the V1 external AI provider, not a source of trusted application data.
 
 ## Deployment Checklist
 
-- [ ] Production environment variables are configured and validated at startup.
-- [ ] `.env`, secrets, upload directories, and build output are ignored by version control as appropriate.
-- [ ] Database network access is restricted to the deployed backend where the provider supports it.
-- [ ] CORS, HTTPS, cookie/token settings, and frontend API base URL work on the deployed domains.
+- [x] Production environment variables are configured and validated at startup.
+- [x] `.env`, secrets, upload directories, and build output are ignored by version control as appropriate.
+- [x] Database network access is restricted to the deployed backend where the provider supports it.
+- [x] CORS, HTTPS, cookie/token settings, and frontend API base URL work on the deployed domains.
 - [x] Rate limits, body limits, upload limits, AI timeouts, and fixed question/session caps are enabled in application configuration. Deployed proxy/IP behavior remains a Day 34 check.
-- [ ] Error handler returns safe, consistent API errors; unexpected stack traces are hidden from users.
-- [ ] Frontend SPA rewrite, backend liveness health endpoint, and separate MongoDB-aware readiness endpoint are configured and verified on the selected host during Day 34.
-- [ ] A deployed smoke test covers the complete text flow and dashboard persistence.
-- [ ] Resume/voice failures, AI outage, and expired login each show clear recovery behavior.
+- [x] Error handler returns safe, consistent API errors; unexpected stack traces are hidden from users.
+- [x] Frontend SPA rewrite, backend liveness health endpoint, and separate MongoDB-aware readiness endpoint are configured and verified on the selected host during Day 34.
+- [x] A deployed smoke test covers the complete text flow and dashboard persistence.
+- [x] Resume/voice failures, AI outage, and expired login each show clear recovery behavior through deployed or deterministic evidence; broader device/browser proof remains Phase 2.
 
 ## V1 Non-Goals
 
 This release does not require enterprise SSO, audit-grade compliance, multi-region failover, distributed tracing, complex secret rotation automation, malware scanning infrastructure, or formal certification. Those are later-stage concerns; the controls above are the minimum practical baseline for this project's data and external AI dependency.
+
+## V2 Security and Deployment Additions
+
+Exact Day 1 field/context caps, ownership behavior, provider budget, log
+allow-list, retention boundary, and single-process scaling trigger are frozen in
+[`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). They add no deployment authority.
+
+Day 2 Job Target routes now enforce auth-derived ownership, exact input/output
+bounds, existing JSON and AI rate/daily limits, one total provider timeout, one
+provider operation per claim, metadata-only errors/logs, and no JD analysis
+cache. Private claim fields never enter API responses. No environment,
+dependency, topology, deployment, or credential change was required.
+
+Day 3 Candidate Project routes enforce the same ownership and safe-error
+boundary. Project extraction sends only an owned completed resume excerpt capped
+at 8,000 normalized characters, performs one validated provider operation, and
+keeps up to 100 private results/in-flight claims for 60 seconds in process
+memory. Drafts, resume text, prompts, and provider payloads are not logged or
+persisted before confirmation. Confirmed facts are capped at 16 KiB. These are
+fixed code safety invariants: `render.yaml`, both real/example environment
+files, dependencies, topology, and credentials require no Day 3 change.
+
+Day 4 adaptive provider input is exact and capped: 1–12 coverage entries, 0–5
+prior summaries, 16 KiB confirmed-context summary, and 32 KiB normalized total.
+Output is exact-schema and coverage-membership validated before staging or
+rendering. The dormant operation makes one bounded provider call, performs no
+unavailable retry, exposes no private claim data, and grants the model no tools
+or state authority. No `.env`, example environment, `render.yaml`, dependency,
+topology, credential, or deployment change was required.
+
+- Treat JDs, project facts, skill evidence, answers, and replay data as private
+  user content. Derive identity from auth and include `userId` in every protected
+  query/mutation.
+- Send only bounded relevant confirmed context to the selected backend provider.
+  Never log JD/resume/project/answer text, prompts, provider payloads,
+  chain-of-thought, credentials, or database details.
+- AI-extracted Project drafts are untrusted and unusable until the user confirms
+  them. Validate every adaptive decision and evidence object before save/render.
+- Apply existing authentication, exact CORS/cookie, JSON/body, rate, daily AI,
+  timeout/retry, idempotency, request-log, and safe-error controls to every new
+  route. Define specific finite bounds during the owning approved day.
+- Preserve the single-process demo/staging topology for the 15-day plan. Durable
+  distributed limits, additional services, and production-scale availability
+  require a separately approved architecture change.
+- Day 15 may use one bounded synthetic deployed V2 journey only after explicit
+  external-operation approval and deterministic release checks. No planning
+  document authorizes provider calls or deployment by itself.

@@ -253,3 +253,50 @@ End the session with encouragement and a useful summary.
 ## Acceptance Check
 
 A successful UI lets a first-time user sign up, start a DSA/HR/System Design session, answer by text, understand feedback, and locate the saved result on the dashboard without asking for help. The interface must remain usable when resume upload, microphone permission, transcription, or AI calls fail by presenting a clear recovery path.
+
+## V2 UI Upgrade — Day 3 Foundation Implemented
+
+Exact routes, screen responsibilities, async/recovery states, responsive
+boundaries, focus behavior, and accessibility acceptance are frozen in
+[`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). UI implementation remains gated
+by its owning approved days. Day 3 implements the authenticated Projects
+workspace; the broader Day 12 visual upgrade remains planned.
+
+### Day 3 Projects workspace
+
+`/projects`, `/projects/new`, and `/projects/:projectId/edit` now provide owned
+list/empty/delete, manual entry, completed-resume selection, unsaved suggestion
+review, explicit confirmation, full-record editing, loading/error/retry, and
+preserved-edit states. Suggestions are labelled unconfirmed and never autosave.
+Unavailable resume sources do not block manual entry; save/delete failures keep
+the user's form or saved list visible. The workspace uses current responsive,
+keyboard-focus, reduced-motion, and semantic form conventions; premium visual
+polish remains in the mandatory later UI phase.
+
+### Information architecture
+
+Add Job Targets and Projects as authenticated workspaces. Practice setup supports
+the three V1 types plus Role Simulation and Project Defense. The dashboard adds
+a bounded readiness summary, weak skills, recent evidence, and one recommended
+next action; replay remains reachable from saved sessions.
+
+### Mandatory experience changes
+
+- Goal-based onboarding guides the user to add a Job Target, confirm a Project,
+  or start generic V1 practice without making enrichment mandatory.
+- The interview cockpit becomes a distraction-free screen with question,
+  response, topic, difficulty, progress, follow-up state, and clear analysis/
+  transition messaging. It does not expose hidden reasoning or dense analytics.
+- Feedback shows the tested skills, concrete evidence, one priority
+  improvement, and a targeted-practice/retest action alongside existing scores.
+- Replay shows the ordered question/follow-up chain, answers, feedback,
+  difficulty, safe decision labels, skill effects, and comparison to later
+  evidence where available.
+- Resume-assisted project drafts are visibly unconfirmed and editable. Only an
+  explicit confirmation action makes a project selectable for Project Defense.
+
+All new surfaces require accessible success/loading/empty/validation/error/
+retry states, preserved drafts, keyboard navigation, visible focus, live-region
+announcements, non-color-only meaning, reduced motion, mobile layouts, and 200%
+zoom reflow. Text remains the dependable baseline; V2 does not add an avatar,
+live-interview overlay, token-streaming transport, or body-language scoring.

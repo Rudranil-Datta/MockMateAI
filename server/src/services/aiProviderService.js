@@ -1,8 +1,14 @@
 import { AppError } from "../utils/AppError.js";
 import { performance } from "node:perf_hooks";
 import {
+  validateAdaptiveQuestionInput,
+  validateAdaptiveQuestionOutput,
   validateEvaluationInput,
   validateEvaluationOutput,
+  validateJobTargetAnalysisInput,
+  validateJobTargetAnalysisOutput,
+  validateProjectExtractionInput,
+  validateProjectExtractionOutput,
   validateQuestionInput,
   validateQuestionOutput,
 } from "../validators/aiSchemas.js";
@@ -281,6 +287,47 @@ export function createAiProviderService({
   }
 
   return {
+    async generateAdaptiveQuestion(input) {
+      const validatedInput = validateAdaptiveQuestionInput(input);
+      return executeProviderOperation(
+        async (attemptTimeoutMs) =>
+          validateAdaptiveQuestionOutput(
+            await provider.generateAdaptiveQuestion(validatedInput, {
+              timeoutMs: attemptTimeoutMs,
+            }),
+            validatedInput,
+          ),
+        { retryUnavailable: false },
+      );
+    },
+
+    async analyzeJobTarget(input) {
+      const validatedInput = validateJobTargetAnalysisInput(input);
+
+      return executeProviderOperation(
+        async (attemptTimeoutMs) =>
+          validateJobTargetAnalysisOutput(
+            await provider.analyzeJobTarget(validatedInput, {
+              timeoutMs: attemptTimeoutMs,
+            }),
+          ),
+        { retryUnavailable: false },
+      );
+    },
+
+    async extractProjectDrafts(input) {
+      const validatedInput = validateProjectExtractionInput(input);
+      return executeProviderOperation(
+        async (attemptTimeoutMs) =>
+          validateProjectExtractionOutput(
+            await provider.extractProjectDrafts(validatedInput, {
+              timeoutMs: attemptTimeoutMs,
+            }),
+          ),
+        { retryUnavailable: false },
+      );
+    },
+
     async generateQuestion(input) {
       const validatedInput = validateQuestionInput(input);
       const canUseCache =

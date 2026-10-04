@@ -20,6 +20,7 @@ import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
 import VoiceRecorder from "../components/interview/VoiceRecorder.jsx";
+import { hasValidAdaptiveQuestionMetadata } from "../utils/interviewQuestion.js";
 
 const interviewTypes = [
   {
@@ -114,7 +115,8 @@ function isGeneratedQuestionResult(question, expectedOrder) {
     question.order <= maxQuestionsPerInterview &&
     typeof question.prompt === "string" &&
     question.prompt.trim() &&
-    question.prompt.length <= maxQuestionPromptLength,
+    question.prompt.length <= maxQuestionPromptLength &&
+    hasValidAdaptiveQuestionMetadata(question),
   );
 }
 

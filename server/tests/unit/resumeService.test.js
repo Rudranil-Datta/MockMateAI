@@ -17,6 +17,30 @@ afterEach(async () => {
 });
 
 describe("resumeService", () => {
+  it("keeps V1 context at 2,000 characters and project context at 8,000", async () => {
+    const lean = vi
+      .fn()
+      .mockResolvedValue({ extractedText: `  ${"word ".repeat(3000)}  ` });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    const input = { resumeId: "507f1f77bcf86cd799439011", userId: "owner-1" };
+    await expect(
+      resumeService.getOwnedResumeContext(input),
+    ).resolves.toHaveLength(2000);
+    await expect(
+      resumeService.getOwnedResumeProjectContext(input),
+    ).resolves.toHaveLength(8000);
+    expect(findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: input.resumeId,
+        extractionStatus: "completed",
+        userId: input.userId,
+      }),
+    );
+  });
+
   it("queries an owned bounded newest-first metadata list", async () => {
     const lean = vi.fn().mockResolvedValue([
       {

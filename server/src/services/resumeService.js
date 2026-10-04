@@ -7,6 +7,7 @@ import { getOwnedResourceFilter } from "../utils/getOwnedResourceFilter.js";
 import { extractPdfText as defaultExtractPdfText } from "./pdfTextExtractor.js";
 
 const maxResumeContextLength = 2_000;
+const maxProjectResumeContextLength = 8_000;
 const safeExtractionError = "Resume text could not be extracted.";
 
 async function removeStoredFile(path) {
@@ -40,6 +41,21 @@ function toSafeResume(resume) {
 
 function toResumeContext(text) {
   return text.replaceAll(/\s+/g, " ").trim().slice(0, maxResumeContextLength);
+}
+
+function toProjectResumeContext(text) {
+  return text
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .slice(0, maxProjectResumeContextLength);
+}
+
+function unavailableContext() {
+  return new AppError(
+    "RESUME_CONTEXT_UNAVAILABLE",
+    "Resume context is unavailable. Choose another resume or continue without one.",
+    { status: 422 },
+  );
 }
 
 async function hasPdfSignature(path) {
@@ -132,14 +148,34 @@ export function createResumeService({
       const context = toResumeContext(resume?.extractedText || "");
 
       if (!context) {
-        throw new AppError(
-          "RESUME_CONTEXT_UNAVAILABLE",
-          "Resume context is unavailable. Choose another resume or continue without one.",
-          { status: 422 },
-        );
+        throw unavailableContext();
       }
 
       return context;
+    },
+
+    async getOwnedResumeProjectContext({ resumeId, userId }) {
+      const resume = await resumeModel
+        .findOne({
+          ...getOwnedResourceFilter(resumeId, userId),
+          extractionStatus: "completed",
+        })
+        .select("extractedText")
+        .lean();
+      const context = toProjectResumeContext(resume?.extractedText || "");
+      if (!context) throw unavailableContext();
+      return context;
+    },
+
+    async assertOwnedCompletedResume({ resumeId, userId }) {
+      const resume = await resumeModel
+        .findOne({
+          ...getOwnedResourceFilter(resumeId, userId),
+          extractionStatus: "completed",
+        })
+        .select("_id")
+        .lean();
+      if (!resume) throw unavailableContext();
     },
   };
 

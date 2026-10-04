@@ -63,3 +63,21 @@ V1 success does **not** depend on company-specific preparation packages, placeme
 ## Definition of Done
 
 The release is ready when every functional criterion is demonstrated, the technical/security criteria are reviewed, and the complete user journey passes with both a typed answer and a voice-derived answer. Any remaining limitations must be documented as known V1 constraints and must not prevent the core text interview flow, saved feedback, or dashboard history from working.
+
+## Final V1 evidence disposition — 2026-10-03
+
+V1 is complete under the user-approved reduced demo/staging release scope. The
+deployed typed journey passed question generation, structured evaluation,
+completion, result refresh, dashboard history, logout/login persistence, and
+owner-consistent Atlas metadata. Resume grounding passed with synthetic
+technical context. DSA, HR, and System Design question boundaries had already
+passed deployed smoke coverage. Deterministic tests cover the implemented voice
+path and safe fallbacks; G28-08 real-device deployed voice smoke is an approved
+Phase 2 deferral rather than a claim of deployed device coverage. F10-01
+second-browser authentication and broader reliability coverage are also Phase 2
+work for October 11–13, 2026.
+
+This disposition does not weaken the original criteria or claim full production
+assurance. Typed practice is the supported V1 demonstration baseline. The
+remaining deferred evidence does not block the core text flow, saved feedback,
+or dashboard history and is recorded in `IMPLEMENTATION_STATUS.md`.

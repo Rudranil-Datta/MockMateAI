@@ -229,3 +229,80 @@ Dashboard request → Analytics API → user's completed sessions → aggregate 
 ## Completion Check
 
 The data flow is complete when a test user can sign in, create each interview type, submit a text answer and a voice-derived answer, receive valid saved feedback, complete a session, and see correct user-isolated history on the dashboard. Every external AI, upload, validation, and persistence failure must leave the application in an honest, recoverable state.
+
+## V2 Data Flow
+
+The exact Day 1 lifecycle ordering, context precedence, immutable snapshot,
+feedback/evidence synchronization, and recovery contracts are frozen in
+[`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md).
+
+```text
+Owned resume → bounded project suggestions → user review/confirmation
+Bounded JD → validated requirements/skills → owned Job Target
+Confirmed context + relevant skill summary → adaptive question decision
+Saved answer → validated feedback + categorical skill evidence
+Owned evidence → deterministic mastery and weak-skill recommendation
+Weak skill → targeted-practice session → retest evidence
+Saved metadata → replay and later adaptive context
+```
+
+Only user-confirmed Project facts may enter Project Defense. Job Target and
+Project reads, session creation, evidence writes, skill aggregation, and replay
+are user-scoped. Provider output crosses validation before save/render and
+cannot directly update mastery or application state. Context is minimized to
+the current turn, bounded prior prompts/evidence, and relevant confirmed facts.
+
+Failure preserves source drafts, setup choices, saved answers, and retryable
+state where truthful. A failed AI analysis must not create confirmed context; a
+failed evidence write must not claim mastery changed; source context edits or
+deletion must not alter an existing session's bounded snapshot.
+
+### Day 2 implemented flow
+
+```text
+Authenticated bounded request
+  → exact request validation and AI rate limit
+  → owned pending Job Target with private 30-second claim
+  → one provider-neutral bounded analysis
+  → exact output validation
+  → atomic ready target, or failed target with safe category and no analysis
+```
+
+Same-key/same-input replay returns the saved ready target without provider work;
+changed same-key input conflicts. Fresh concurrent work conflicts. Stale pending
+work can be reclaimed. Provider failure remains retryable through a new
+idempotency key. Final-write failure leaves pending work for stale recovery and
+never reports ready.
+
+### Day 3 implemented project flow
+
+```text
+Authenticated resume selection
+  → exact request and ownership/completed-state validation
+  → normalized project-only context capped at 8,000 characters
+  → one provider-neutral extraction with exact 0–5 output validation
+  → private 60-second replay/in-flight cache, never MongoDB
+  → editable unconfirmed UI draft
+  → explicit user attestation and full request validation
+  → owned confirmed Candidate Project write
+```
+
+Same owner/key/resume shares one result; changed input conflicts and expiration
+permits a new operation. Provider, resume, or network failure saves no project.
+Save failure preserves the edited client draft; delete failure keeps the saved
+item visible. Confirmed CRUD is non-AI and owner-scoped.
+
+### Day 4 implemented adaptive contract flow
+
+```text
+Deterministic bounded input
+  → exact shared input validation
+  → one mock/Gemini provider operation, no unavailable retry
+  → exact output and coverage-membership validation
+  → optional complete private decision staging
+  → atomic question metadata persistence and safe serialization
+```
+
+No route invokes this adaptive path yet. Current V1 generation, prompt-only
+recovery, three selectable interview types, and response shapes remain active.
+Day 5 owns branching and transition rules.

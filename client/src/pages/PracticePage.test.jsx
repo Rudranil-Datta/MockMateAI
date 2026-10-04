@@ -60,6 +60,7 @@ function interviewStartResult({
   level = "intermediate",
   order = 1,
   prompt = "Explain stacks.",
+  questionMetadata = {},
 } = {}) {
   return {
     interview: {
@@ -69,7 +70,7 @@ function interviewStartResult({
       startedAt: "2026-09-19T00:00:00.000Z",
       status: "active",
     },
-    question: { id: "question-123", order, prompt },
+    question: { id: "question-123", order, prompt, ...questionMetadata },
   };
 }
 
@@ -285,6 +286,44 @@ describe("PracticePage", () => {
       await screen.findByText(/Interview could not be started.*retry\./),
     ).toBeVisible();
     expect(screen.queryByText("Unpersisted question.")).not.toBeInTheDocument();
+  });
+
+  it("accepts complete adaptive metadata and rejects a partial group", async () => {
+    startInterview
+      .mockResolvedValueOnce(
+        interviewStartResult({
+          questionMetadata: {
+            decisionType: "baseline",
+            difficulty: "intermediate",
+            reasonCode: "opening",
+            testedSkillKeys: ["hash-maps"],
+            topicKey: "hash-maps",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        interviewStartResult({
+          prompt: "Unsafe partial question.",
+          questionMetadata: { topicKey: "hash-maps" },
+        }),
+      );
+    const first = renderPracticePage();
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    expect(await screen.findByText("Explain stacks.")).toBeVisible();
+
+    first.unmount();
+    renderPracticePage();
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    expect(
+      await screen.findByText(/Interview could not be started.*retry\./),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Unsafe partial question."),
+    ).not.toBeInTheDocument();
   });
 
   it("preserves selections and retries after quota failure", async () => {

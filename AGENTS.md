@@ -4,7 +4,7 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 
 ## Engineering Standards
 
-- Preserve V1 modular monolith: React client, Node/Express API, MongoDB, and backend-only Gemini Developer API for V1. An optional future OpenAI adapter uses the same provider interface. Never add microservices, queues, Kubernetes, or agent/multi-agent orchestration.
+- Preserve the V1/V2 modular monolith: React client, Node/Express API, MongoDB, and backend-only Gemini Developer API. An optional future OpenAI adapter uses the same provider interface. V2's bounded adaptive interview engine is deterministic service orchestration around validated provider output; it is not an autonomous agent. Never add microservices, queues, Kubernetes, or agent/multi-agent orchestration.
 - Follow `project_memory/FOLDER_STRUCTURE.md`: separate UI/API wrappers, routes/controllers, services, models/data access, validators, and external integrations. Keep controllers thin and routes declarative.
 - Implement one approved bounded feature at a time. Define UI, API, persistence, validation, error, and test impact before editing. Reuse existing code; do not refactor unrelated code or add unnecessary packages.
 - Validate input before side effects and external/AI output before save/render. Await async work; use finite timeouts, controlled retries, duplicate-request prevention, safe errors, and complete UI loading/success/empty/error/retry states.
@@ -13,7 +13,8 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 - Keep frontend state local unless truly shared. Use clear domain names, focused functions, PascalCase components/classes, camelCase functions/variables, and `is`/`has` boolean names.
 - Follow `project_memory/SECURITY_&_DEPLOYMENT.md`: backend-only secrets, password hashing, HTTPS/exact CORS/auth settings, rate/body limits, safe rendering, strict upload allow-lists/limits/storage/cleanup.
 - Test behavior changed by the approved scope and only the adjacent invariants needed to prove it. Use focused deterministic tests, mock AI/transcription where applicable, and do not expand routine verification into unrelated platform coverage.
-- Use provider-neutral controlled AI calls for questions/evaluation: only adapters call provider SDKs; mock adapter supports UI/tests, Gemini adapter serves V1, and a future OpenAI adapter must pass the same contract. Use minimum context, structured output, schema/range validation, input/output/session/rate caps, duplicate prevention, and safe short-lived question caching. Map quota exhaustion to `AI_QUOTA_EXCEEDED`, preserve work, log safe metadata, and show an in-app notice; never rotate keys or invent results.
+- Use provider-neutral controlled AI calls for questions/evaluation: only adapters call provider SDKs; mock adapter supports UI/tests, Gemini adapter serves V1/V2, and a future OpenAI adapter must pass the same contract. Use minimum context, structured output, schema/range validation, input/output/session/rate caps, duplicate prevention, and safe short-lived question caching. Map quota exhaustion to `AI_QUOTA_EXCEEDED`, preserve work, log safe metadata, and show an in-app notice; never rotate keys or invent results.
+- For V2, follow `project_memory/V2_IMPLEMENTATION_PLAN.md`, `project_memory/V2_IMPLEMENTATION_TIMELINE.md`, and `project_memory/V2_SUCCESS_CRITERIA.md`. Preserve V1 behavior and historical evidence; V2 remains unstarted until its current day or named phase is explicitly approved.
 
 ## Caveman Mode
 
@@ -30,9 +31,10 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 - Use smallest sufficient context, tool output, model effort, and action sequence. Use targeted reads/searches, existing contracts/helpers/tests, and batched independent read-only checks. Efficiency never overrides required reads, risk disclosure, approval, validation, or truthful failure reporting.
 - Do not reread unchanged project-memory documents. Read `project_memory/IMPLEMENTATION_STATUS.md` before each workday, then only the documents and code directly needed for the approved scope.
 - Preserve V1 journey: authenticate; choose DSA/HR/System Design plus level; optional resume; question; text/constrained voice answer; structured feedback; saved completion; dashboard. Text flow remains dependable baseline.
+- V2 may add only the approved Role Simulation, Project Defense, Job Target, confirmed-project, bounded adaptation, skill-evidence, targeted-practice, replay, and UI-upgrade scope. Do not treat AI-extracted project drafts as facts before explicit user confirmation.
 - Preserve data isolation, backend-only Gemini V1 integration, saved feedback/results, and basic analytics. Implement only documented success criteria.
-- Do not add company-specific preparation, placement integration, payments, recruiting, live video/multi-user interviews, proctoring, anti-cheating, native apps, advanced gamification, agents, microservices, Kubernetes, or distributed systems.
-- Treat `IMPLEMENTATION_TIMELINE.md`, `SUCCESS_CRITERIA.md`, and affected design contracts as the specification. Never silently narrow plan language to match the implementation.
+- Do not add scraped or proprietary company-question banks, placement integration, payments, recruiting, live video/multi-user interviews, proctoring, anti-cheating, native apps, advanced gamification, agents, microservices, Kubernetes, or distributed systems.
+- Treat the applicable V1 or V2 implementation timeline, success criteria, and affected design contracts as the specification. Never silently narrow plan language to match the implementation.
 - Stop and request explicit scope-change approval for conflict with documentation, security, budget, success criteria, or working behavior. Never mark unapproved, untested, partial, blocked, misleading, or regressive work complete.
 
 ## Daily Task Planning, Risk Control, and Approval
@@ -41,6 +43,7 @@ This `AGENTS.md` is canonical. Codex loads it automatically for every new sessio
 - Before each workday, create the current-day traceability and verification matrices in `project_memory/IMPLEMENTATION_STATUS.md`. Map every approved requirement to its authoritative source, affected boundaries, risk, implementation evidence, and independent verification before editing.
 - Split work into independently verifiable tasks; record objective/affected area, expected result, dependencies, risks, mitigation/validation, and possible documentation deviation before execution.
 - Each task requires explicit user approval before edits, dependency installation, deployment, external communication, or other state-changing action. Targeted read-only inspection for planning is allowed.
+- V2 documentation registration is not implementation approval. Do not begin a V2 day or grouped phase until the user explicitly approves that day or phase after reviewing its current matrices.
 - Explicit automation permission waives per-task approval only for stated scope/duration. Stop for renewed approval on material deviation, security/privacy risk, dependency, migration, destructive action, significant cost, or scope expansion.
 - A user may approve routine execution for one named workday by explicitly covering focused dependency installation, existing verification scripts, temporary localhost test ports, and one bounded configured-provider smoke test. Treat this as approval only for that day and documented scope; host-level permission prompts still govern network/port access.
 - Prefer deterministic mock-provider tests. Use a live Gemini smoke only after provider/configuration work changes, keep it to one request, and report only safe metadata. Keep `GEMINI_MODEL` configured or use the documented default; never request or print `GEMINI_API_KEY`.

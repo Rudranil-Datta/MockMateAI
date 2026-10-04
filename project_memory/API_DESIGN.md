@@ -227,6 +227,20 @@ Generates/retrieves the next question for an owned active session.
 
 Reject completed sessions and enforce the configured V1 question limit. Replaying a completed key returns the same persisted question. A short database-backed generation lease prevents simultaneous requests from multiplying provider calls and permits recovery after interrupted work. Validated provider output is retained inside the private claim before the final question write, so retry after a final-write failure does not call the provider again.
 
+Day 4 keeps both interview routes on V1 `generateQuestion`. When a saved
+question later contains complete adaptive metadata, question responses may also
+include `topicKey`, `testedSkillKeys`, `difficulty`, optional
+`parentQuestionId`, `decisionType`, and `reasonCode`; metadata-free V1 responses
+remain unchanged. Partial metadata is never serialized or accepted by the
+client.
+
+The internal provider-neutral `generateAdaptiveQuestion` contract accepts one
+exact bounded object: five-type interview enum, level, session purpose, 1–12
+coverage entries, 0–5 prior summaries, nullable known focus skill, and nullable
+confirmed-context summary. Context is capped at 16 KiB and normalized total
+input at 32 KiB. It returns the exact Day 1 decision object. Day 5, not the
+provider adapter, will enforce adaptive transition legality.
+
 ### `POST /api/interviews/:id/answers`
 
 Submits a typed answer for an owned active question, then evaluates it through the backend-only provider adapter. The answer is persisted before evaluation. If evaluation fails, the saved answer remains retryable and no feedback is fabricated.
@@ -408,3 +422,91 @@ When no valid completed sessions exist, the endpoint returns zero for the count 
 - Keep Gemini/OpenAI API keys and database credentials only in backend environment variables.
 - Log safe operational identifiers/statuses, not passwords, secrets, or unnecessary resume/answer contents.
 - Label returned evaluation as interview-practice feedback, not an automated hiring determination.
+
+## V2 API Additions
+
+These additive contracts are governed by `V2_IMPLEMENTATION_PLAN.md` and require
+separate approval for their owning implementation days. Existing V1 endpoints
+and response/error shapes remain authoritative until implementation is verified.
+
+The exact Day 1 request fields, bounds, response compatibility rules,
+lifecycles, status codes, and error codes are frozen in
+[`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). This section is the API overview;
+the Day 1 contract is authoritative where this overview is less specific.
+
+### Day 2 implemented Job Target API
+
+The following authenticated routes are implemented:
+
+- `POST /api/job-targets`: exact `{idempotencyKey,title,company?,description}`;
+  returns `201 {target}` after validated analysis.
+- `GET /api/job-targets`: returns at most 50 owned targets as `{items}`, newest
+  first.
+- `GET /api/job-targets/:id`: returns `{target}`.
+- `PATCH /api/job-targets/:id`: accepts `idempotencyKey` plus at least one of
+  `title`, `company`, or `description`; `company:null` clears company and
+  material changes rerun analysis.
+- `POST /api/job-targets/:id/analyze`: accepts exactly `{idempotencyKey}` and
+  retries a failed or stale analysis.
+- `DELETE /api/job-targets/:id`: deletes the owned source and returns `204`.
+
+Target responses contain only `id`, source fields, status, validated analysis
+when ready, safe failure category when failed, and timestamps. Claim/request
+IDs are private. AI routes use existing auth, AI rate/daily limits, provider
+timeout, and safe errors. Missing and foreign targets both return
+`JOB_TARGET_NOT_FOUND`; active claims return
+`JOB_TARGET_ANALYSIS_IN_PROGRESS`; changed same-key input returns
+`IDEMPOTENCY_KEY_REUSED`.
+
+### Day 3 implemented Candidate Project API
+
+- `POST /api/projects/extract` accepts exactly `{idempotencyKey,resumeId}` for an
+  owned completed resume. It returns `{drafts}` with 0–5 validated suggestions,
+  `sourceResumeId`, and `source="resume_suggestion"`; it never writes them.
+- `POST /api/projects` accepts the complete editable facts, optional
+  `sourceResumeId`, and literal `confirmed:true`; it returns `201 {project}`.
+- `GET /api/projects` returns at most 50 owned confirmed projects newest first;
+  `GET /api/projects/:id` returns one owned project.
+- `PATCH /api/projects/:id` requires the complete facts and renewed literal
+  confirmation. `DELETE /api/projects/:id` removes only the source.
+
+Extraction uses existing auth and AI limits plus a private 60-second,
+100-entry process cache/in-flight claim. Same key and resume replays; changed
+resume conflicts with `IDEMPOTENCY_KEY_REUSED`. Missing/foreign/incomplete
+resume context returns `RESUME_CONTEXT_UNAVAILABLE`; missing and foreign
+projects return `PROJECT_NOT_FOUND`. If all 100 bounded cache entries are still
+in flight, new extraction returns `PROJECT_EXTRACTION_BUSY` rather than
+evicting active work. Project CRUD does not consume AI quota.
+
+### Later owned context resources
+
+- `GET /api/skills/profile` returns derived mastery, attempt/evidence confidence,
+  weak skills, and the next recommended action without exposing raw provider
+  payloads or hidden reasoning.
+
+Every implemented route derives `userId` from authentication, validates bounded input, hides
+foreign records as not found, and uses the existing standard error shape.
+
+### Extended interview contract
+
+`POST /api/interviews` will add `Role Simulation` and `Project Defense` to the
+supported interview types and accept these optional fields:
+
+```json
+{
+  "jobTargetId": "owned ObjectId required for Role Simulation",
+  "projectId": "owned confirmed ObjectId required for Project Defense",
+  "sessionPurpose": "standard | targeted_practice",
+  "focusSkillKey": "required for targeted_practice"
+}
+```
+
+The existing type, level, resume, idempotency, five-question, answer,
+completion, and ownership contracts remain. V2 question/session responses may
+add bounded topic, difficulty, tested-skill, parent-question, decision-type, and
+safe-reason metadata. Historical V1 responses must remain consumable when these
+fields are absent.
+
+Job Target/Project edits or deletion must not alter historical interviews;
+sessions keep a bounded confirmed snapshot. New costly AI actions remain
+rate-limited, finite-timeout, idempotent where retried, and safely recoverable.

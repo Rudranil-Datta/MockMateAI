@@ -99,6 +99,22 @@ describe("InterviewResultPage", () => {
     ).toHaveAttribute("href", "/dashboard");
   });
 
+  it("accepts complete adaptive question metadata", async () => {
+    const result = completedInterview();
+    Object.assign(result.interview.questions[0], {
+      decisionType: "baseline",
+      difficulty: "intermediate",
+      reasonCode: "opening",
+      testedSkillKeys: ["hash-maps"],
+      topicKey: "hash-maps",
+    });
+    getInterview.mockResolvedValueOnce(result);
+
+    renderResultPage();
+
+    expect(await screen.findByText("Your practice baseline")).toBeVisible();
+  });
+
   it("recovers when result loading is retried", async () => {
     getInterview
       .mockRejectedValueOnce(new Error("Interview not found."))
@@ -146,6 +162,10 @@ describe("InterviewResultPage", () => {
     [
       "invalid question order",
       (result) => (result.interview.questions[0].order = 2),
+    ],
+    [
+      "partial adaptive metadata",
+      (result) => (result.interview.questions[0].topicKey = "hash-maps"),
     ],
   ])("rejects %s", async (_label, mutate) => {
     const malformedResult = completedInterview();
