@@ -194,5 +194,23 @@ export function createMockAiProvider() {
         strengths: ["Explains the core idea clearly."],
       };
     },
+
+    async evaluateV2Answer({ testedSkills }) {
+      return {
+        accuracyScore: 78,
+        clarityScore: 76,
+        confidenceScore: 74,
+        improvements: ["Add one concrete example to support your explanation."],
+        nextStep: "Practise giving a concise answer with a concrete example.",
+        overallScore: 76,
+        skillEvidence: testedSkills.map(({ key }, index) => ({
+          evidenceStrength: index === 0 ? "direct" : "supporting",
+          outcome: "partial",
+          reasonCode: "answer_quality",
+          skillKey: key,
+        })),
+        strengths: ["Explains the core idea clearly."],
+      };
+    },
   };
 }

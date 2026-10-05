@@ -28,6 +28,12 @@ In `IMPLEMENTATION_STATUS.md`, create one traceability row for every independent
 
 Ambiguous plan language must be resolved against success criteria and affected contracts before implementation. If material ambiguity remains, request user direction.
 
+Before marking a day matrix ready for approval, compare every planned row against
+all authoritative contracts it extends. Record duplicated or overlapping scope
+once, name its owning day/boundary, and resolve conflicts in the matrix. Do not
+silently defer a required contract field because another day owns its UI or
+downstream action; distinguish payload, presentation, and executable action.
+
 ### 2. Plan independent verification
 
 Acceptance tests come from the specification, not from the code being written. Use the matrix to classify risk. Record a direct test only for categories the approved change can affect; record `N/A` with a reason for the rest. The matrix is not a mandate to exercise every category for every task.

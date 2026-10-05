@@ -21,6 +21,7 @@ export function validateStartInterviewRequest(body) {
     "projectId",
     "resumeId",
     "sessionPurpose",
+    "focusSkillKey",
   ]);
   const interviewType = normalizeString(request.interviewType);
   const level = normalizeString(request.level);
@@ -54,6 +55,8 @@ export function validateStartInterviewRequest(body) {
 
   const isRoleSimulation = interviewType === "Role Simulation";
   const isProjectDefense = interviewType === "Project Defense";
+  const isTargetedPractice =
+    normalizeString(request.sessionPurpose) === "targeted_practice";
   if (
     isRoleSimulation &&
     (!normalizeString(request.jobTargetId) ||
@@ -74,11 +77,20 @@ export function validateStartInterviewRequest(body) {
   }
   if (
     request.sessionPurpose !== undefined &&
-    (!(isRoleSimulation || isProjectDefense) ||
-      normalizeString(request.sessionPurpose) !== "standard")
+    !["standard", "targeted_practice"].includes(
+      normalizeString(request.sessionPurpose),
+    )
   ) {
-    fields.sessionPurpose =
-      "Only standard context-bound practice is available now.";
+    fields.sessionPurpose = "Choose standard or targeted practice.";
+  }
+  if (
+    isTargetedPractice &&
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizeString(request.focusSkillKey))
+  ) {
+    fields.focusSkillKey = "Choose a valid skill to practise.";
+  } else if (!isTargetedPractice && request.focusSkillKey !== undefined) {
+    fields.focusSkillKey =
+      "Focus skill is available only for targeted practice.";
   }
   if (Object.keys(request).some((field) => !allowedFields.has(field))) {
     fields.request = "Request contains unsupported fields.";
@@ -96,10 +108,22 @@ export function validateStartInterviewRequest(body) {
     interviewType,
     level,
     ...(isRoleSimulation
-      ? { jobTargetId: request.jobTargetId, sessionPurpose: "standard" }
+      ? {
+          jobTargetId: request.jobTargetId,
+          sessionPurpose: isTargetedPractice ? "targeted_practice" : "standard",
+        }
       : {}),
     ...(isProjectDefense
-      ? { projectId: request.projectId, sessionPurpose: "standard" }
+      ? {
+          projectId: request.projectId,
+          sessionPurpose: isTargetedPractice ? "targeted_practice" : "standard",
+        }
+      : {}),
+    ...(isTargetedPractice
+      ? {
+          focusSkillKey: normalizeString(request.focusSkillKey),
+          sessionPurpose: "targeted_practice",
+        }
       : {}),
     ...(request.resumeId ? { resumeId: request.resumeId } : {}),
   };

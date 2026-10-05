@@ -83,16 +83,34 @@ function toInterview(session) {
     level: session.level,
     startedAt: session.startedAt.toISOString(),
     status: session.status,
+    ...(session.sessionPurpose
+      ? { sessionPurpose: session.sessionPurpose }
+      : {}),
+    ...(session.focusSkillKey ? { focusSkillKey: session.focusSkillKey } : {}),
   };
 }
 
-function toSession(session) {
+function toSession(session, retestComparison) {
   return {
     ...toInterview(session),
     ...(session.completedAt
       ? { completedAt: session.completedAt.toISOString() }
       : {}),
     ...(session.summary ? { summary: toSummary(session.summary) } : {}),
+    ...(["Role Simulation", "Project Defense"].includes(
+      session.interviewType,
+    ) || session.sessionPurpose === "targeted_practice"
+      ? { evidenceSyncStatus: session.evidenceSyncStatus }
+      : {}),
+    ...(session.contextSnapshot?.displayLabel
+      ? {
+          contextSnapshot: {
+            kind: session.contextSnapshot.kind,
+            label: session.contextSnapshot.displayLabel,
+          },
+        }
+      : {}),
+    ...(retestComparison ? { retestComparison } : {}),
     questions: session.questions.map((question) => ({
       ...toQuestion(question),
       answers: question.answers.map((answer) => ({
@@ -250,6 +268,24 @@ function roleAdaptiveInput(session) {
 }
 
 function adaptiveInput(session) {
+  if (session.sessionPurpose === "targeted_practice") {
+    const skill = session.skillContextSnapshot?.find(
+      ({ key }) => key === session.focusSkillKey,
+    );
+    if (!skill) throw questionRequestConflict();
+    return {
+      challengeDirective: null,
+      contextSummary: null,
+      coveragePlan: [
+        { label: skill.label, skillKeys: [skill.key], topicKey: skill.key },
+      ],
+      focusSkillKey: skill.key,
+      interviewType: session.interviewType,
+      level: session.level,
+      previousQuestions: adaptiveQuestionHistory(session),
+      sessionPurpose: "targeted_practice",
+    };
+  }
   if (session.interviewType === "Role Simulation") {
     return roleAdaptiveInput(session);
   }
@@ -293,6 +329,7 @@ export function createInterviewService({
   jobTargetService,
   projectService,
   resumeService = createResumeService(),
+  skillEvidenceService,
 }) {
   async function claimQuestionGeneration({
     expectedQuestionCount,
@@ -468,7 +505,11 @@ export function createInterviewService({
         throw interviewNotFound();
       }
 
-      return toSession(session);
+      const retestComparison =
+        typeof skillEvidenceService?.getRetestComparison === "function"
+          ? await skillEvidenceService.getRetestComparison({ session, userId })
+          : undefined;
+      return toSession(session, retestComparison);
     },
 
     async startInterview({
@@ -480,6 +521,7 @@ export function createInterviewService({
       projectId,
       resumeId,
       sessionPurpose,
+      focusSkillKey,
     }) {
       let session = await InterviewSession.findOne({
         startRequestId: idempotencyKey,
@@ -489,6 +531,18 @@ export function createInterviewService({
       let contextSnapshot;
 
       if (!session) {
+        const focusSkill =
+          sessionPurpose === "targeted_practice"
+            ? await skillEvidenceService.getOwnedWeakSkill({
+                skillKey: focusSkillKey,
+                userId,
+              })
+            : undefined;
+        if (sessionPurpose === "targeted_practice" && !focusSkill) {
+          throw new AppError("SKILL_NOT_FOUND", "Skill not found.", {
+            status: 404,
+          });
+        }
         if (interviewType === "Role Simulation") {
           contextSnapshot = await jobTargetService.getReadyTargetSnapshot({
             targetId: jobTargetId,
@@ -512,6 +566,19 @@ export function createInterviewService({
             level,
             ...(projectId ? { projectId } : {}),
             ...(resumeId ? { resumeId } : {}),
+            ...(focusSkill
+              ? {
+                  focusSkillKey,
+                  skillContextSnapshot: [
+                    {
+                      confidenceLabel: focusSkill.confidence,
+                      key: focusSkill.skillKey,
+                      label: focusSkill.skillLabel,
+                      masteryScore: focusSkill.masteryScore,
+                    },
+                  ],
+                }
+              : {}),
             startRequestId: idempotencyKey,
             status: "created",
             ...(sessionPurpose ? { sessionPurpose } : {}),
@@ -539,7 +606,8 @@ export function createInterviewService({
         persistedResumeId !== resumeId ||
         persistedJobTargetId !== jobTargetId ||
         persistedProjectId !== projectId ||
-        (isAdaptiveInterview(interviewType) &&
+        ((isAdaptiveInterview(interviewType) ||
+          sessionPurpose === "targeted_practice") &&
           session.sessionPurpose !== sessionPurpose)
       ) {
         throw new AppError(
@@ -623,19 +691,24 @@ export function createInterviewService({
       let hasDurablePrompt = false;
 
       try {
-        const question = isAdaptiveInterview(interviewType)
-          ? await adaptiveInterviewService.generateNextQuestion(
-              adaptiveInput(claim.session),
-            )
-          : await aiProviderService.generateQuestion({
-              interviewType,
-              level,
-              previousQuestions: [],
-              resumeContext,
-            });
+        const question =
+          isAdaptiveInterview(interviewType) ||
+          sessionPurpose === "targeted_practice"
+            ? await adaptiveInterviewService.generateNextQuestion(
+                adaptiveInput(claim.session),
+              )
+            : await aiProviderService.generateQuestion({
+                interviewType,
+                level,
+                previousQuestions: [],
+                resumeContext,
+              });
         const promptSession = await persistGeneratedQuestion({
           claimId: claim.claimId,
-          ...(isAdaptiveInterview(interviewType) ? { decision: question } : {}),
+          ...(isAdaptiveInterview(interviewType) ||
+          sessionPurpose === "targeted_practice"
+            ? { decision: question }
+            : {}),
           interviewId: session.id,
           prompt: question.prompt,
           userId,
@@ -648,7 +721,10 @@ export function createInterviewService({
         hasDurablePrompt = true;
         const updatedSession = await finalizeQuestionGeneration({
           claimId: claim.claimId,
-          ...(isAdaptiveInterview(interviewType) ? { decision: question } : {}),
+          ...(isAdaptiveInterview(interviewType) ||
+          sessionPurpose === "targeted_practice"
+            ? { decision: question }
+            : {}),
           expectedQuestionCount: 0,
           generationKey: idempotencyKey,
           interviewId: session.id,
@@ -763,7 +839,9 @@ export function createInterviewService({
       let hasDurablePrompt = false;
 
       try {
-        const isAdaptive = isAdaptiveInterview(claim.session.interviewType);
+        const isAdaptive =
+          isAdaptiveInterview(claim.session.interviewType) ||
+          claim.session.sessionPurpose === "targeted_practice";
         const resumeContext =
           !isAdaptive && claim.session.resumeId
             ? await resumeService.getOwnedResumeContext({

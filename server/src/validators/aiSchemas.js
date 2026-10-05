@@ -34,6 +34,13 @@ const maxAnswerLength = 10000;
 const maxFeedbackItemLength = 500;
 const maxFeedbackItems = 3;
 const maxNextStepLength = 1000;
+const evidenceOutcomes = ["strong", "partial", "weak", "missing"];
+const evidenceStrengths = ["direct", "supporting"];
+const evidenceReasonCodes = [
+  "answer_quality",
+  "incomplete_evidence",
+  "missing_evidence",
+];
 const maxJobDescriptionLength = 12000;
 const maxJobTargetAnalysisBytes = 12 * 1024;
 const maxProjectContextLength = 8000;
@@ -585,6 +592,94 @@ export function validateEvaluationOutput(output) {
     overallScore: validateScore(output.overallScore),
     strengths: validateFeedbackTextList(output.strengths),
   };
+}
+
+export function validateV2EvaluationInput(input) {
+  const evaluated = validateEvaluationInput(input);
+  if (
+    !Array.isArray(input.testedSkills) ||
+    input.testedSkills.length < 1 ||
+    input.testedSkills.length > 3
+  ) {
+    throw invalidInput("Tested skills are required.");
+  }
+  const testedSkills = input.testedSkills.map((skill) => {
+    if (
+      !skill ||
+      typeof skill !== "object" ||
+      Object.keys(skill).length !== 2 ||
+      !skillKeyPattern.test(skill.key) ||
+      typeof skill.label !== "string" ||
+      skill.label.trim().length < 2 ||
+      skill.label.trim().length > 80
+    ) {
+      throw invalidInput("Tested skills are invalid.");
+    }
+    return { key: skill.key, label: skill.label.trim() };
+  });
+  if (
+    new Set(testedSkills.map(({ key }) => key)).size !== testedSkills.length
+  ) {
+    throw invalidInput("Tested skills must be unique.");
+  }
+  return { ...evaluated, testedSkills };
+}
+
+export function validateV2EvaluationOutput(output, input) {
+  if (!output || typeof output !== "object" || Array.isArray(output))
+    throw invalidOutput();
+  const expectedKeys = [
+    "overallScore",
+    "accuracyScore",
+    "clarityScore",
+    "confidenceScore",
+    "strengths",
+    "improvements",
+    "nextStep",
+    "skillEvidence",
+  ];
+  if (
+    Object.keys(output).length !== expectedKeys.length ||
+    !expectedKeys.every((key) => key in output)
+  )
+    throw invalidOutput();
+  const feedback = validateEvaluationOutput(
+    Object.fromEntries(
+      Object.entries(output).filter(([key]) => key !== "skillEvidence"),
+    ),
+  );
+  if (
+    !Array.isArray(output.skillEvidence) ||
+    output.skillEvidence.length < 1 ||
+    output.skillEvidence.length > 3
+  )
+    throw invalidOutput();
+  const knownKeys = new Set(input.testedSkills.map(({ key }) => key));
+  const skillEvidence = output.skillEvidence.map((entry) => {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      Array.isArray(entry) ||
+      Object.keys(entry).length !== 4 ||
+      !knownKeys.has(entry.skillKey) ||
+      !evidenceOutcomes.includes(entry.outcome) ||
+      !evidenceStrengths.includes(entry.evidenceStrength) ||
+      !evidenceReasonCodes.includes(entry.reasonCode)
+    )
+      throw invalidOutput();
+    return {
+      evidenceStrength: entry.evidenceStrength,
+      outcome: entry.outcome,
+      reasonCode: entry.reasonCode,
+      skillKey: entry.skillKey,
+    };
+  });
+  if (
+    new Set(skillEvidence.map(({ skillKey }) => skillKey)).size !==
+    skillEvidence.length
+  )
+    throw invalidOutput();
+  return { ...feedback, skillEvidence };
 }
 
 function exactObject(value, expectedKeys) {

@@ -64,6 +64,14 @@ describe("InterviewSession", () => {
           },
         ],
         sessionPurpose: "targeted_practice",
+        skillContextSnapshot: [
+          {
+            confidenceLabel: "provisional",
+            key: "hash-maps",
+            label: "Hash maps",
+            masteryScore: 30,
+          },
+        ],
       }),
     );
 

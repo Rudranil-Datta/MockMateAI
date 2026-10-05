@@ -1525,6 +1525,43 @@ p {
 .project-list-item > div:first-child {
   max-width: 720px;
 }
+.replay-context,
+.replay-link,
+.replay-metadata {
+  color: #526179;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+.replay-link {
+  color: #1f5fcc;
+}
+.retest-comparison {
+  background: #edf8f5;
+  border: 1px solid #9bcfbe;
+  border-radius: 8px;
+  margin: 20px 0;
+  padding: 18px;
+}
+.replay-timeline {
+  list-style: none;
+  margin: 24px 0;
+  padding: 0;
+}
+.replay-timeline-item {
+  border-left: 2px solid #b9cef1;
+  padding: 0 0 24px 24px;
+  position: relative;
+}
+.replay-timeline-item::before {
+  background: #1f5fcc;
+  border-radius: 50%;
+  content: "";
+  height: 10px;
+  left: -6px;
+  position: absolute;
+  top: 8px;
+  width: 10px;
+}
 @media (max-width: 720px) {
   .project-source-card,
   .project-list-item,

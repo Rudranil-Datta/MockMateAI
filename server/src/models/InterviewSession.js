@@ -364,6 +364,55 @@ const feedbackSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const skillContextSchema = new mongoose.Schema(
+  {
+    confidenceLabel: {
+      enum: ["provisional", "emerging", "established"],
+      required: true,
+      type: String,
+    },
+    key: {
+      match: skillKeyPattern,
+      maxlength: 50,
+      minlength: 2,
+      required: true,
+      type: String,
+    },
+    masteryScore: { max: 100, min: 0, required: true, type: Number },
+    label: { maxlength: 80, minlength: 2, required: true, type: String },
+  },
+  { _id: false },
+);
+
+const skillEvidenceOutputSchema = new mongoose.Schema(
+  {
+    evidenceStrength: {
+      enum: ["direct", "supporting"],
+      required: true,
+      type: String,
+    },
+    outcome: {
+      enum: ["strong", "partial", "weak", "missing"],
+      required: true,
+      type: String,
+    },
+    reasonCode: {
+      enum: ["answer_quality", "incomplete_evidence", "missing_evidence"],
+      required: true,
+      type: String,
+    },
+    skillKey: {
+      match: skillKeyPattern,
+      maxlength: 50,
+      minlength: 2,
+      required: true,
+      trim: true,
+      type: String,
+    },
+  },
+  { _id: false },
+);
+
 const answerSchema = new mongoose.Schema({
   evaluationClaimId: {
     maxlength: 100,
@@ -384,6 +433,17 @@ const answerSchema = new mongoose.Schema({
   },
   evaluationStartedAt: Date,
   feedback: feedbackSchema,
+  skillEvidenceOutput: {
+    type: [skillEvidenceOutputSchema],
+    validate: {
+      validator: (items) =>
+        items === undefined ||
+        items.length === 0 ||
+        (items.length >= 1 &&
+          items.length <= 3 &&
+          new Set(items.map(({ skillKey }) => skillKey)).size === items.length),
+    },
+  },
   inputMode: {
     enum: ["text", "voice"],
     required: true,
@@ -691,6 +751,12 @@ const interviewSessionSchema = new mongoose.Schema(
       type: [questionSchema],
       validate: hasAtMost(maxQuestionsPerInterview),
     },
+    evidenceSyncStatus: {
+      default: "ready",
+      enum: ["ready", "pending"],
+      required: true,
+      type: String,
+    },
     questionGeneration: questionGenerationSchema,
     resumeId: {
       ref: "Resume",
@@ -699,6 +765,12 @@ const interviewSessionSchema = new mongoose.Schema(
     sessionPurpose: {
       enum: ["standard", "targeted_practice"],
       type: String,
+    },
+    skillContextSnapshot: {
+      type: [skillContextSchema],
+      validate: {
+        validator: (items) => items.length <= 5,
+      },
     },
     startedAt: {
       required() {
@@ -731,6 +803,22 @@ const interviewSessionSchema = new mongoose.Schema(
 interviewSessionSchema.pre("validate", function validateCompletion() {
   const isRoleSimulation = this.interviewType === "Role Simulation";
   const isProjectDefense = this.interviewType === "Project Defense";
+  const isTargetedPractice = this.sessionPurpose === "targeted_practice";
+  if (isTargetedPractice !== Boolean(this.focusSkillKey)) {
+    this.invalidate(
+      "focusSkillKey",
+      "Targeted practice requires one focus skill.",
+    );
+  }
+  if (
+    isTargetedPractice &&
+    !this.skillContextSnapshot?.some(({ key }) => key === this.focusSkillKey)
+  ) {
+    this.invalidate(
+      "skillContextSnapshot",
+      "Targeted practice requires its focus skill snapshot.",
+    );
+  }
   if (
     (isRoleSimulation &&
       !(

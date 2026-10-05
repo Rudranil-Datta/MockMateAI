@@ -16,6 +16,7 @@ export function createInterviewRouter({
   jobTargetService,
   projectService,
   resumeService,
+  skillEvidenceService,
   uploadRateLimit,
   voiceAnswerService,
 }) {
@@ -27,6 +28,7 @@ export function createInterviewRouter({
     jobTargetService,
     projectService,
     resumeService,
+    skillEvidenceService,
   });
   const interviewController = createInterviewController({ interviewService });
   const voiceAnswerController = createVoiceAnswerController({

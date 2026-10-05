@@ -15,6 +15,7 @@ import { createJobTargetRouter } from "./routes/jobTargetRoutes.js";
 import { createProjectRouter } from "./routes/projectRoutes.js";
 import { createReadinessRouter } from "./routes/readinessRoutes.js";
 import { createResumeRouter } from "./routes/resumeRoutes.js";
+import { createSkillRouter } from "./routes/skillRoutes.js";
 import { createAiProviderService } from "./services/aiProviderService.js";
 import { createAdaptiveInterviewService } from "./services/adaptiveInterviewService.js";
 import { createAnalyticsService } from "./services/analyticsService.js";
@@ -22,6 +23,7 @@ import { createAnswerEvaluationService } from "./services/answerEvaluationServic
 import { createJobTargetService } from "./services/jobTargetService.js";
 import { createProjectService } from "./services/projectService.js";
 import { createResumeService } from "./services/resumeService.js";
+import { createSkillEvidenceService } from "./services/skillEvidenceService.js";
 import { createTranscriptionService } from "./services/transcriptionService.js";
 import { createVoiceAnswerService } from "./services/voiceAnswerService.js";
 import { AppError } from "./utils/AppError.js";
@@ -77,6 +79,7 @@ export function createApp({
   rateLimitNow,
   projectService,
   resumeService,
+  skillEvidenceService,
   resumeUploadDir = "/tmp/mockmateai-resumes",
   transcriptionService,
   trustProxy = "direct",
@@ -100,8 +103,11 @@ export function createApp({
       ? createAdaptiveInterviewService({ aiProviderService: providerService })
       : undefined;
   const ownedResumeService = resumeService || createResumeService();
+  const ownedSkillEvidenceService =
+    skillEvidenceService || createSkillEvidenceService();
   const answerEvaluationService = createAnswerEvaluationService({
     aiProviderService: providerService,
+    skillEvidenceService: ownedSkillEvidenceService,
   });
   const ownedJobTargetService =
     jobTargetService ||
@@ -210,6 +216,7 @@ export function createApp({
       jobTargetService: ownedJobTargetService,
       projectService: ownedProjectService,
       resumeService: ownedResumeService,
+      skillEvidenceService: ownedSkillEvidenceService,
       uploadRateLimit,
       voiceAnswerService: ownedVoiceAnswerService,
     }),
@@ -233,6 +240,12 @@ export function createApp({
   app.use(
     "/api/projects",
     createProjectRouter({ aiRateLimit, projectService: ownedProjectService }),
+  );
+  app.use(
+    "/api/skills",
+    createSkillRouter({
+      skillEvidenceService: ownedSkillEvidenceService,
+    }),
   );
   app.use("/health", healthRouter);
   app.use(

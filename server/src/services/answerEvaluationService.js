@@ -5,6 +5,29 @@ import { AppError } from "../utils/AppError.js";
 import { getOwnedResourceFilter } from "../utils/getOwnedResourceFilter.js";
 
 const evaluationLeaseMs = 30_000;
+const projectSkillLabels = {
+  architecture: "Architecture",
+  "claimed-results": "Claimed results",
+  decisions: "Decisions",
+  responsibilities: "Responsibilities",
+  tradeoffs: "Trade-offs",
+  "technology-choices": "Technology choices",
+};
+
+function testedSkills(session, question) {
+  if (!question.testedSkillKeys?.length) return null;
+  const labels = [
+    ...(session.contextSnapshot?.analysis?.skills || []),
+    ...(session.skillContextSnapshot || []),
+  ];
+  const skills = question.testedSkillKeys.map((key) => ({
+    key,
+    label:
+      labels.find((skill) => skill.key === key)?.label ||
+      projectSkillLabels[key],
+  }));
+  return skills.every(({ label }) => label) ? skills : null;
+}
 
 function toAnswer(answer) {
   return {
@@ -34,7 +57,10 @@ function toAnswerResult(answer) {
   };
 }
 
-export function createAnswerEvaluationService({ aiProviderService }) {
+export function createAnswerEvaluationService({
+  aiProviderService,
+  skillEvidenceService,
+}) {
   async function releaseEvaluationClaim({
     answerId,
     claimId,
@@ -190,19 +216,31 @@ export function createAnswerEvaluationService({ aiProviderService }) {
       }
 
       answer = claimedSession.questions.id(questionId).answers.id(answer.id);
+      const claimedQuestion = claimedSession.questions.id(questionId);
+      const evidenceSkills =
+        ["Role Simulation", "Project Defense"].includes(
+          claimedSession.interviewType,
+        ) || claimedSession.sessionPurpose === "targeted_practice"
+          ? testedSkills(claimedSession, claimedQuestion)
+          : null;
       let evaluationOutput = answer.evaluationOutput;
 
       if (!evaluationOutput) {
         try {
-          const feedback = await aiProviderService.evaluateAnswer(
-            {
-              answer: answer.text,
-              interviewType: claimedSession.interviewType,
-              level: claimedSession.level,
-              question: claimedSession.questions.id(questionId).prompt,
-            },
-            { retryUnavailable: answer.inputMode === "text" },
-          );
+          const evaluationInput = {
+            answer: answer.text,
+            interviewType: claimedSession.interviewType,
+            level: claimedSession.level,
+            question: claimedQuestion.prompt,
+          };
+          const feedback = evidenceSkills
+            ? await aiProviderService.evaluateV2Answer(
+                { ...evaluationInput, testedSkills: evidenceSkills },
+                { retryUnavailable: answer.inputMode === "text" },
+              )
+            : await aiProviderService.evaluateAnswer(evaluationInput, {
+                retryUnavailable: answer.inputMode === "text",
+              });
           evaluationOutput = { ...feedback, evaluatedAt: new Date() };
 
           const stagedSession = await InterviewSession.findOneAndUpdate(
@@ -294,6 +332,13 @@ export function createAnswerEvaluationService({ aiProviderService }) {
                 overallScore: evaluationOutput.overallScore,
                 strengths: evaluationOutput.strengths,
               },
+              ...(evidenceSkills
+                ? {
+                    evidenceSyncStatus: "pending",
+                    "questions.$[question].answers.$[answer].skillEvidenceOutput":
+                      evaluationOutput.skillEvidence,
+                  }
+                : {}),
             },
             $unset: {
               "questions.$[question].answers.$[answer].evaluationClaimId": "",
@@ -338,6 +383,12 @@ export function createAnswerEvaluationService({ aiProviderService }) {
           "Interview changed. Please try again.",
           { status: 409 },
         );
+      }
+
+      if (evidenceSkills && skillEvidenceService) {
+        await skillEvidenceService
+          .synchronizeSession({ interviewId, userId })
+          .catch(() => undefined);
       }
 
       return toAnswerResult(

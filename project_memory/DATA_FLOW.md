@@ -257,6 +257,11 @@ state where truthful. A failed AI analysis must not create confirmed context; a
 failed evidence write must not claim mastery changed; source context edits or
 deletion must not alter an existing session's bounded snapshot.
 
+For an owned saved result, replay reads only the session's ordered questions,
+safe adaptive metadata, and immutable context label. A targeted-practice result
+adds a deterministic prior/current mastery comparison only after evidence sync
+is ready; pending or unavailable comparison remains explicitly unavailable.
+
 ### Day 2 implemented flow
 
 ```text
@@ -370,3 +375,19 @@ Invalid, generic, mismatched, oversized, provider-failed, or persistence-failed
 work creates no partial question. Retry uses the existing generation operation
 key and staged-decision recovery. Only axis and safe anchor key are copied to
 the question; source fact and answer text remain in their existing records.
+
+### Day 9 implemented skill evidence flow
+
+```text
+Completed V2 answer
+  → one validated provider-neutral feedback plus categorical evidence proposal
+  → atomic completed feedback and private pending evidence staging
+  → immutable owner-scoped answer-skill upsert
+  → clear staging and mark sync ready, or retain pending staging on failure
+  → owned profile read derives bounded deterministic mastery/recommendation
+```
+
+V1 and legacy answers use their unchanged feedback path. Provider output never
+sets mastery. Pending recovery is idempotent; evidence uses its unique
+owner/answer/skill identity. Profile responses contain only derived safe fields
+and never raw answer, prompt, feedback text, provider output, or source IDs.

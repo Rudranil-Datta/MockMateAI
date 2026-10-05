@@ -5,6 +5,8 @@ import {
   validateAdaptiveQuestionOutput,
   validateEvaluationInput,
   validateEvaluationOutput,
+  validateV2EvaluationInput,
+  validateV2EvaluationOutput,
   validateJobTargetAnalysisInput,
   validateJobTargetAnalysisOutput,
   validateProjectExtractionInput,
@@ -373,6 +375,20 @@ export function createAiProviderService({
             await provider.evaluateAnswer(validatedInput, {
               timeoutMs: attemptTimeoutMs,
             }),
+          ),
+        { retryUnavailable },
+      );
+    },
+
+    async evaluateV2Answer(input, { retryUnavailable = false } = {}) {
+      const validatedInput = validateV2EvaluationInput(input);
+      return executeProviderOperation(
+        async (attemptTimeoutMs) =>
+          validateV2EvaluationOutput(
+            await provider.evaluateV2Answer(validatedInput, {
+              timeoutMs: attemptTimeoutMs,
+            }),
+            validatedInput,
           ),
         { retryUnavailable },
       );

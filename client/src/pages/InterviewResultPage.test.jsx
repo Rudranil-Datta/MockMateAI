@@ -115,6 +115,51 @@ describe("InterviewResultPage", () => {
     expect(await screen.findByText("Your practice baseline")).toBeVisible();
   });
 
+  it("renders safe V2 replay and retest comparison", async () => {
+    const result = completedInterview();
+    Object.assign(result.interview, {
+      contextSnapshot: { kind: "job_target", label: "Backend Engineer" },
+      interviewType: "Role Simulation",
+      retestComparison: {
+        currentConfidence: "emerging",
+        currentMasteryScore: 72,
+        previousConfidence: "provisional",
+        previousMasteryScore: 65,
+        skillKey: "hash-maps",
+        skillLabel: "Hash maps",
+      },
+    });
+    Object.assign(result.interview.questions[0], {
+      decisionType: "retest",
+      difficulty: "intermediate",
+      reasonCode: "targeted_retest",
+      testedSkillKeys: ["hash-maps"],
+      topicKey: "hash-maps",
+    });
+    getInterview.mockResolvedValueOnce(result);
+    renderResultPage();
+    expect(await screen.findByText("Hash maps")).toBeVisible();
+    expect(screen.getByText(/65 to 72 mastery/)).toBeVisible();
+    expect(screen.getByText(/Saved job target context/)).toBeVisible();
+  });
+
+  it.each([
+    ["pending", "Retest comparison is still synchronizing."],
+    ["ready", "Retest comparison is unavailable for this saved session."],
+  ])(
+    "keeps targeted-practice %s state honest",
+    async (evidenceSyncStatus, message) => {
+      const pendingResult = completedInterview();
+      Object.assign(pendingResult.interview, {
+        evidenceSyncStatus,
+        sessionPurpose: "targeted_practice",
+      });
+      getInterview.mockResolvedValueOnce(pendingResult);
+      renderResultPage();
+      expect(await screen.findByText(message)).toBeVisible();
+    },
+  );
+
   it("recovers when result loading is retried", async () => {
     getInterview
       .mockRejectedValueOnce(new Error("Interview not found."))
@@ -166,6 +211,46 @@ describe("InterviewResultPage", () => {
     [
       "partial adaptive metadata",
       (result) => (result.interview.questions[0].topicKey = "hash-maps"),
+    ],
+    [
+      "unsafe context snapshot",
+      (result) =>
+        (result.interview.contextSnapshot = {
+          kind: "job_target",
+          label: "Backend Engineer",
+          sourceId: "private-source-id",
+        }),
+    ],
+    [
+      "invalid retest comparison",
+      (result) =>
+        (result.interview.retestComparison = {
+          currentConfidence: "certain",
+          currentMasteryScore: 72,
+          previousConfidence: "provisional",
+          previousMasteryScore: 65,
+          skillKey: "hash-maps",
+          skillLabel: "Hash maps",
+        }),
+    ],
+    [
+      "follow-up pointing outside the saved timeline",
+      (result) => {
+        result.interview.questions.push({
+          ...result.interview.questions[0],
+          answers: [
+            { ...result.interview.questions[0].answers[0], id: "answer-456" },
+          ],
+          decisionType: "clarify",
+          difficulty: "intermediate",
+          id: "question-456",
+          order: 2,
+          parentQuestionId: "missing-question",
+          reasonCode: "partial_evidence",
+          testedSkillKeys: ["hash-maps"],
+          topicKey: "hash-maps",
+        });
+      },
     ],
   ])("rejects %s", async (_label, mutate) => {
     const malformedResult = completedInterview();

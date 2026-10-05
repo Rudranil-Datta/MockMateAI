@@ -59,6 +59,15 @@ function adaptiveDecision(input) {
 function createRoleApp() {
   const aiProviderService = {
     evaluateAnswer: vi.fn().mockResolvedValue(feedback()),
+    evaluateV2Answer: vi.fn().mockImplementation(async ({ testedSkills }) => ({
+      ...feedback(),
+      skillEvidence: testedSkills.map(({ key }) => ({
+        evidenceStrength: "direct",
+        outcome: "partial",
+        reasonCode: "answer_quality",
+        skillKey: key,
+      })),
+    })),
     generateAdaptiveQuestion: vi
       .fn()
       .mockImplementation(async (input) => adaptiveDecision(input)),
@@ -284,10 +293,17 @@ describe("Role Simulation interview routes", () => {
     const first = await startRole(app, owner.cookie, firstTarget.id, key);
     await JobTarget.findByIdAndDelete(firstTarget.id);
     const replay = await startRole(app, owner.cookie, firstTarget.id, key);
+    const savedResult = await request(app)
+      .get(`/api/interviews/${first.body.interview.id}`)
+      .set("Cookie", owner.cookie);
     const conflict = await startRole(app, owner.cookie, secondTarget.id, key);
 
     expect(first.status).toBe(201);
     expect(replay.body).toEqual(first.body);
+    expect(savedResult.body.interview.contextSnapshot).toEqual({
+      kind: "job_target",
+      label: "Backend Engineer at Example",
+    });
     expect(conflict.status).toBe(409);
     expect(conflict.body.error.code).toBe("IDEMPOTENCY_KEY_REUSED");
     expect(aiProviderService.generateAdaptiveQuestion).toHaveBeenCalledOnce();

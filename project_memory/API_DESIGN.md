@@ -344,7 +344,7 @@ Returns one owned session, including questions, submitted answers, feedback, and
 }
 ```
 
-The route returns only safe persisted session fields and applies ownership filtering before reading. Private generation/evaluation keys, claims, staged output, and lease state are never returned.
+The route returns only safe persisted session fields and applies ownership filtering before reading. Role Simulation and Project Defense results may include a saved `contextSnapshot` containing only its immutable `kind` and display `label`; it never rereads a mutable source. A completed owned targeted-practice result may include `retestComparison` only when synchronized prior/current deterministic mastery exists. That optional object contains only skill key/label, integer mastery scores, and categorical confidence labels. Pending or unavailable comparison is omitted; raw evidence, answers, prompts, provider payloads, source identifiers, and hiring inferences never return. Private generation/evaluation keys, claims, staged output, and lease state are never returned.
 
 ### `POST /api/interviews/:id/complete`
 
@@ -478,11 +478,21 @@ projects return `PROJECT_NOT_FOUND`. If all 100 bounded cache entries are still
 in flight, new extraction returns `PROJECT_EXTRACTION_BUSY` rather than
 evicting active work. Project CRUD does not consume AI quota.
 
-### Later owned context resources
+### Day 9 implemented skill profile
 
-- `GET /api/skills/profile` returns derived mastery, attempt/evidence confidence,
-  weak skills, and the next recommended action without exposing raw provider
-  payloads or hidden reasoning.
+`GET /api/skills/profile` is authenticated and returns at most 30 owned,
+evidence-derived skills ordered by mastery ascending then evidence count
+descending, plus `recommendedAction` and `evidenceSyncStatus`. A skill includes
+only `skillKey`, `skillLabel`, `masteryScore`, `masteryLabel`, `confidence`,
+`evidenceCount`, and `lastPracticedAt`. `recommendedAction` is either `null` or
+`{type:"targeted_practice",skillKey}` for the lowest non-established skill;
+it is a payload only. Day 10 owns presentation and starting targeted practice.
+
+The endpoint returns no raw answer, prompt, feedback text, provider output,
+hidden reasoning, evidence reason, or source identifiers. Profile reads attempt
+bounded idempotent recovery for pending owned evidence. `evidenceSyncStatus`
+is `pending` only when recovery still cannot complete; feedback remains
+available through unchanged interview responses.
 
 Every implemented route derives `userId` from authentication, validates bounded input, hides
 foreign records as not found, and uses the existing standard error shape.

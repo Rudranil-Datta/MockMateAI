@@ -25,6 +25,18 @@ const validFeedback = {
   strengths: ["Explains bucket-based storage clearly."],
 };
 
+const validV2Feedback = {
+  ...validFeedback,
+  skillEvidence: [
+    {
+      evidenceStrength: "direct",
+      outcome: "partial",
+      reasonCode: "answer_quality",
+      skillKey: "api-design",
+    },
+  ],
+};
+
 const adaptiveInput = {
   challengeDirective: null,
   contextSummary: null,
@@ -53,6 +65,38 @@ const adaptiveDecision = {
 };
 
 describe("aiProviderService", () => {
+  it("accepts only validated evidence for saved tested skills", async () => {
+    const generateContent = vi.fn().mockResolvedValue({
+      text: JSON.stringify(validV2Feedback),
+    });
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent,
+    });
+    const input = {
+      ...evaluationInput,
+      testedSkills: [{ key: "api-design", label: "API design" }],
+    };
+
+    await expect(service.evaluateV2Answer(input)).resolves.toEqual(
+      validV2Feedback,
+    );
+    await expect(
+      service.evaluateV2Answer({ ...input, testedSkills: [] }),
+    ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST" });
+    generateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        ...validV2Feedback,
+        skillEvidence: [
+          { ...validV2Feedback.skillEvidence[0], skillKey: "invented" },
+        ],
+      }),
+    });
+    await expect(service.evaluateV2Answer(input)).rejects.toMatchObject({
+      code: "INVALID_AI_RESPONSE",
+    });
+  });
+
   it("validates one provider-neutral adaptive question contract", async () => {
     const generateContent = vi.fn().mockResolvedValue({
       text: JSON.stringify(adaptiveDecision),

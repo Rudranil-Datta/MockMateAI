@@ -6,7 +6,13 @@ import Button from "../components/common/Button.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
 import { hasValidAdaptiveQuestionMetadata } from "../utils/interviewQuestion.js";
 
-const interviewTypes = ["DSA", "HR", "System Design"];
+const interviewTypes = [
+  "DSA",
+  "HR",
+  "System Design",
+  "Role Simulation",
+  "Project Defense",
+];
 const interviewLevels = ["beginner", "intermediate", "advanced"];
 const maxQuestionsPerInterview = 5;
 const maxQuestionPromptLength = 2000;
@@ -99,6 +105,27 @@ function isSavedQuestion(question, index) {
   );
 }
 
+function hasValidParentLinks(questions) {
+  return questions.every(
+    (question, index) =>
+      !question.parentQuestionId ||
+      questions
+        .slice(0, index)
+        .some(
+          (earlierQuestion) => earlierQuestion.id === question.parentQuestionId,
+        ),
+  );
+}
+
+function isContextSnapshot(value) {
+  return Boolean(
+    value &&
+    Object.keys(value).length === 2 &&
+    ["job_target", "candidate_project"].includes(value.kind) &&
+    isText(value.label, 160),
+  );
+}
+
 function isCompletedInterview(interview) {
   return Boolean(
     isText(interview?.id, 100) &&
@@ -113,9 +140,73 @@ function isCompletedInterview(interview) {
     interview.questions.length >= 1 &&
     interview.questions.length <= maxQuestionsPerInterview &&
     interview.questions.every(isSavedQuestion) &&
+    hasValidParentLinks(interview.questions) &&
+    (!Object.hasOwn(interview, "contextSnapshot") ||
+      isContextSnapshot(interview.contextSnapshot)) &&
+    (!Object.hasOwn(interview, "evidenceSyncStatus") ||
+      ["ready", "pending"].includes(interview.evidenceSyncStatus)) &&
+    (!Object.hasOwn(interview, "retestComparison") ||
+      isRetestComparison(interview.retestComparison)) &&
     interview.questions.some((question) =>
       question.answers.some((answer) => isFeedback(answer.feedback)),
     ),
+  );
+}
+
+function isRetestComparison(value) {
+  return Boolean(
+    value &&
+    typeof value.skillKey === "string" &&
+    typeof value.skillLabel === "string" &&
+    isScore(value.previousMasteryScore) &&
+    isScore(value.currentMasteryScore) &&
+    ["provisional", "emerging", "established"].includes(
+      value.previousConfidence,
+    ) &&
+    ["provisional", "emerging", "established"].includes(
+      value.currentConfidence,
+    ),
+  );
+}
+
+function replayMetadata(question) {
+  if (!Object.hasOwn(question, "decisionType")) return null;
+  return `${question.decisionType.replaceAll("_", " ")} · ${question.difficulty} · ${question.testedSkillKeys.join(", ")}`;
+}
+
+function RetestComparison({ comparison }) {
+  if (!comparison) return null;
+  const change =
+    comparison.currentMasteryScore - comparison.previousMasteryScore;
+  return (
+    <section className="retest-comparison" aria-label="Retest comparison">
+      <p className="eyebrow">Retest comparison</p>
+      <h2>{comparison.skillLabel}</h2>
+      <p>
+        {comparison.previousMasteryScore} to {comparison.currentMasteryScore}{" "}
+        mastery ({change >= 0 ? "+" : ""}
+        {change}). Confidence: {comparison.previousConfidence} to{" "}
+        {comparison.currentConfidence}.
+      </p>
+      <p>Evidence remains confidence-labelled and is not a hiring decision.</p>
+    </section>
+  );
+}
+
+function RetestComparisonStatus({ interview }) {
+  if (
+    interview.sessionPurpose !== "targeted_practice" ||
+    interview.retestComparison
+  ) {
+    return null;
+  }
+
+  return (
+    <p className="replay-metadata" role="status">
+      {interview.evidenceSyncStatus === "pending"
+        ? "Retest comparison is still synchronizing."
+        : "Retest comparison is unavailable for this saved session."}
+    </p>
   );
 }
 
@@ -297,25 +388,51 @@ function InterviewResultPage() {
           AI feedback supports interview practice and may not be perfectly
           accurate. It is not a hiring decision.
         </p>
-        {interview.questions.map((question) =>
-          question.answers.map((answer) => (
-            <article className="saved-answer" key={answer.id}>
-              <p className="question-count">Question {question.order}</p>
-              <h3>{question.prompt}</h3>
-              <p className="saved-answer-text">{answer.text}</p>
-              {answer.feedback ? (
-                <FeedbackDetails
-                  feedback={answer.feedback}
-                  headingPrefix={`answer-${answer.id}`}
-                />
-              ) : (
-                <p className="saved-answer-score">
-                  Feedback was not completed for this saved answer.
-                </p>
-              )}
-            </article>
-          )),
-        )}
+        {interview.contextSnapshot ? (
+          <p className="replay-context">
+            Saved {interview.contextSnapshot.kind.replaceAll("_", " ")} context:{" "}
+            {interview.contextSnapshot.label}
+          </p>
+        ) : null}
+        <RetestComparison comparison={interview.retestComparison} />
+        <RetestComparisonStatus interview={interview} />
+        <ol className="replay-timeline" aria-label="Interview replay timeline">
+          {interview.questions.map((question) =>
+            question.answers.map((answer) => (
+              <li className="replay-timeline-item" key={answer.id}>
+                <article className="saved-answer">
+                  <p className="question-count">Question {question.order}</p>
+                  {question.parentQuestionId ? (
+                    <p className="replay-link">
+                      Follow-up to an earlier question
+                    </p>
+                  ) : null}
+                  {replayMetadata(question) ? (
+                    <p className="replay-metadata">
+                      {replayMetadata(question)}
+                    </p>
+                  ) : (
+                    <p className="replay-metadata">
+                      No adaptive metadata recorded.
+                    </p>
+                  )}
+                  <h3>{question.prompt}</h3>
+                  <p className="saved-answer-text">{answer.text}</p>
+                  {answer.feedback ? (
+                    <FeedbackDetails
+                      feedback={answer.feedback}
+                      headingPrefix={`answer-${answer.id}`}
+                    />
+                  ) : (
+                    <p className="saved-answer-score">
+                      Feedback was not completed for this saved answer.
+                    </p>
+                  )}
+                </article>
+              </li>
+            )),
+          )}
+        </ol>
       </section>
     </>
   );

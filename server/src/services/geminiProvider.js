@@ -111,6 +111,48 @@ const evaluationJsonSchema = {
   type: "object",
 };
 
+function v2EvaluationJsonSchema(testedSkills) {
+  return {
+    ...evaluationJsonSchema,
+    properties: {
+      ...evaluationJsonSchema.properties,
+      skillEvidence: {
+        items: {
+          additionalProperties: false,
+          properties: {
+            evidenceStrength: {
+              enum: ["direct", "supporting"],
+              type: "string",
+            },
+            outcome: {
+              enum: ["strong", "partial", "weak", "missing"],
+              type: "string",
+            },
+            reasonCode: {
+              enum: [
+                "answer_quality",
+                "incomplete_evidence",
+                "missing_evidence",
+              ],
+              type: "string",
+            },
+            skillKey: {
+              enum: testedSkills.map(({ key }) => key),
+              type: "string",
+            },
+          },
+          required: ["skillKey", "outcome", "evidenceStrength", "reasonCode"],
+          type: "object",
+        },
+        maxItems: 3,
+        minItems: 1,
+        type: "array",
+      },
+    },
+    required: [...evaluationJsonSchema.required, "skillEvidence"],
+  };
+}
+
 const jobTargetAnalysisJsonSchema = {
   additionalProperties: false,
   properties: {
@@ -286,6 +328,15 @@ export function buildEvaluationPrompt({
   ].join("\n\n");
 }
 
+export function buildV2EvaluationPrompt(input) {
+  return [
+    buildEvaluationPrompt(input),
+    `Tested skills: ${JSON.stringify(input.testedSkills)}`,
+    "Return 1-3 categorical skillEvidence entries only for listed keys.",
+    "Each entry needs skillKey, outcome, evidenceStrength, reasonCode. Never return mastery or hiring probability.",
+  ].join("\n\n");
+}
+
 export function buildJobTargetAnalysisPrompt({ company, description, title }) {
   return [
     "Analyze this job description for interview practice. This is not hiring advice.",
@@ -452,6 +503,31 @@ export function createGeminiProvider({
         return null;
       }
 
+      try {
+        return JSON.parse(response.text);
+      } catch {
+        return null;
+      }
+    },
+
+    async evaluateV2Answer(
+      input,
+      { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
+    ) {
+      const response = await requestContent({
+        config: {
+          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
+          candidateCount: 1,
+          maxOutputTokens: 700,
+          responseJsonSchema: v2EvaluationJsonSchema(input.testedSkills),
+          responseMimeType: "application/json",
+          temperature: 0.2,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+        contents: buildV2EvaluationPrompt(input),
+        model,
+      });
+      if (typeof response?.text !== "string") return null;
       try {
         return JSON.parse(response.text);
       } catch {

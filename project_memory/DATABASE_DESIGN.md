@@ -311,6 +311,18 @@ immutable project snapshot; anchor/answer text is not duplicated in question
 metadata. The pair is valid only on a parent-linked Project Defense follow-up.
 Historical questions remain valid without it; no migration or backfill exists.
 
+Day 9 adds immutable `skillEvidence` records after completed V2 answer feedback.
+Each record stores only owner, session/question/answer identity, normalized key
+and label, categorical outcome, difficulty, evidence strength, safe reason
+code, and server `createdAt`. Indexes are unique `{userId,answerId,skillKey}`;
+`{userId,skillKey,createdAt:-1}`; and `{userId,sessionId}`. No raw answer,
+prompt, feedback text, final mastery score, or unvalidated provider payload is
+stored.
+V2 sessions add private staged categorical output and `evidenceSyncStatus`.
+After idempotent evidence upsert succeeds, staging is removed and status becomes
+`ready`; failed writes retain staging with `pending`. No migration or backfill
+exists.
+
 Existing sessions without V2 fields remain valid. Derived skill profiles use
 recent owned `skillEvidence`, deterministic categorical value mapping, bounded
 difficulty/evidence-strength/recency weights, attempt count, and an explicit
