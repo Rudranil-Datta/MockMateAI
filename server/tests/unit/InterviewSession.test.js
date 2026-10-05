@@ -129,6 +129,159 @@ describe("InterviewSession", () => {
     },
   );
 
+  it("accepts one bounded immutable Role Simulation target snapshot", async () => {
+    const targetId = new mongoose.Types.ObjectId();
+    const session = new InterviewSession(
+      validSession({
+        contextSnapshot: {
+          analysis: {
+            requirements: [
+              {
+                evidenceTerms: ["Node.js"],
+                key: "backend-apis",
+                label: "Backend APIs",
+                priority: "required",
+              },
+            ],
+            roleSummary: "Build reliable backend services for customers.",
+            skills: [
+              {
+                key: "node-js",
+                label: "Node.js",
+                sourceRequirementKeys: ["backend-apis"],
+                weight: 5,
+              },
+            ],
+          },
+          displayLabel: "Backend Engineer at Example",
+          kind: "job_target",
+          sourceId: targetId,
+          sourceUpdatedAt: new Date(),
+        },
+        interviewType: "Role Simulation",
+        jobTargetId: targetId,
+        sessionPurpose: "standard",
+      }),
+    );
+
+    await expect(session.validate()).resolves.toBeUndefined();
+    session.contextSnapshot.sourceId = new mongoose.Types.ObjectId();
+    await expect(session.validate()).rejects.toThrow();
+  });
+
+  it("accepts one bounded immutable Project Defense snapshot", async () => {
+    const projectId = new mongoose.Types.ObjectId();
+    const session = new InterviewSession(
+      validSession({
+        contextSnapshot: {
+          displayLabel: "Payments Platform — Backend Engineer",
+          facts: {
+            architecture: ["Modular monolith with async payment webhooks."],
+            claims: [
+              { evidence: "Measured in load tests.", text: "Cut latency 20%." },
+            ],
+            decisions: ["Used idempotency keys for payment retries."],
+            name: "Payments Platform",
+            responsibilities: ["Owned payment API reliability."],
+            role: "Backend Engineer",
+            summary: "Built a reliable platform for customer payments.",
+            technologies: ["Node.js", "MongoDB"],
+            tradeoffs: ["Favored consistency over write throughput."],
+          },
+          kind: "candidate_project",
+          sourceId: projectId,
+          sourceUpdatedAt: new Date(),
+        },
+        interviewType: "Project Defense",
+        projectId,
+        sessionPurpose: "standard",
+      }),
+    );
+
+    await expect(session.validate()).resolves.toBeUndefined();
+    session.contextSnapshot.sourceId = new mongoose.Types.ObjectId();
+    await expect(session.validate()).rejects.toThrow();
+  });
+
+  it("accepts complete Project Defense challenge metadata and rejects partial or foreign-type use", async () => {
+    const projectId = new mongoose.Types.ObjectId();
+    const snapshot = {
+      displayLabel: "Payments Platform — Backend Engineer",
+      facts: {
+        architecture: ["Modular monolith with async payment webhooks."],
+        claims: [],
+        decisions: [],
+        name: "Payments Platform",
+        responsibilities: ["Owned payment API reliability."],
+        role: "Backend Engineer",
+        summary: "Built a reliable payments platform.",
+        technologies: ["Node.js"],
+        tradeoffs: [],
+      },
+      kind: "candidate_project",
+      sourceId: projectId,
+      sourceUpdatedAt: new Date(),
+    };
+    const firstQuestionId = new mongoose.Types.ObjectId();
+    const questions = [
+      {
+        ...validQuestion(1),
+        _id: firstQuestionId,
+        decisionType: "baseline",
+        difficulty: "intermediate",
+        reasonCode: "opening",
+        testedSkillKeys: ["architecture"],
+        topicKey: "architecture",
+      },
+    ];
+    questions.push({
+      ...validQuestion(2),
+      challengeAnchorKey: "architecture:0",
+      challengeAxis: "security",
+      decisionType: "deepen",
+      difficulty: "advanced",
+      parentQuestionId: firstQuestionId,
+      reasonCode: "strong_evidence",
+      testedSkillKeys: ["architecture"],
+      topicKey: "architecture",
+    });
+    await expect(
+      new InterviewSession(
+        validSession({
+          contextSnapshot: snapshot,
+          interviewType: "Project Defense",
+          projectId,
+          questions,
+          sessionPurpose: "standard",
+        }),
+      ).validate(),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      new InterviewSession(
+        validSession({
+          questions: [
+            validQuestion(1),
+            {
+              ...validQuestion(2),
+              challengeAxis: "security",
+            },
+          ],
+        }),
+      ).validate(),
+    ).rejects.toThrow();
+
+    await expect(
+      new InterviewSession(
+        validSession({
+          questions,
+          status: "active",
+          startedAt: new Date(),
+        }),
+      ).validate(),
+    ).rejects.toThrow();
+  });
+
   it("rejects unsupported types, levels, and missing owners", async () => {
     await expect(
       new InterviewSession(

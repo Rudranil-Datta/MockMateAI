@@ -74,14 +74,18 @@ function isVoiceAnswerResult(result) {
 export function startInterview({
   idempotencyKey,
   interviewType,
+  jobTargetId,
   level,
+  projectId,
   resumeId,
 } = {}) {
   return apiRequest("interviews", {
     body: {
       idempotencyKey,
       interviewType,
+      ...(jobTargetId ? { jobTargetId } : {}),
       level,
+      ...(projectId ? { projectId } : {}),
       ...(resumeId ? { resumeId } : {}),
     },
     method: "POST",

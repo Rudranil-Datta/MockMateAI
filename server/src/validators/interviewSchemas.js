@@ -13,13 +13,27 @@ function normalizeString(value) {
 
 export function validateStartInterviewRequest(body) {
   const request = body && typeof body === "object" ? body : {};
+  const allowedFields = new Set([
+    "idempotencyKey",
+    "interviewType",
+    "jobTargetId",
+    "level",
+    "projectId",
+    "resumeId",
+    "sessionPurpose",
+  ]);
   const interviewType = normalizeString(request.interviewType);
   const level = normalizeString(request.level);
   const idempotencyKey = normalizeString(request.idempotencyKey);
   const fields = {};
 
-  if (!interviewTypes.includes(interviewType)) {
-    fields.interviewType = "Choose DSA, HR, or System Design.";
+  if (
+    ![...interviewTypes, "Role Simulation", "Project Defense"].includes(
+      interviewType,
+    )
+  ) {
+    fields.interviewType =
+      "Choose DSA, HR, System Design, Role Simulation, or Project Defense.";
   }
 
   if (!interviewLevels.includes(level)) {
@@ -38,6 +52,38 @@ export function validateStartInterviewRequest(body) {
     fields.resumeId = "Choose a valid resume.";
   }
 
+  const isRoleSimulation = interviewType === "Role Simulation";
+  const isProjectDefense = interviewType === "Project Defense";
+  if (
+    isRoleSimulation &&
+    (!normalizeString(request.jobTargetId) ||
+      !mongoose.isObjectIdOrHexString(request.jobTargetId))
+  ) {
+    fields.jobTargetId = "Choose a valid ready Job Target.";
+  } else if (!isRoleSimulation && request.jobTargetId !== undefined) {
+    fields.jobTargetId = "Job Target is available only for Role Simulation.";
+  }
+  if (
+    isProjectDefense &&
+    (!normalizeString(request.projectId) ||
+      !mongoose.isObjectIdOrHexString(request.projectId))
+  ) {
+    fields.projectId = "Choose a valid confirmed Project.";
+  } else if (!isProjectDefense && request.projectId !== undefined) {
+    fields.projectId = "Project is available only for Project Defense.";
+  }
+  if (
+    request.sessionPurpose !== undefined &&
+    (!(isRoleSimulation || isProjectDefense) ||
+      normalizeString(request.sessionPurpose) !== "standard")
+  ) {
+    fields.sessionPurpose =
+      "Only standard context-bound practice is available now.";
+  }
+  if (Object.keys(request).some((field) => !allowedFields.has(field))) {
+    fields.request = "Request contains unsupported fields.";
+  }
+
   if (Object.keys(fields).length > 0) {
     throw new AppError("VALIDATION_ERROR", "Check the highlighted fields.", {
       fields,
@@ -49,6 +95,12 @@ export function validateStartInterviewRequest(body) {
     idempotencyKey,
     interviewType,
     level,
+    ...(isRoleSimulation
+      ? { jobTargetId: request.jobTargetId, sessionPurpose: "standard" }
+      : {}),
+    ...(isProjectDefense
+      ? { projectId: request.projectId, sessionPurpose: "standard" }
+      : {}),
     ...(request.resumeId ? { resumeId: request.resumeId } : {}),
   };
 }

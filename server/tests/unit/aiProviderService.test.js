@@ -26,6 +26,7 @@ const validFeedback = {
 };
 
 const adaptiveInput = {
+  challengeDirective: null,
   contextSummary: null,
   coveragePlan: [
     {
@@ -131,6 +132,70 @@ describe("aiProviderService", () => {
       errorCategory: "provider_unavailable",
     });
     expect(unavailable).toHaveBeenCalledOnce();
+  });
+
+  it("enforces grounded Project Defense challenge metadata", async () => {
+    const challengeDirective = {
+      anchorKey: "claims:0",
+      anchorText: "Reduced latency by 20%.",
+      axis: "testing",
+      latestAnswer: "I measured p95 latency before and after the change.",
+    };
+    const output = {
+      challengeAnchorKey: "claims:0",
+      challengeAxis: "testing",
+      decisionType: "clarify",
+      difficulty: "intermediate",
+      parentQuestionOrder: 1,
+      prompt:
+        'For "Reduced latency by 20%.", clarify the testing baseline and sample size.',
+      reasonCode: "partial_evidence",
+      testedSkillKeys: ["api-design"],
+      topicKey: "api-design",
+    };
+    const generateContent = vi.fn().mockResolvedValue({
+      text: JSON.stringify(output),
+    });
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent,
+    });
+    const challengeInput = {
+      ...adaptiveInput,
+      challengeDirective,
+      interviewType: "Project Defense",
+      previousQuestions: [
+        {
+          decisionType: "baseline",
+          difficulty: "intermediate",
+          order: 1,
+          outcome: "partial",
+          parentQuestionOrder: null,
+          prompt: "Defend the API design.",
+          reasonCode: "opening",
+          testedSkillKeys: ["api-design"],
+          topicKey: "api-design",
+        },
+      ],
+    };
+
+    await expect(
+      service.generateAdaptiveQuestion(challengeInput),
+    ).resolves.toEqual(output);
+    expect(generateContent.mock.calls[0][0].contents).toContain(
+      challengeDirective.anchorText,
+    );
+    await expect(
+      createAiProviderService({ aiProvider: "mock" }).generateAdaptiveQuestion(
+        challengeInput,
+      ),
+    ).resolves.toMatchObject({
+      challengeAnchorKey: challengeDirective.anchorKey,
+      challengeAxis: challengeDirective.axis,
+      decisionType: "clarify",
+      parentQuestionOrder: 1,
+      reasonCode: "partial_evidence",
+    });
   });
 
   it("returns deterministic mock questions for all documented types", async () => {

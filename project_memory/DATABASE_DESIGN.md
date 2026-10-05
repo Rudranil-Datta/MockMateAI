@@ -291,10 +291,25 @@ question metadata, and complete private adaptive-decision staging. Metadata is
 stored as one valid group; parent IDs must reference an earlier same-session
 question. Existing documents require no migration or backfill.
 
-`interviewSessions` will later add optional `jobTargetId`, `projectId`, and
-bounded context snapshots.
-The interview-type enum will add `Role Simulation` and `Project Defense` while
-preserving the three V1 values.
+Day 6 adds optional `jobTargetId` and an analysis-only `contextSnapshot` for
+Role Simulation. The snapshot stores `kind="job_target"`, matching source ID,
+source update time, display label, role summary, requirements, and skills, with
+a 16 KiB serialized cap. The interview-type enum now includes Role Simulation
+while preserving the three V1 values.
+
+Day 7 adds optional `projectId` and `kind="candidate_project"` snapshot facts
+for Project Defense. Facts contain only the confirmed project contract fields;
+source resume ID, confirmation time, raw resume text, and provider payloads are
+excluded. Project ID must match snapshot source ID, and the complete snapshot
+envelope remains within 16 KiB. Existing sessions require no migration.
+
+Day 8 adds optional paired `challengeAxis` and `challengeAnchorKey` to a
+question and its private staged adaptive decision. Allowed axes are
+architecture, technology, data, security, testing, deployment, trade-off, and
+failure-scenario. Anchor keys identify an indexed field inside the existing
+immutable project snapshot; anchor/answer text is not duplicated in question
+metadata. The pair is valid only on a parent-linked Project Defense follow-up.
+Historical questions remain valid without it; no migration or backfill exists.
 
 Existing sessions without V2 fields remain valid. Derived skill profiles use
 recent owned `skillEvidence`, deterministic categorical value mapping, bounded

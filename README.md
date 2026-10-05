@@ -206,12 +206,14 @@ Atlas data as part of rollback without a separately approved recovery plan.
 
 ## V2 planning status
 
-V1 remains complete under the documented demo/staging scope. V2 Days 1–4 are
-complete: contracts are frozen, owned Job Targets are implemented, and the
-confirmed Candidate Project API/workspace and dormant adaptive provider/session
-contracts are implemented. Day 5 remains unapproved. V2 continues through separately approved days or
-phases; planning documents do not authorize provider calls, deployment,
-commits, or pushes.
+V1 remains complete under the documented demo/staging scope. V2 Days 1–8 are
+complete: contracts, owned Job Targets, confirmed Candidate Projects, adaptive
+provider/session contracts, deterministic branching, and Job Target-weighted
+Role Simulation and confirmed-project Project Defense foundations are
+implemented, including grounded claim/fact-aware Project Defense follow-ups.
+Day 9 remains unapproved. V2 continues
+through separately approved days or phases; planning documents do not authorize
+provider calls, deployment, commits, or pushes.
 
 - [V2 implementation plan](project_memory/V2_IMPLEMENTATION_PLAN.md)
 - [V2 implementation timeline](project_memory/V2_IMPLEMENTATION_TIMELINE.md)

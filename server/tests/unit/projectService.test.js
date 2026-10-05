@@ -19,6 +19,41 @@ function key(index) {
 }
 
 describe("project extraction service", () => {
+  it("rejects a confirmed project whose complete snapshot exceeds 16 KiB", async () => {
+    const longItems = Array.from(
+      { length: 10 },
+      (_, index) => `${index}-${"x".repeat(297)}`,
+    );
+    const project = {
+      architecture: longItems,
+      claims: Array.from({ length: 8 }, (_, index) => ({
+        evidence: `${index}-${"e".repeat(297)}`,
+        text: `${index}-${"c".repeat(297)}`,
+      })),
+      confirmedAt: new Date(),
+      decisions: longItems.slice(0, 8),
+      id: "507f1f77bcf86cd799439011",
+      name: "Large Project",
+      responsibilities: longItems,
+      role: "Engineer",
+      summary: "s".repeat(1000),
+      technologies: ["JavaScript"],
+      tradeoffs: longItems.slice(0, 8),
+      updatedAt: new Date(),
+      validate: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = createProjectService({
+      candidateProjectModel: { findOne: vi.fn().mockResolvedValue(project) },
+    });
+
+    await expect(
+      service.getConfirmedProjectSnapshot({
+        projectId: project.id,
+        userId: "owner",
+      }),
+    ).rejects.toMatchObject({ code: "PROJECT_NOT_READY", status: 409 });
+  });
+
   it("shares one in-flight operation and rejects changed input", async () => {
     let release;
     const provider = vi.fn().mockReturnValue(

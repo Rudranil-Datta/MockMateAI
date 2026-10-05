@@ -9,12 +9,16 @@ const questionJsonSchema = {
   type: "object",
 };
 
-function adaptiveQuestionJsonSchema({ coveragePlan, previousQuestions }) {
+function adaptiveQuestionJsonSchema({
+  challengeDirective,
+  coveragePlan,
+  previousQuestions,
+}) {
   const skillKeys = [
     ...new Set(coveragePlan.flatMap(({ skillKeys: keys }) => keys)),
   ];
   const priorOrders = previousQuestions.map(({ order }) => order);
-  return {
+  const schema = {
     additionalProperties: false,
     properties: {
       decisionType: {
@@ -70,6 +74,18 @@ function adaptiveQuestionJsonSchema({ coveragePlan, previousQuestions }) {
     ],
     type: "object",
   };
+  if (challengeDirective) {
+    schema.properties.challengeAnchorKey = {
+      enum: [challengeDirective.anchorKey],
+      type: "string",
+    };
+    schema.properties.challengeAxis = {
+      enum: [challengeDirective.axis],
+      type: "string",
+    };
+    schema.required.push("challengeAxis", "challengeAnchorKey");
+  }
+  return schema;
 }
 
 const evaluationJsonSchema = {
@@ -246,6 +262,9 @@ export function buildAdaptiveQuestionPrompt(input) {
     "Propose exactly one bounded interview-practice question.",
     `Validated session context:\n${JSON.stringify(input)}`,
     "Use only listed topics, skills, history, and confirmed context.",
+    input.challengeDirective
+      ? `Challenge axis and anchor key must exactly match the directive. The prompt must visibly include this exact confirmed anchor text: ${input.challengeDirective.anchorText}`
+      : "Do not return challengeAxis or challengeAnchorKey.",
     "Return one exact JSON decision. Do not include markdown, hidden reasoning, hiring advice, personal data, tools, or extra fields.",
   ].join("\n\n");
 }

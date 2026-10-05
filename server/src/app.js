@@ -16,6 +16,7 @@ import { createProjectRouter } from "./routes/projectRoutes.js";
 import { createReadinessRouter } from "./routes/readinessRoutes.js";
 import { createResumeRouter } from "./routes/resumeRoutes.js";
 import { createAiProviderService } from "./services/aiProviderService.js";
+import { createAdaptiveInterviewService } from "./services/adaptiveInterviewService.js";
 import { createAnalyticsService } from "./services/analyticsService.js";
 import { createAnswerEvaluationService } from "./services/answerEvaluationService.js";
 import { createJobTargetService } from "./services/jobTargetService.js";
@@ -94,6 +95,10 @@ export function createApp({
       timeoutMs: aiRequestTimeoutMs,
     });
   const ownedAnalyticsService = analyticsService || createAnalyticsService();
+  const adaptiveInterviewService =
+    typeof providerService.generateAdaptiveQuestion === "function"
+      ? createAdaptiveInterviewService({ aiProviderService: providerService })
+      : undefined;
   const ownedResumeService = resumeService || createResumeService();
   const answerEvaluationService = createAnswerEvaluationService({
     aiProviderService: providerService,
@@ -197,10 +202,13 @@ export function createApp({
     "/api/interviews",
     createInterviewRouter({
       aiRateLimit,
+      adaptiveInterviewService,
       aiProviderService: providerService,
       answerEvaluationService,
       audioUploadDir,
       maxAudioSizeBytes,
+      jobTargetService: ownedJobTargetService,
+      projectService: ownedProjectService,
       resumeService: ownedResumeService,
       uploadRateLimit,
       voiceAnswerService: ownedVoiceAnswerService,

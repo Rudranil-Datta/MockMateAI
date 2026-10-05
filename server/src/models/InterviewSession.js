@@ -46,6 +46,231 @@ const reasonCodes = [
   "coverage_gap",
   "targeted_retest",
 ];
+const projectChallengeAxes = [
+  "architecture",
+  "technology",
+  "data",
+  "security",
+  "testing",
+  "deployment",
+  "trade-off",
+  "failure-scenario",
+];
+const challengeAnchorKeyPattern =
+  /^(architecture|claims|decisions|responsibilities|technologies|tradeoffs):[0-9]+$/;
+const maxContextSnapshotBytes = 16 * 1024;
+
+const snapshotRequirementSchema = new mongoose.Schema(
+  {
+    evidenceTerms: {
+      default: () => [],
+      type: [String],
+      validate: {
+        validator: (items) =>
+          items.length <= 5 &&
+          items.every((item) => item.length >= 2 && item.length <= 80),
+      },
+    },
+    key: {
+      match: skillKeyPattern,
+      maxlength: 50,
+      minlength: 2,
+      required: true,
+      type: String,
+    },
+    label: {
+      maxlength: 80,
+      minlength: 2,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    priority: {
+      enum: ["required", "preferred", "context"],
+      required: true,
+      type: String,
+    },
+  },
+  { _id: false },
+);
+
+const snapshotSkillSchema = new mongoose.Schema(
+  {
+    key: {
+      match: skillKeyPattern,
+      maxlength: 50,
+      minlength: 2,
+      required: true,
+      type: String,
+    },
+    label: {
+      maxlength: 80,
+      minlength: 2,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    sourceRequirementKeys: {
+      required: true,
+      type: [String],
+      validate: {
+        validator: (items) => items.length >= 1 && items.length <= 5,
+      },
+    },
+    weight: { max: 5, min: 1, required: true, type: Number },
+  },
+  { _id: false },
+);
+
+const snapshotAnalysisSchema = new mongoose.Schema(
+  {
+    requirements: {
+      required: true,
+      type: [snapshotRequirementSchema],
+      validate: {
+        validator: (items) => items.length >= 1 && items.length <= 12,
+      },
+    },
+    roleSummary: {
+      maxlength: 500,
+      minlength: 20,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    skills: {
+      required: true,
+      type: [snapshotSkillSchema],
+      validate: {
+        validator: (items) => items.length >= 1 && items.length <= 12,
+      },
+    },
+  },
+  { _id: false },
+);
+
+const snapshotClaimSchema = new mongoose.Schema(
+  {
+    evidence: {
+      default: null,
+      maxlength: 300,
+      minlength: 5,
+      trim: true,
+      type: String,
+    },
+    text: {
+      maxlength: 300,
+      minlength: 5,
+      required: true,
+      trim: true,
+      type: String,
+    },
+  },
+  { _id: false },
+);
+
+function boundedSnapshotList(minimum, maximum, itemMinimum, itemMaximum) {
+  return {
+    validator: (items) =>
+      items.length >= minimum &&
+      items.length <= maximum &&
+      items.every(
+        (item) =>
+          typeof item === "string" &&
+          item.trim().length >= itemMinimum &&
+          item.trim().length <= itemMaximum,
+      ) &&
+      new Set(items.map((item) => item.trim().toLowerCase())).size ===
+        items.length,
+  };
+}
+
+const snapshotProjectFactsSchema = new mongoose.Schema(
+  {
+    architecture: {
+      required: true,
+      type: [String],
+      validate: boundedSnapshotList(1, 10, 5, 300),
+    },
+    claims: {
+      default: () => [],
+      type: [snapshotClaimSchema],
+      validate: {
+        validator: (items) =>
+          items.length <= 8 &&
+          new Set(items.map(({ text }) => text.trim().toLowerCase())).size ===
+            items.length,
+      },
+    },
+    decisions: {
+      default: () => [],
+      type: [String],
+      validate: boundedSnapshotList(0, 8, 5, 300),
+    },
+    name: {
+      maxlength: 120,
+      minlength: 2,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    responsibilities: {
+      required: true,
+      type: [String],
+      validate: boundedSnapshotList(1, 10, 5, 300),
+    },
+    role: {
+      maxlength: 120,
+      minlength: 2,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    summary: {
+      maxlength: 1000,
+      minlength: 20,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    technologies: {
+      required: true,
+      type: [String],
+      validate: boundedSnapshotList(1, 15, 1, 50),
+    },
+    tradeoffs: {
+      default: () => [],
+      type: [String],
+      validate: boundedSnapshotList(0, 8, 5, 300),
+    },
+  },
+  { _id: false },
+);
+
+const contextSnapshotSchema = new mongoose.Schema(
+  {
+    analysis: snapshotAnalysisSchema,
+    displayLabel: {
+      maxlength: 250,
+      minlength: 2,
+      required: true,
+      trim: true,
+      type: String,
+    },
+    facts: snapshotProjectFactsSchema,
+    kind: {
+      enum: ["job_target", "candidate_project"],
+      required: true,
+      type: String,
+    },
+    sourceId: {
+      required: true,
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    sourceUpdatedAt: { required: true, type: Date },
+  },
+  { _id: false },
+);
 
 const testedSkillKeysField = {
   default: undefined,
@@ -71,6 +296,12 @@ const testedSkillKeysField = {
 
 const adaptiveDecisionSchema = new mongoose.Schema(
   {
+    challengeAnchorKey: {
+      match: challengeAnchorKeyPattern,
+      maxlength: 50,
+      type: String,
+    },
+    challengeAxis: { enum: projectChallengeAxes, type: String },
     decisionType: { enum: decisionTypes, required: true, type: String },
     difficulty: {
       enum: ["beginner", "intermediate", "advanced"],
@@ -97,6 +328,15 @@ const adaptiveDecisionSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+adaptiveDecisionSchema.pre("validate", function validateChallengeMetadata() {
+  if (Boolean(this.challengeAxis) !== Boolean(this.challengeAnchorKey)) {
+    this.invalidate(
+      "challengeAxis",
+      "Project challenge metadata must be stored as one complete group.",
+    );
+  }
+});
 
 function hasAtMost(maximum) {
   return {
@@ -266,6 +506,12 @@ const questionSchema = new mongoose.Schema({
     type: [answerSchema],
     validate: hasAtMost(maxAnswersPerQuestion),
   },
+  challengeAnchorKey: {
+    match: challengeAnchorKeyPattern,
+    maxlength: 50,
+    type: String,
+  },
+  challengeAxis: { enum: projectChallengeAxes, type: String },
   generatedAt: {
     required: true,
     type: Date,
@@ -322,6 +568,12 @@ questionSchema.pre("validate", function validateAdaptiveMetadata() {
     this.invalidate(
       "topicKey",
       "Adaptive question metadata must be stored as one complete group.",
+    );
+  }
+  if (Boolean(this.challengeAxis) !== Boolean(this.challengeAnchorKey)) {
+    this.invalidate(
+      "challengeAxis",
+      "Project challenge metadata must be stored as one complete group.",
     );
   }
 });
@@ -402,6 +654,7 @@ const summarySchema = new mongoose.Schema(
 
 const interviewSessionSchema = new mongoose.Schema(
   {
+    contextSnapshot: contextSnapshotSchema,
     focusSkillKey: {
       match: skillKeyPattern,
       maxlength: 50,
@@ -410,7 +663,13 @@ const interviewSessionSchema = new mongoose.Schema(
       type: String,
     },
     interviewType: {
-      enum: ["DSA", "HR", "System Design"],
+      enum: [
+        "DSA",
+        "HR",
+        "System Design",
+        "Role Simulation",
+        "Project Defense",
+      ],
       required: true,
       type: String,
     },
@@ -418,6 +677,14 @@ const interviewSessionSchema = new mongoose.Schema(
       enum: ["beginner", "intermediate", "advanced"],
       required: true,
       type: String,
+    },
+    jobTargetId: {
+      ref: "JobTarget",
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    projectId: {
+      ref: "CandidateProject",
+      type: mongoose.Schema.Types.ObjectId,
     },
     questions: {
       default: () => [],
@@ -462,6 +729,60 @@ const interviewSessionSchema = new mongoose.Schema(
 );
 
 interviewSessionSchema.pre("validate", function validateCompletion() {
+  const isRoleSimulation = this.interviewType === "Role Simulation";
+  const isProjectDefense = this.interviewType === "Project Defense";
+  if (
+    (isRoleSimulation &&
+      !(
+        this.jobTargetId &&
+        !this.projectId &&
+        this.contextSnapshot?.kind === "job_target" &&
+        this.contextSnapshot.analysis &&
+        !this.contextSnapshot.facts
+      )) ||
+    (isProjectDefense &&
+      !(
+        this.projectId &&
+        !this.jobTargetId &&
+        this.contextSnapshot?.kind === "candidate_project" &&
+        this.contextSnapshot.facts &&
+        !this.contextSnapshot.analysis
+      )) ||
+    (!isRoleSimulation &&
+      !isProjectDefense &&
+      (this.jobTargetId || this.projectId || this.contextSnapshot))
+  ) {
+    this.invalidate(
+      "contextSnapshot",
+      "Context-bound interviews require one matching source snapshot.",
+    );
+  }
+  if (
+    isRoleSimulation &&
+    this.jobTargetId?.toString() !== this.contextSnapshot?.sourceId?.toString()
+  ) {
+    this.invalidate(
+      "contextSnapshot.sourceId",
+      "Snapshot source must match the Job Target.",
+    );
+  }
+  if (
+    isProjectDefense &&
+    this.projectId?.toString() !== this.contextSnapshot?.sourceId?.toString()
+  ) {
+    this.invalidate(
+      "contextSnapshot.sourceId",
+      "Snapshot source must match the Candidate Project.",
+    );
+  }
+  if (
+    this.contextSnapshot &&
+    Buffer.byteLength(JSON.stringify(this.contextSnapshot.toObject()), "utf8") >
+      maxContextSnapshotBytes
+  ) {
+    this.invalidate("contextSnapshot", "Context snapshot is too large.");
+  }
+
   const earlierQuestionIds = new Set();
   for (const question of this.questions) {
     if (
@@ -473,7 +794,27 @@ interviewSessionSchema.pre("validate", function validateCompletion() {
         "Question parent must reference an earlier question in this session.",
       );
     }
+    if (
+      (question.challengeAxis || question.challengeAnchorKey) &&
+      (!isProjectDefense || !question.parentQuestionId || question.order === 1)
+    ) {
+      this.invalidate(
+        "questions",
+        "Project challenge metadata requires a Project Defense follow-up.",
+      );
+    }
     earlierQuestionIds.add(question.id);
+  }
+
+  if (
+    (this.questionGeneration?.decision?.challengeAxis ||
+      this.questionGeneration?.decision?.challengeAnchorKey) &&
+    !isProjectDefense
+  ) {
+    this.invalidate(
+      "questionGeneration.decision",
+      "Only Project Defense can stage challenge metadata.",
+    );
   }
 
   if (this.status === "completed") {

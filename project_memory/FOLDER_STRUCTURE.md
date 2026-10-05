@@ -248,3 +248,60 @@ shared client validator was added at `client/src/utils/interviewQuestion.js` so
 both active and replay screens enforce the same optional metadata group. No new
 top-level folder, route, controller, collection, dependency, deployment module,
 agent, queue, or service was needed.
+
+### Day 5 implemented modules
+
+```text
+server/src/
+  services/adaptiveInterviewService.js
+  validators/adaptiveInterviewSchemas.js
+server/tests/unit/
+  adaptiveInterviewService.test.js
+```
+
+These isolated modules derive and enforce adaptive decisions around the
+existing provider-neutral contract. No route, controller, model, client,
+top-level folder, dependency, deployment module, agent, queue, or additional
+service was added.
+
+### Day 6 implemented modules and extensions
+
+```text
+client/src/api/
+  jobTargetApi.js
+server/tests/integration/
+  roleSimulationRoutes.test.js
+```
+
+Day 6 also extends the existing Practice page/API wrapper, `InterviewSession`,
+interview validator/service/router composition, Job Target service, and focused
+tests. The documented modular structure remains sufficient: no new top-level
+folder, route family, controller, collection, dependency, deployment module,
+agent, queue, or microservice was needed.
+
+### Day 7 implemented modules and extensions
+
+```text
+server/tests/integration/
+  projectDefenseRoutes.test.js
+```
+
+Day 7 extends the existing Practice page/API wrapper, `InterviewSession`,
+interview validator/service/router composition, Candidate Project service,
+adaptive opening rule, and focused tests. Existing modular folders remain
+sufficient; no new top-level folder, route family, controller, collection,
+dependency, deployment module, agent, queue, or microservice was added.
+
+### Day 8 implemented module and extensions
+
+```text
+server/src/services/
+  projectDefenseChallengeService.js
+server/tests/unit/
+  projectDefenseChallengeService.test.js
+```
+
+Day 8 also extends existing adaptive/provider/interview validators and services,
+Gemini/mock adapters, `InterviewSession`, and focused tests. No route,
+controller, collection, client module, top-level folder, dependency,
+environment, deployment module, agent, queue, or microservice was added.

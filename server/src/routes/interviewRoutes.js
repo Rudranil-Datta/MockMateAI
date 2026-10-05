@@ -9,17 +9,23 @@ import { createInterviewService } from "../services/interviewService.js";
 export function createInterviewRouter({
   aiRateLimit,
   aiProviderService,
+  adaptiveInterviewService,
   answerEvaluationService,
   audioUploadDir,
   maxAudioSizeBytes,
+  jobTargetService,
+  projectService,
   resumeService,
   uploadRateLimit,
   voiceAnswerService,
 }) {
   const interviewRouter = Router();
   const interviewService = createInterviewService({
+    adaptiveInterviewService,
     aiProviderService,
     answerEvaluationService,
+    jobTargetService,
+    projectService,
     resumeService,
   });
   const interviewController = createInterviewController({ interviewService });

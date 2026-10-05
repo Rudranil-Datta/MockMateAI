@@ -254,13 +254,34 @@ End the session with encouragement and a useful summary.
 
 A successful UI lets a first-time user sign up, start a DSA/HR/System Design session, answer by text, understand feedback, and locate the saved result on the dashboard without asking for help. The interface must remain usable when resume upload, microphone permission, transcription, or AI calls fail by presenting a clear recovery path.
 
-## V2 UI Upgrade — Day 3 Foundation Implemented
+## V2 UI Upgrade — Day 3 and Day 6 Foundations Implemented
 
 Exact routes, screen responsibilities, async/recovery states, responsive
 boundaries, focus behavior, and accessibility acceptance are frozen in
 [`V2_DAY1_CONTRACTS.md`](V2_DAY1_CONTRACTS.md). UI implementation remains gated
 by its owning approved days. Day 3 implements the authenticated Projects
 workspace; the broader Day 12 visual upgrade remains planned.
+
+### Day 6 Role Simulation setup
+
+Practice now exposes Role Simulation and loads owned Job Targets through a
+strict client response validator. Its selector enables only `ready` targets and
+has explicit loading, empty, error, and retry states. Type, level, target,
+optional resume, and the start idempotency key survive a failed start. The full
+Job Target create/edit workspace and broader visual upgrade remain Day 12.
+
+### Day 7 Project Defense setup
+
+Practice now exposes Project Defense and loads owned confirmed Projects through
+the existing strict client API. Selection is required and provides explicit
+loading, empty, error, retry, and manage-project states. Type, level, project,
+optional resume, and start operation key survive failure. Day 12 retains the
+broader visual upgrade.
+
+Day 8 requires no client change: existing cockpit renders the persisted
+grounded prompt, progress, and follow-up state through the additive question
+contract. Safe challenge axis/anchor metadata is stored for Day 11 replay; the
+mandatory cockpit and replay presentation upgrades remain Days 11–13.
 
 ### Day 3 Projects workspace
 
@@ -275,8 +296,8 @@ polish remains in the mandatory later UI phase.
 
 ### Information architecture
 
-Add Job Targets and Projects as authenticated workspaces. Practice setup supports
-the three V1 types plus Role Simulation and Project Defense. The dashboard adds
+Add Job Targets and Projects as authenticated workspaces. Practice setup now
+supports the three V1 types, Role Simulation, and Project Defense. The dashboard adds
 a bounded readiness summary, weak skills, recent evidence, and one recommended
 next action; replay remains reachable from saved sessions.
 

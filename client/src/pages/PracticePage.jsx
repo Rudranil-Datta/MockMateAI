@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  BriefcaseBusiness,
   CheckCircle2,
   Code2,
+  FolderKanban,
   Loader2,
   MessageCircle,
   Network,
@@ -15,6 +17,8 @@ import {
   submitTextAnswer,
   submitVoiceAnswer,
 } from "../api/interviewApi.js";
+import { listJobTargets } from "../api/jobTargetApi.js";
+import { listProjects } from "../api/projectApi.js";
 import { listResumes } from "../api/resumeApi.js";
 import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
@@ -23,6 +27,18 @@ import VoiceRecorder from "../components/interview/VoiceRecorder.jsx";
 import { hasValidAdaptiveQuestionMetadata } from "../utils/interviewQuestion.js";
 
 const interviewTypes = [
+  {
+    description: "Defend confirmed architecture and technical choices",
+    icon: FolderKanban,
+    title: "Project Defense",
+    value: "Project Defense",
+  },
+  {
+    description: "Questions weighted to a confirmed Job Target",
+    icon: BriefcaseBusiness,
+    title: "Role Simulation",
+    value: "Role Simulation",
+  },
   {
     description: "Algorithms and data structures",
     icon: Code2,
@@ -200,6 +216,16 @@ function PracticePage() {
   const [selectedType, setSelectedType] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
   const [selectedResumeId, setSelectedResumeId] = useState("");
+  const [selectedJobTargetId, setSelectedJobTargetId] = useState("");
+  const [jobTargets, setJobTargets] = useState([]);
+  const [isJobTargetLoading, setIsJobTargetLoading] = useState(true);
+  const [jobTargetLoadError, setJobTargetLoadError] = useState("");
+  const [jobTargetLoadAttempt, setJobTargetLoadAttempt] = useState(0);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [projects, setProjects] = useState([]);
+  const [isProjectLoading, setIsProjectLoading] = useState(true);
+  const [projectLoadError, setProjectLoadError] = useState("");
+  const [projectLoadAttempt, setProjectLoadAttempt] = useState(0);
   const [resumes, setResumes] = useState([]);
   const [isResumeLoading, setIsResumeLoading] = useState(true);
   const [resumeLoadError, setResumeLoadError] = useState("");
@@ -207,7 +233,14 @@ function PracticePage() {
   const [formError, setFormError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isReady = Boolean(selectedType && selectedLevel);
+  const isRoleSimulation = selectedType === "Role Simulation";
+  const isProjectDefense = selectedType === "Project Defense";
+  const isReady = Boolean(
+    selectedType &&
+    selectedLevel &&
+    (!isRoleSimulation || selectedJobTargetId) &&
+    (!isProjectDefense || selectedProjectId),
+  );
 
   function handleQuotaError(error) {
     if (error?.code !== "AI_QUOTA_EXCEEDED") {
@@ -259,6 +292,54 @@ function PracticePage() {
     return () => controller.abort();
   }, [requestedResumeId, resumeLoadAttempt]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadJobTargetOptions() {
+      setIsJobTargetLoading(true);
+      setJobTargetLoadError("");
+
+      try {
+        setJobTargets(await listJobTargets({ signal: controller.signal }));
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setJobTargetLoadError(
+            error?.message || "Job Targets could not be loaded.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsJobTargetLoading(false);
+      }
+    }
+
+    loadJobTargetOptions();
+    return () => controller.abort();
+  }, [jobTargetLoadAttempt]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadProjectOptions() {
+      setIsProjectLoading(true);
+      setProjectLoadError("");
+
+      try {
+        setProjects(await listProjects({ signal: controller.signal }));
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setProjectLoadError(
+            error?.message || "Projects could not be loaded.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsProjectLoading(false);
+      }
+    }
+
+    loadProjectOptions();
+    return () => controller.abort();
+  }, [projectLoadAttempt]);
+
   function selectType(value) {
     if (value !== selectedType) {
       startIdempotencyKey.current = createIdempotencyKey();
@@ -286,11 +367,35 @@ function PracticePage() {
     setStatusMessage("");
   }
 
+  function selectJobTarget(value) {
+    if (value !== selectedJobTargetId) {
+      startIdempotencyKey.current = createIdempotencyKey();
+    }
+    setSelectedJobTargetId(value);
+    setFormError("");
+    setStatusMessage("");
+  }
+
+  function selectProject(value) {
+    if (value !== selectedProjectId) {
+      startIdempotencyKey.current = createIdempotencyKey();
+    }
+    setSelectedProjectId(value);
+    setFormError("");
+    setStatusMessage("");
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
     if (!isReady) {
-      setFormError("Choose an interview type and level to start.");
+      setFormError(
+        isRoleSimulation
+          ? "Choose an interview level and ready Job Target to start."
+          : isProjectDefense
+            ? "Choose an interview level and confirmed Project to start."
+            : "Choose an interview type and level to start.",
+      );
       return;
     }
 
@@ -303,7 +408,9 @@ function PracticePage() {
       const result = await startInterview({
         idempotencyKey: startIdempotencyKey.current,
         interviewType: selectedType,
+        ...(isRoleSimulation ? { jobTargetId: selectedJobTargetId } : {}),
         level: selectedLevel,
+        ...(isProjectDefense ? { projectId: selectedProjectId } : {}),
         ...(selectedResumeId ? { resumeId: selectedResumeId } : {}),
       });
 
@@ -793,7 +900,7 @@ function PracticePage() {
             })}
           </div>
           <p className="field-help" id="type-help">
-            Choose one supported V1 practice type.
+            Choose a supported practice type.
           </p>
         </fieldset>
 
@@ -822,6 +929,116 @@ function PracticePage() {
             ))}
           </div>
         </fieldset>
+
+        {isRoleSimulation ? (
+          <Card className="resume-context-card">
+            <h2>Job Target</h2>
+            <p>
+              Required. Role Simulation uses a saved analysis snapshot so the
+              session remains reproducible.
+            </p>
+            <label htmlFor="job-target-select">Choose Job Target</label>
+            <select
+              disabled={isJobTargetLoading}
+              id="job-target-select"
+              onChange={(event) => selectJobTarget(event.target.value)}
+              value={selectedJobTargetId}
+            >
+              <option value="">Select a ready target</option>
+              {jobTargets.map((target) => (
+                <option
+                  disabled={target.status !== "ready"}
+                  key={target.id}
+                  value={target.id}
+                >
+                  {target.title}
+                  {target.company ? ` at ${target.company}` : ""} —{" "}
+                  {target.status === "ready"
+                    ? "Ready"
+                    : target.status === "analysis_failed"
+                      ? "Analysis failed"
+                      : "Analyzing"}
+                </option>
+              ))}
+            </select>
+            {isJobTargetLoading ? (
+              <p className="field-help" role="status">
+                Loading Job Targets…
+              </p>
+            ) : null}
+            {!isJobTargetLoading && jobTargetLoadError ? (
+              <InlineAlert tone="error">
+                {jobTargetLoadError}
+                <Button
+                  className="inline-alert-action"
+                  onClick={() =>
+                    setJobTargetLoadAttempt((attempt) => attempt + 1)
+                  }
+                >
+                  Retry targets
+                </Button>
+              </InlineAlert>
+            ) : null}
+            {!isJobTargetLoading &&
+            !jobTargetLoadError &&
+            !jobTargets.some((target) => target.status === "ready") ? (
+              <p className="field-help">
+                No ready Job Targets yet. Create one through the Job Target API;
+                the full workspace arrives in the planned UI phase.
+              </p>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isProjectDefense ? (
+          <Card className="resume-context-card">
+            <h2>Confirmed Project</h2>
+            <p>
+              Required. Project Defense uses a saved facts snapshot so the
+              session remains reproducible.
+            </p>
+            <label htmlFor="project-select">Choose Project</label>
+            <select
+              disabled={isProjectLoading}
+              id="project-select"
+              onChange={(event) => selectProject(event.target.value)}
+              value={selectedProjectId}
+            >
+              <option value="">Select a confirmed project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name} — {project.role}
+                </option>
+              ))}
+            </select>
+            {isProjectLoading ? (
+              <p className="field-help" role="status">
+                Loading confirmed Projects…
+              </p>
+            ) : null}
+            {!isProjectLoading && projectLoadError ? (
+              <InlineAlert tone="error">
+                {projectLoadError}
+                <Button
+                  className="inline-alert-action"
+                  onClick={() =>
+                    setProjectLoadAttempt((attempt) => attempt + 1)
+                  }
+                >
+                  Retry projects
+                </Button>
+              </InlineAlert>
+            ) : null}
+            {!isProjectLoading && !projectLoadError && projects.length === 0 ? (
+              <p className="field-help">
+                No confirmed Projects yet. Add and confirm one before starting.
+              </p>
+            ) : null}
+            <Link className="text-link" to="/projects">
+              Add or manage Projects
+            </Link>
+          </Card>
+        ) : null}
 
         <Card className="resume-context-card">
           <h2>Resume context</h2>

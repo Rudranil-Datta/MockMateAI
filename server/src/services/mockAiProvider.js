@@ -43,18 +43,91 @@ const mockQuestionSets = {
   },
 };
 
+function leastUsedDifferentCoverage(coveragePlan, previousQuestions, topicKey) {
+  const counts = new Map(coveragePlan.map((item) => [item.topicKey, 0]));
+  for (const question of previousQuestions) {
+    counts.set(question.topicKey, (counts.get(question.topicKey) || 0) + 1);
+  }
+  return coveragePlan
+    .filter((item) => item.topicKey !== topicKey)
+    .sort(
+      (left, right) => counts.get(left.topicKey) - counts.get(right.topicKey),
+    )[0];
+}
+
+function mockAdaptiveDecision(coveragePlan, level, previousQuestions) {
+  if (previousQuestions.length === 0) {
+    return {
+      coverage: coveragePlan[0],
+      decisionType: "baseline",
+      difficulty: level,
+      parentQuestionOrder: null,
+      reasonCode: "opening",
+    };
+  }
+
+  const latest = previousQuestions.at(-1);
+  const preceding = previousQuestions.at(-2);
+  const mustSwitch =
+    ["clarify", "recover"].includes(latest.decisionType) ||
+    (preceding && preceding.topicKey === latest.topicKey);
+  if (mustSwitch) {
+    return {
+      coverage: leastUsedDifferentCoverage(
+        coveragePlan,
+        previousQuestions,
+        latest.topicKey,
+      ),
+      decisionType: "switch_topic",
+      difficulty: latest.difficulty,
+      parentQuestionOrder: null,
+      reasonCode: "coverage_gap",
+    };
+  }
+
+  const branch = {
+    missing: ["recover", "missing_evidence"],
+    partial: ["clarify", "partial_evidence"],
+    strong: ["deepen", "strong_evidence"],
+    weak: ["recover", "weak_evidence"],
+  }[latest.outcome];
+  return {
+    coverage: coveragePlan.find(({ topicKey }) => topicKey === latest.topicKey),
+    decisionType: branch[0],
+    difficulty: latest.difficulty,
+    parentQuestionOrder: latest.order,
+    reasonCode: branch[1],
+  };
+}
+
 export function createMockAiProvider() {
   return {
-    async generateAdaptiveQuestion({ coveragePlan, level, previousQuestions }) {
-      const coverage =
-        coveragePlan[previousQuestions.length % coveragePlan.length];
-      const isOpening = previousQuestions.length === 0;
+    async generateAdaptiveQuestion({
+      challengeDirective,
+      coveragePlan,
+      level,
+      previousQuestions,
+    }) {
+      const decision = mockAdaptiveDecision(
+        coveragePlan,
+        level,
+        previousQuestions,
+      );
+      const { coverage } = decision;
       return {
-        decisionType: isOpening ? "baseline" : "switch_topic",
-        difficulty: level,
-        parentQuestionOrder: null,
-        prompt: `Explain ${coverage.label} at a ${level} level.`,
-        reasonCode: isOpening ? "opening" : "coverage_gap",
+        ...(challengeDirective
+          ? {
+              challengeAnchorKey: challengeDirective.anchorKey,
+              challengeAxis: challengeDirective.axis,
+            }
+          : {}),
+        decisionType: decision.decisionType,
+        difficulty: decision.difficulty,
+        parentQuestionOrder: decision.parentQuestionOrder,
+        prompt: challengeDirective
+          ? `Challenge "${challengeDirective.anchorText}": explain ${coverage.label} at a ${level} level.`
+          : `Explain ${coverage.label} at a ${level} level.`,
+        reasonCode: decision.reasonCode,
         testedSkillKeys: coverage.skillKeys.slice(0, 3),
         topicKey: coverage.topicKey,
       };

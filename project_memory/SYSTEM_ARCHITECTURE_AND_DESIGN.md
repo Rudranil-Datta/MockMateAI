@@ -268,5 +268,31 @@ provider boundary and both adapters. Shared validators own exact input/output
 bounds and coverage membership. `InterviewSession` stores optional additive
 metadata and one private complete staged decision; `interviewService` alone
 translates an earlier question order into a same-session parent ID and exposes
-safe metadata. No route activates adaptive branching yet. Adaptive transition
-logic, evidence, and mastery modules remain planned.
+safe metadata. No route activates adaptive branching yet. At Day 4 completion,
+adaptive transition logic remained planned; evidence and mastery modules still
+remain planned.
+
+Day 5 added an isolated deterministic adaptive service and exact internal input
+validator. Saved scores become categorical outcomes; fixed code selects the
+required branch, reason, parent, topic coverage, and allowed difficulty before
+one provider proposal is accepted. The service rejects mismatched or repeated
+output and stops exhausted/five-question sequences before provider work. It
+does not own routes, persistence, session claims, UI, or provider adapters.
+Day 6 integrates it for Role Simulation through `interviewService`, which owns
+the ready-target lookup, immutable snapshot, generation claim/staging, and
+question finalization. Practice adds only the target list and ready selector;
+the full Job Target workspace remains Day 12.
+
+Day 7 uses the same integration path for Project Defense. `projectService`
+returns one owned confirmed facts-only snapshot; `interviewService` derives
+stable defense categories, invokes the same adaptive service, and owns all
+claims/staging/finalization. Practice reuses the existing strict Projects API
+and workspace. No second interview engine or persistence lifecycle exists.
+
+Day 8 adds one deterministic Project Defense challenge selector beside the
+adaptive engine. It selects a relevant axis and one indexed fact/claim from the
+frozen snapshot, includes only that anchor plus a 2,000-character latest-answer
+cap in the exact provider directive, and validates exact grounded output.
+`interviewService` persists only safe axis/key metadata through the existing
+claim/staging/finalization path. No new route, datastore, agent, or lifecycle
+exists.

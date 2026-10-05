@@ -10,6 +10,8 @@ const submitVoiceAnswer = vi.hoisted(() => vi.fn());
 const completeInterview = vi.hoisted(() => vi.fn());
 const generateNextQuestion = vi.hoisted(() => vi.fn());
 const listResumes = vi.hoisted(() => vi.fn());
+const listJobTargets = vi.hoisted(() => vi.fn());
+const listProjects = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/interviewApi.js", () => ({
   startInterview,
@@ -20,6 +22,8 @@ vi.mock("../api/interviewApi.js", () => ({
 }));
 
 vi.mock("../api/resumeApi.js", () => ({ listResumes }));
+vi.mock("../api/jobTargetApi.js", () => ({ listJobTargets }));
+vi.mock("../api/projectApi.js", () => ({ listProjects }));
 
 vi.mock("../components/interview/VoiceRecorder.jsx", () => ({
   default: ({ disabled, onTranscribe, onUseText }) => (
@@ -104,7 +108,11 @@ describe("PracticePage", () => {
     completeInterview.mockReset();
     generateNextQuestion.mockReset();
     listResumes.mockReset();
+    listJobTargets.mockReset();
+    listProjects.mockReset();
     listResumes.mockResolvedValue([]);
+    listJobTargets.mockResolvedValue([]);
+    listProjects.mockResolvedValue([]);
   });
 
   it("requires interview type and level before submission", () => {
@@ -198,6 +206,146 @@ describe("PracticePage", () => {
       level: "intermediate",
       resumeId: "resume-123",
     });
+  });
+
+  it("requires and preserves a ready Job Target for Role Simulation", async () => {
+    listJobTargets.mockResolvedValue([
+      {
+        company: "Example",
+        id: "target-ready",
+        status: "ready",
+        title: "Backend Engineer",
+      },
+      {
+        id: "target-pending",
+        status: "analysis_pending",
+        title: "Platform Engineer",
+      },
+    ]);
+    startInterview
+      .mockRejectedValueOnce(new Error("Question generation failed."))
+      .mockResolvedValueOnce(
+        interviewStartResult({
+          interviewType: "Role Simulation",
+          questionMetadata: {
+            decisionType: "baseline",
+            difficulty: "intermediate",
+            reasonCode: "opening",
+            testedSkillKeys: ["node-js"],
+            topicKey: "node-js",
+          },
+        }),
+      );
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /Role Simulation/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    expect(
+      screen.getByRole("button", { name: "Start interview" }),
+    ).toBeDisabled();
+
+    const targetSelect = await screen.findByLabelText("Choose Job Target");
+    expect(
+      screen.getByRole("option", { name: "Platform Engineer — Analyzing" }),
+    ).toBeDisabled();
+    fireEvent.change(targetSelect, { target: { value: "target-ready" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    expect(await screen.findByText(/Question generation failed/)).toBeVisible();
+    expect(targetSelect).toHaveValue("target-ready");
+    const firstKey = startInterview.mock.calls[0][0].idempotencyKey;
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    await screen.findByRole("heading", { name: "Role Simulation practice" });
+    expect(startInterview).toHaveBeenLastCalledWith({
+      idempotencyKey: firstKey,
+      interviewType: "Role Simulation",
+      jobTargetId: "target-ready",
+      level: "intermediate",
+    });
+  });
+
+  it("retries Job Target loading while generic practice stays available", async () => {
+    listJobTargets
+      .mockRejectedValueOnce(new Error("Target list unavailable."))
+      .mockResolvedValueOnce([]);
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /Role Simulation/i }));
+    expect(await screen.findByText(/Target list unavailable/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Retry targets" }));
+
+    await waitFor(() => expect(listJobTargets).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    expect(
+      screen.getByRole("button", { name: "Start interview" }),
+    ).toBeEnabled();
+  });
+
+  it("requires and preserves a confirmed Project for Project Defense", async () => {
+    listProjects.mockResolvedValue([
+      {
+        id: "project-123",
+        name: "Payments Platform",
+        role: "Backend Engineer",
+      },
+    ]);
+    startInterview
+      .mockRejectedValueOnce(new Error("Question generation failed."))
+      .mockResolvedValueOnce(
+        interviewStartResult({
+          interviewType: "Project Defense",
+          questionMetadata: {
+            decisionType: "baseline",
+            difficulty: "intermediate",
+            reasonCode: "opening",
+            testedSkillKeys: ["architecture"],
+            topicKey: "architecture",
+          },
+        }),
+      );
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /Project Defense/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    expect(
+      screen.getByRole("button", { name: "Start interview" }),
+    ).toBeDisabled();
+
+    const projectSelect = await screen.findByLabelText("Choose Project");
+    fireEvent.change(projectSelect, { target: { value: "project-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    expect(await screen.findByText(/Question generation failed/)).toBeVisible();
+    expect(projectSelect).toHaveValue("project-123");
+    const firstKey = startInterview.mock.calls[0][0].idempotencyKey;
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    await screen.findByRole("heading", { name: "Project Defense practice" });
+    expect(startInterview).toHaveBeenLastCalledWith({
+      idempotencyKey: firstKey,
+      interviewType: "Project Defense",
+      level: "intermediate",
+      projectId: "project-123",
+    });
+  });
+
+  it("retries Project loading while generic practice stays available", async () => {
+    listProjects
+      .mockRejectedValueOnce(new Error("Project list unavailable."))
+      .mockResolvedValueOnce([]);
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /Project Defense/i }));
+    expect(await screen.findByText(/Project list unavailable/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Retry projects" }));
+
+    await waitFor(() => expect(listProjects).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    expect(
+      screen.getByRole("button", { name: "Start interview" }),
+    ).toBeEnabled();
   });
 
   it("keeps no-resume interview available when resume loading fails", async () => {

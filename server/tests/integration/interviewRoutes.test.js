@@ -410,7 +410,8 @@ describe("interview session routes", () => {
       error: {
         code: "VALIDATION_ERROR",
         fields: {
-          interviewType: "Choose DSA, HR, or System Design.",
+          interviewType:
+            "Choose DSA, HR, System Design, Role Simulation, or Project Defense.",
           level: "Choose beginner, intermediate, or advanced.",
         },
         message: "Check the highlighted fields.",

@@ -56,6 +56,46 @@ describe("interviewApi", () => {
     });
   });
 
+  it("maps Role Simulation target input", () => {
+    startInterview({
+      idempotencyKey: "00000000-0000-4000-8000-000000000006",
+      interviewType: "Role Simulation",
+      jobTargetId: "target-123",
+      level: "advanced",
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith("interviews", {
+      body: {
+        idempotencyKey: "00000000-0000-4000-8000-000000000006",
+        interviewType: "Role Simulation",
+        jobTargetId: "target-123",
+        level: "advanced",
+      },
+      method: "POST",
+      timeoutMs: 25_000,
+    });
+  });
+
+  it("maps Project Defense project input", () => {
+    startInterview({
+      idempotencyKey: "00000000-0000-4000-8000-000000000007",
+      interviewType: "Project Defense",
+      level: "advanced",
+      projectId: "project-123",
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith("interviews", {
+      body: {
+        idempotencyKey: "00000000-0000-4000-8000-000000000007",
+        interviewType: "Project Defense",
+        level: "advanced",
+        projectId: "project-123",
+      },
+      method: "POST",
+      timeoutMs: 25_000,
+    });
+  });
+
   it("maps typed answer input to documented persistence request", () => {
     submitTextAnswer({
       idempotencyKey: "00000000-0000-4000-8000-000000000004",

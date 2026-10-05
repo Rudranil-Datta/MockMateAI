@@ -5,6 +5,7 @@ import InterviewSession, {
 } from "../models/InterviewSession.js";
 import { AppError } from "../utils/AppError.js";
 import { getOwnedResourceFilter } from "../utils/getOwnedResourceFilter.js";
+import { deriveProjectChallengeDirective } from "./projectDefenseChallengeService.js";
 import { createResumeService } from "./resumeService.js";
 
 const questionGenerationLeaseMs = 30_000;
@@ -25,6 +26,12 @@ function toQuestion(question) {
       ? {
           decisionType: question.decisionType,
           difficulty: question.difficulty,
+          ...(question.challengeAxis
+            ? {
+                challengeAnchorKey: question.challengeAnchorKey,
+                challengeAxis: question.challengeAxis,
+              }
+            : {}),
           ...(question.parentQuestionId
             ? { parentQuestionId: question.parentQuestionId.toString() }
             : {}),
@@ -139,9 +146,152 @@ function questionRequestConflict() {
   );
 }
 
+function questionNotReady() {
+  return new AppError(
+    "QUESTION_NOT_READY",
+    "Complete feedback for the current question before continuing.",
+    { status: 409 },
+  );
+}
+
+function roleCoveragePlan(snapshot) {
+  return snapshot.analysis.skills
+    .map((skill, index) => ({ index, skill }))
+    .sort(
+      (left, right) =>
+        right.skill.weight - left.skill.weight || left.index - right.index,
+    )
+    .map(({ skill }) => ({
+      label: skill.label,
+      skillKeys: [skill.key],
+      topicKey: skill.key,
+    }));
+}
+
+function roleContextSummary(snapshot) {
+  const weightedSkills = snapshot.analysis.skills
+    .map((skill, index) => ({ index, skill }))
+    .sort(
+      (left, right) =>
+        right.skill.weight - left.skill.weight || left.index - right.index,
+    )
+    .map(({ skill }) => skill);
+  return JSON.stringify({
+    requirements: snapshot.analysis.requirements,
+    roleSummary: snapshot.analysis.roleSummary,
+    skills: weightedSkills,
+  });
+}
+
+const projectCoverageDefinitions = [
+  ["architecture", "Architecture", "architecture"],
+  ["technology-choices", "Technology choices", "technologies"],
+  ["responsibilities", "Responsibilities", "responsibilities"],
+  ["decisions", "Decisions", "decisions"],
+  ["tradeoffs", "Trade-offs", "tradeoffs"],
+  ["claimed-results", "Claimed results", "claims"],
+];
+
+function projectCoveragePlan(snapshot) {
+  return projectCoverageDefinitions
+    .filter(([, , factKey]) => snapshot.facts[factKey].length > 0)
+    .map(([topicKey, label]) => ({
+      label,
+      skillKeys: [topicKey],
+      topicKey,
+    }));
+}
+
+function projectContextSummary(snapshot) {
+  return JSON.stringify(snapshot.facts);
+}
+
+function adaptiveQuestionHistory(session) {
+  return session.questions.map((question) => {
+    const answer = question.answers[0];
+    if (
+      !answer ||
+      answer.evaluationStatus !== "completed" ||
+      !answer.feedback
+    ) {
+      throw questionNotReady();
+    }
+    const parentQuestion = question.parentQuestionId
+      ? session.questions.find(
+          ({ id }) => id.toString() === question.parentQuestionId.toString(),
+        )
+      : null;
+    return {
+      decisionType: question.decisionType,
+      difficulty: question.difficulty,
+      order: question.order,
+      overallScore: answer.feedback.overallScore,
+      parentQuestionOrder: parentQuestion?.order ?? null,
+      prompt: question.prompt,
+      reasonCode: question.reasonCode,
+      testedSkillKeys: [...question.testedSkillKeys],
+      topicKey: question.topicKey,
+    };
+  });
+}
+
+function roleAdaptiveInput(session) {
+  if (!session.contextSnapshot?.analysis) throw questionRequestConflict();
+  return {
+    challengeDirective: null,
+    contextSummary: roleContextSummary(session.contextSnapshot),
+    coveragePlan: roleCoveragePlan(session.contextSnapshot),
+    focusSkillKey: null,
+    interviewType: "Role Simulation",
+    level: session.level,
+    previousQuestions: adaptiveQuestionHistory(session),
+    sessionPurpose: "standard",
+  };
+}
+
+function adaptiveInput(session) {
+  if (session.interviewType === "Role Simulation") {
+    return roleAdaptiveInput(session);
+  }
+  if (
+    session.interviewType !== "Project Defense" ||
+    !session.contextSnapshot?.facts
+  ) {
+    throw questionRequestConflict();
+  }
+  const previousQuestions = adaptiveQuestionHistory(session);
+  const latestQuestion = session.questions.at(-1);
+  const challengeDirective = latestQuestion
+    ? deriveProjectChallengeDirective({
+        facts: session.contextSnapshot.facts,
+        latestAnswer: latestQuestion.answers[0]?.text,
+        latestTopicKey: latestQuestion.topicKey,
+        previousQuestionCount: session.questions.length,
+      })
+    : null;
+  if (latestQuestion && !challengeDirective) throw questionRequestConflict();
+  return {
+    challengeDirective,
+    contextSummary: projectContextSummary(session.contextSnapshot),
+    coveragePlan: projectCoveragePlan(session.contextSnapshot),
+    focusSkillKey: null,
+    interviewType: "Project Defense",
+    level: session.level,
+    previousQuestions,
+    sessionPurpose: "standard",
+  };
+}
+
+function isAdaptiveInterview(interviewType) {
+  return ["Role Simulation", "Project Defense"].includes(interviewType);
+}
+
 export function createInterviewService({
+  adaptiveInterviewService,
   aiProviderService,
   answerEvaluationService,
+  jobTargetService,
+  projectService,
   resumeService = createResumeService(),
 }) {
   async function claimQuestionGeneration({
@@ -266,6 +416,12 @@ export function createInterviewService({
         throw questionRequestConflict();
       }
       adaptiveMetadata = {
+        ...(decision.challengeAxis
+          ? {
+              challengeAnchorKey: decision.challengeAnchorKey,
+              challengeAxis: decision.challengeAxis,
+            }
+          : {}),
         decisionType: decision.decisionType,
         difficulty: decision.difficulty,
         ...(parentQuestion ? { parentQuestionId: parentQuestion.id } : {}),
@@ -319,16 +475,31 @@ export function createInterviewService({
       userId,
       idempotencyKey,
       interviewType,
+      jobTargetId,
       level,
+      projectId,
       resumeId,
+      sessionPurpose,
     }) {
       let session = await InterviewSession.findOne({
         startRequestId: idempotencyKey,
         userId,
       });
       let resumeContext;
+      let contextSnapshot;
 
       if (!session) {
+        if (interviewType === "Role Simulation") {
+          contextSnapshot = await jobTargetService.getReadyTargetSnapshot({
+            targetId: jobTargetId,
+            userId,
+          });
+        } else if (interviewType === "Project Defense") {
+          contextSnapshot = await projectService.getConfirmedProjectSnapshot({
+            projectId,
+            userId,
+          });
+        }
         resumeContext = resumeId
           ? await resumeService.getOwnedResumeContext({ resumeId, userId })
           : undefined;
@@ -336,10 +507,14 @@ export function createInterviewService({
         try {
           session = await InterviewSession.create({
             interviewType,
+            ...(contextSnapshot ? { contextSnapshot } : {}),
+            ...(jobTargetId ? { jobTargetId } : {}),
             level,
+            ...(projectId ? { projectId } : {}),
             ...(resumeId ? { resumeId } : {}),
             startRequestId: idempotencyKey,
             status: "created",
+            ...(sessionPurpose ? { sessionPurpose } : {}),
             userId,
           });
         } catch (error) {
@@ -355,11 +530,17 @@ export function createInterviewService({
       }
 
       const persistedResumeId = session?.resumeId?.toString();
+      const persistedJobTargetId = session?.jobTargetId?.toString();
+      const persistedProjectId = session?.projectId?.toString();
       if (
         !session ||
         session.interviewType !== interviewType ||
         session.level !== level ||
-        persistedResumeId !== resumeId
+        persistedResumeId !== resumeId ||
+        persistedJobTargetId !== jobTargetId ||
+        persistedProjectId !== projectId ||
+        (isAdaptiveInterview(interviewType) &&
+          session.sessionPurpose !== sessionPurpose)
       ) {
         throw new AppError(
           "IDEMPOTENCY_KEY_REUSED",
@@ -442,14 +623,19 @@ export function createInterviewService({
       let hasDurablePrompt = false;
 
       try {
-        const question = await aiProviderService.generateQuestion({
-          interviewType,
-          level,
-          previousQuestions: [],
-          resumeContext,
-        });
+        const question = isAdaptiveInterview(interviewType)
+          ? await adaptiveInterviewService.generateNextQuestion(
+              adaptiveInput(claim.session),
+            )
+          : await aiProviderService.generateQuestion({
+              interviewType,
+              level,
+              previousQuestions: [],
+              resumeContext,
+            });
         const promptSession = await persistGeneratedQuestion({
           claimId: claim.claimId,
+          ...(isAdaptiveInterview(interviewType) ? { decision: question } : {}),
           interviewId: session.id,
           prompt: question.prompt,
           userId,
@@ -462,6 +648,7 @@ export function createInterviewService({
         hasDurablePrompt = true;
         const updatedSession = await finalizeQuestionGeneration({
           claimId: claim.claimId,
+          ...(isAdaptiveInterview(interviewType) ? { decision: question } : {}),
           expectedQuestionCount: 0,
           generationKey: idempotencyKey,
           interviewId: session.id,
@@ -576,22 +763,29 @@ export function createInterviewService({
       let hasDurablePrompt = false;
 
       try {
-        const resumeContext = claim.session.resumeId
-          ? await resumeService.getOwnedResumeContext({
-              resumeId: claim.session.resumeId,
-              userId,
-            })
-          : undefined;
-        const question = await aiProviderService.generateQuestion({
-          interviewType: claim.session.interviewType,
-          level: claim.session.level,
-          previousQuestions: claim.session.questions.map(
-            ({ prompt }) => prompt,
-          ),
-          resumeContext,
-        });
+        const isAdaptive = isAdaptiveInterview(claim.session.interviewType);
+        const resumeContext =
+          !isAdaptive && claim.session.resumeId
+            ? await resumeService.getOwnedResumeContext({
+                resumeId: claim.session.resumeId,
+                userId,
+              })
+            : undefined;
+        const question = isAdaptive
+          ? await adaptiveInterviewService.generateNextQuestion(
+              adaptiveInput(claim.session),
+            )
+          : await aiProviderService.generateQuestion({
+              interviewType: claim.session.interviewType,
+              level: claim.session.level,
+              previousQuestions: claim.session.questions.map(
+                ({ prompt }) => prompt,
+              ),
+              resumeContext,
+            });
         const promptSession = await persistGeneratedQuestion({
           claimId: claim.claimId,
+          ...(isAdaptive ? { decision: question } : {}),
           interviewId,
           prompt: question.prompt,
           userId,
@@ -604,10 +798,12 @@ export function createInterviewService({
         hasDurablePrompt = true;
         const updatedSession = await finalizeQuestionGeneration({
           claimId: claim.claimId,
+          ...(isAdaptive ? { decision: question } : {}),
           expectedQuestionCount,
           generationKey: idempotencyKey,
           interviewId,
           prompt: question.prompt,
+          questions: claim.session.questions,
           status: "active",
           userId,
         });

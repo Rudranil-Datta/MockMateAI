@@ -489,8 +489,14 @@ foreign records as not found, and uses the existing standard error shape.
 
 ### Extended interview contract
 
-`POST /api/interviews` will add `Role Simulation` and `Project Defense` to the
-supported interview types and accept these optional fields:
+Days 6–7 add `Role Simulation` and `Project Defense` to
+`POST /api/interviews`. Role Simulation requires an owned `ready` target;
+Project Defense requires an owned confirmed, structurally valid project.
+`jobTargetId` and `projectId` are accepted only for their matching types, and
+`sessionPurpose` defaults to `standard`. Targeted practice and `focusSkillKey`
+remain planned.
+
+The full planned additive field set remains:
 
 ```json
 {
@@ -507,6 +513,24 @@ add bounded topic, difficulty, tested-skill, parent-question, decision-type, and
 safe-reason metadata. Historical V1 responses must remain consumable when these
 fields are absent.
 
+Role Simulation sessions now keep an analysis-only target snapshot capped at
+16 KiB, so source edit/deletion cannot alter replay. Coverage sorts skills by
+descending weight with stable source-order ties; the highest-weight skill opens.
 Job Target/Project edits or deletion must not alter historical interviews;
-sessions keep a bounded confirmed snapshot. New costly AI actions remain
+new costly AI actions remain
 rate-limited, finite-timeout, idempotent where retried, and safely recoverable.
+
+Project Defense sessions keep a facts-only project snapshot capped at 16 KiB.
+The opening category is architecture. Day 8 follow-ups add optional
+`challengeAxis` and `challengeAnchorKey` question fields alongside the existing
+parent link. They are emitted only for Project Defense follow-ups and identify
+one server-selected confirmed snapshot anchor; opening, Role Simulation, V1,
+and historical questions omit them.
+
+The adaptive provider input includes one exact Project-only challenge directive
+with an allowed axis, safe anchor key, confirmed anchor text, and at most 2,000
+characters from the latest saved answer. Output must echo the axis/key and
+visibly include the exact anchor text. Unknown, mismatched, generic, oversized,
+or extra output fails as `INVALID_AI_RESPONSE` before question persistence.
+The 16 KiB context and 32 KiB whole-input caps, five-question limit, one-call
+rule, generation claim/staging, and retry contracts remain unchanged.

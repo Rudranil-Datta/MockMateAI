@@ -6,7 +6,7 @@ approval-gated.
 
 ## Status
 
-**Days 1–4 complete — Day 5 unapproved.** This timeline is not blanket execution
+**Days 1–8 complete — Day 9 unapproved.** This timeline is not blanket execution
 approval. Each day or grouped phase requires explicit user approval before edits
 or other state-changing actions.
 

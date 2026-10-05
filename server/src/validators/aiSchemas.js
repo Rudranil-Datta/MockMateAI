@@ -40,7 +40,20 @@ const maxProjectContextLength = 8000;
 const maxProjectFactsBytes = 16 * 1024;
 const maxAdaptiveContextBytes = 16 * 1024;
 const maxAdaptiveInputBytes = 32 * 1024;
+const maxChallengeAnswerLength = 2000;
 const skillKeyPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const challengeAnchorKeyPattern =
+  /^(architecture|claims|decisions|responsibilities|technologies|tradeoffs):[0-9]+$/;
+const projectChallengeAxes = [
+  "architecture",
+  "technology",
+  "data",
+  "security",
+  "testing",
+  "deployment",
+  "trade-off",
+  "failure-scenario",
+];
 
 function invalidInput(message) {
   return new AppError("INVALID_AI_REQUEST", message, { status: 400 });
@@ -179,6 +192,7 @@ function adaptiveInputStringList(value, minimum, maximum, fieldName) {
 
 export function validateAdaptiveQuestionInput(input) {
   const inputKeys = [
+    "challengeDirective",
     "interviewType",
     "level",
     "sessionPurpose",
@@ -291,6 +305,47 @@ export function validateAdaptiveQuestionInput(input) {
     };
   });
 
+  let challengeDirective = null;
+  if (input.challengeDirective !== null) {
+    const directive = input.challengeDirective;
+    if (
+      !exactObject(directive, [
+        "axis",
+        "anchorKey",
+        "anchorText",
+        "latestAnswer",
+      ]) ||
+      !projectChallengeAxes.includes(directive.axis) ||
+      typeof directive.anchorKey !== "string" ||
+      !challengeAnchorKeyPattern.test(directive.anchorKey)
+    ) {
+      throw invalidInput("Project challenge directive is invalid.");
+    }
+    challengeDirective = {
+      anchorKey: directive.anchorKey,
+      anchorText: adaptiveInputText(
+        directive.anchorText,
+        1,
+        300,
+        "Challenge anchor",
+      ),
+      axis: directive.axis,
+      latestAnswer: adaptiveInputText(
+        directive.latestAnswer,
+        1,
+        maxChallengeAnswerLength,
+        "Latest answer",
+      ),
+    };
+  }
+  const requiresChallenge =
+    input.interviewType === "Project Defense" && previousQuestions.length > 0;
+  if (requiresChallenge !== Boolean(challengeDirective)) {
+    throw invalidInput(
+      "Project challenge directive does not match the session.",
+    );
+  }
+
   const focusSkillKey =
     input.focusSkillKey === null
       ? null
@@ -315,6 +370,7 @@ export function validateAdaptiveQuestionInput(input) {
   }
 
   const normalized = {
+    challengeDirective,
     contextSummary,
     coveragePlan,
     focusSkillKey,
@@ -333,8 +389,12 @@ export function validateAdaptiveQuestionInput(input) {
 }
 
 export function validateAdaptiveQuestionOutput(output, input) {
+  const challengeKeys = input?.challengeDirective
+    ? ["challengeAxis", "challengeAnchorKey"]
+    : [];
   if (
     !exactObject(output, [
+      ...challengeKeys,
       "prompt",
       "topicKey",
       "testedSkillKeys",
@@ -370,6 +430,13 @@ export function validateAdaptiveQuestionOutput(output, input) {
   const priorOrders = new Set(
     input.previousQuestions.map(({ order }) => order),
   );
+  const normalizedPrompt =
+    typeof output.prompt === "string"
+      ? output.prompt.normalize("NFKC").toLocaleLowerCase()
+      : "";
+  const normalizedAnchor = input.challengeDirective?.anchorText
+    ?.normalize("NFKC")
+    .toLocaleLowerCase();
   if (
     typeof output.prompt !== "string" ||
     !output.prompt.trim() ||
@@ -387,11 +454,21 @@ export function validateAdaptiveQuestionOutput(output, input) {
       output.parentQuestionOrder === null ||
       (Number.isInteger(output.parentQuestionOrder) &&
         priorOrders.has(output.parentQuestionOrder))
-    )
+    ) ||
+    (input.challengeDirective &&
+      (output.challengeAxis !== input.challengeDirective.axis ||
+        output.challengeAnchorKey !== input.challengeDirective.anchorKey ||
+        !normalizedPrompt.includes(normalizedAnchor)))
   ) {
     throw invalidOutput();
   }
   return {
+    ...(input.challengeDirective
+      ? {
+          challengeAnchorKey: output.challengeAnchorKey,
+          challengeAxis: output.challengeAxis,
+        }
+      : {}),
     decisionType: output.decisionType,
     difficulty: output.difficulty,
     parentQuestionOrder: output.parentQuestionOrder,

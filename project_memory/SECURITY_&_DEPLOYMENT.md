@@ -216,6 +216,40 @@ unavailable retry, exposes no private claim data, and grants the model no tools
 or state authority. No `.env`, example environment, `render.yaml`, dependency,
 topology, credential, or deployment change was required.
 
+Day 5 derives outcome from validated scores and rejects provider attempts to
+change deterministic branch, reason, parent, selected coverage topic, allowed
+difficulty, or topic skill membership. Repeated prompts at normalized
+similarity `>=0.85`, exhausted single-topic sequences, and sixth-question
+attempts fail safely. The service performs at most one existing bounded
+provider operation and writes no state. No `.env`, example environment,
+`render.yaml`, dependency, topology, credential, or deployment change was
+required.
+
+Day 6 reads Job Targets only through an auth-derived owner filter and accepts
+only `ready` analysis. Role Simulation stores a <=16 KiB analysis-only snapshot;
+raw JD description and provider payload never enter the session or adaptive
+context. Same-key replay uses that snapshot without rereading the source. The
+existing bounded provider timeout/rate limits and session claim/staging path are
+reused. No `.env`, example environment, `render.yaml`, dependency, topology,
+credential, or deployment change was required.
+
+Day 7 reads Candidate Projects only through an auth-derived owner filter and
+requires persisted confirmation plus full current fact validation. Project
+Defense stores a <=16 KiB facts-only snapshot; extracted drafts, raw resume
+text, source resume ID, confirmation time, provider payload, and database
+metadata remain excluded. Existing rate/timeout and claim/staging controls are
+reused. No `.env`, example environment, `render.yaml`, dependency, topology,
+credential, or deployment change was required.
+
+Day 8 never rereads a source Project. Its directive uses one confirmed anchor
+from the owned immutable session snapshot and at most 2,000 characters of the
+latest saved answer. Provider output must echo safe axis/key metadata and quote
+the anchor before staging. Anchor and answer text are never logged or duplicated
+in question metadata. Existing timeout, rate, quota, claim, retry, 16 KiB
+context, and 32 KiB input controls remain. No `.env`, example environment,
+`render.yaml`, dependency, topology, credential, or deployment change was
+required.
+
 - Treat JDs, project facts, skill evidence, answers, and replay data as private
   user content. Derive identity from auth and include `userId` in every protected
   query/mutation.

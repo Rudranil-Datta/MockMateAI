@@ -286,8 +286,47 @@ The method performs one bounded provider operation with no unavailable retry.
 complete optional per-question metadata. Private question-generation staging
 may retain one complete validated adaptive decision, allowing final-write retry
 without another provider call or metadata loss. Prompt-only V1 staging and
-metadata-free historical sessions remain valid. Day 5 still owns transition
-legality, similarity, difficulty-step, coverage, follow-up, and hard-cap rules.
+metadata-free historical sessions remain valid. At Day 4 completion, Day 5
+still owned transition legality, similarity, difficulty-step, coverage,
+follow-up, and hard-cap rules.
+
+### Day 5 implemented deterministic refinement
+
+Day 5 derives outcome from saved integer `overallScore` only: `0=missing`,
+`1–59=weak`, `60–84=partial`, and `85–100=strong`. Standard openings require
+`baseline/opening`; targeted openings require `retest/targeted_retest` and the
+focus skill. Strong, partial, weak, and missing outcomes require the documented
+deepen, clarify, or recover branch with exact parent/topic and bounded
+difficulty. A remediation follow-up or two consecutive same-topic questions
+forces a least-used different topic, breaking ties by frozen coverage order.
+Single-topic exhaustion returns `ADAPTIVE_SEQUENCE_COMPLETE`; five prior
+questions return `QUESTION_LIMIT_REACHED`. Both stop before provider work.
+
+Prompt comparison lowercases text, replaces non-alphanumeric runs with one
+space, trims whitespace, and calculates `1 - Levenshtein distance / maximum
+normalized length`. Similarity `>=0.85` is rejected. The isolated engine calls
+the existing provider-neutral method at most once and has no route,
+persistence, retry, loop, tool, or state authority. Days 6–7 activate it for
+Role Simulation and Project Defense through the existing session claim/staging
+lifecycle, using an owned ready target or owned confirmed project and the
+matching immutable bounded snapshot.
+
+### Day 8 implemented Project Defense challenge refinement
+
+Each Project Defense follow-up now has one deterministic directive derived from
+the latest saved answer, parent topic, and immutable project snapshot. Allowed
+axes are architecture, technology, data, security, testing, deployment,
+trade-off, and failure-scenario. The selector uses an explicit claim when the
+claimed-results topic applies; otherwise it uses an indexed fact from the
+matching project field. Projects without claims therefore remain usable.
+
+The directive contains exact axis, safe anchor key, confirmed anchor text, and
+at most 2,000 characters of the latest answer. It remains inside the 32 KiB
+adaptive-input cap. Provider output must echo axis/key and visibly include the
+exact anchor. Only axis/key persist with the parent-linked question and private
+staged decision. Project openings, Role Simulation, V1, and historical
+questions omit these fields. Existing cap, branch, difficulty, repetition,
+claim, staging, and retry rules remain authoritative.
 
 ## Skill Evidence and Mastery Contract
 

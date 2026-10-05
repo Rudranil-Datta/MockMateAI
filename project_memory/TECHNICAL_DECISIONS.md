@@ -114,8 +114,18 @@ Day 4 implements only the structural boundary. The exact provider input is
 capped at 1–12 coverage entries, 0–5 prior summaries, 16 KiB context, and 32
 KiB total. Both adapters return one exact decision through the shared validator
 without unavailable retry. Optional metadata is all-or-valid; complete private
-decision staging preserves recovery. V1 generation remains active, while Day 5
-retains all branch, similarity, difficulty-step, follow-up, and coverage rules.
+decision staging preserves recovery. V1 generation remains active. At Day 4
+completion, Day 5 retained all branch, similarity, difficulty-step, follow-up,
+and coverage rules.
+
+Day 5 implements those rules in an isolated deterministic service. Scores map
+to fixed outcomes; branch/reason/parent/topic/difficulty legality remains server
+authority. Least-used topic switching uses frozen coverage order for ties.
+Prompt repetition uses dependency-free normalized Levenshtein similarity with
+the approved `0.85` rejection threshold. Cap and single-topic exhaustion stop
+before provider work. One validated proposal is accepted or rejected without
+repair, retry, loop, persistence, or tool use. Day 6 activates it only through
+the existing interview claim/staging lifecycle for Role Simulation.
 
 ### Job and project context
 
@@ -142,8 +152,17 @@ authoritative.
 
 ### Compatibility and release scope
 
-Add `Role Simulation` and `Project Defense` without changing historical V1
-records or the five-question cap. Reuse the existing interview lifecycle for
-targeted practice. Defer the visual skill graph, Story Bank, live copilot,
+Day 6 adds `Role Simulation` without changing historical V1 records or the
+five-question cap. It freezes an analysis-only Job Target snapshot, orders
+coverage by descending skill weight with stable ties, and uses the highest
+weighted skill for the opening. Day 7 adds Project Defense with an owned
+confirmed facts-only snapshot, stable category coverage, and architecture
+opening. Day 8 derives one Project-only fact/claim anchor and technical axis in
+deterministic code. The provider receives the exact directive plus at most
+2,000 characters of the latest answer, must echo safe axis/key metadata, and
+must visibly include the confirmed anchor. Only axis/key persist with the
+parent-linked question; existing 16/32 KiB caps and recovery remain authoritative.
+Reuse the existing interview lifecycle for targeted practice. Defer the visual skill
+graph, Story Bank, live copilot,
 peer/video features, coding sandbox, scraping, payments, placement integration,
 and distributed infrastructure beyond the 15-working-day release.

@@ -303,6 +303,70 @@ Deterministic bounded input
   → atomic question metadata persistence and safe serialization
 ```
 
-No route invokes this adaptive path yet. Current V1 generation, prompt-only
-recovery, three selectable interview types, and response shapes remain active.
-Day 5 owns branching and transition rules.
+At Day 4 completion, no route invoked this adaptive path. Current V1
+generation, prompt-only recovery, three selectable interview types, and
+response shapes remained active while Day 5 owned branching and transition
+rules.
+
+### Day 5 implemented deterministic decision flow
+
+```text
+Exact internal history with saved scores
+  → server-owned outcome derivation
+  → deterministic branch/topic/difficulty/parent requirement
+  → early cap or exhausted-sequence stop when required
+  → one existing provider-neutral proposal
+  → semantic, skill-membership, and repetition validation
+  → one valid in-memory decision or safe failure
+```
+
+Day 6 activates this engine only for Role Simulation through the existing
+session claim, staging, and finalization lifecycle.
+
+### Day 6 implemented Role Simulation flow
+
+```text
+Authenticated Role Simulation start + owned ready Job Target
+  → exact request/type/target validation
+  → immutable analysis-only target snapshot (<=16 KiB)
+  → deterministic weight-descending coverage and stable snapshot context
+  → existing generation claim + one Day 5 adaptive decision
+  → durable staged decision + atomic question finalization
+  → saved answer feedback drives the next bounded decision
+```
+
+Same-key replay uses the saved session and never rereads a changed or deleted
+source. A fresh request snapshots the current owned ready target. V1 interview
+types retain their prompt-only provider path.
+
+### Day 7 implemented Project Defense flow
+
+```text
+Authenticated Project Defense start + owned confirmed Project
+  → exact request/type/project validation
+  → immutable facts-only project snapshot (<=16 KiB)
+  → stable category coverage with architecture opening
+  → existing generation claim + one Day 5 adaptive decision
+  → durable staged decision + atomic question finalization
+  → saved feedback drives generic bounded adaptation
+```
+
+Unconfirmed drafts, raw resume context, source resume IDs, confirmation time,
+and provider payloads never enter the snapshot/context. Same-key replay remains
+source-independent.
+
+### Day 8 implemented claim-aware challenge flow
+
+```text
+Latest evaluated Project Defense question + saved answer + frozen snapshot
+  → deterministic topic fact/claim anchor and relevant technical axis
+  → exact challenge directive with latest answer capped at 2,000 characters
+  → one validated mock/Gemini adaptive proposal
+  → exact axis/key echo and visible confirmed-anchor grounding
+  → existing staged decision + atomic parent-linked question finalization
+```
+
+Invalid, generic, mismatched, oversized, provider-failed, or persistence-failed
+work creates no partial question. Retry uses the existing generation operation
+key and staged-decision recovery. Only axis and safe anchor key are copied to
+the question; source fact and answer text remain in their existing records.

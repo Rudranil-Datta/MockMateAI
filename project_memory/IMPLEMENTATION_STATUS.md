@@ -8,11 +8,605 @@ V1 day numbering follows [IMPLEMENTATION_TIMELINE.md](IMPLEMENTATION_TIMELINE.md
 
 ## Current Day Execution Plan
 
+**Timeline position:** V2 Day 9 — immutable skill evidence and mastery
+**Current status:** Planned — awaiting explicit Day 9 approval
+**Planning authority:** On 2026-10-05, the user requested concise Day 9
+matrices. This documentation update is not implementation approval.
+**Approval scope:** Proposed only — persist validated categorical evidence for
+completed V2 answers, derive deterministic owned mastery/readiness, expose the
+bounded profile API, and recover failed evidence synchronization. Exclude
+targeted-practice/retest, recommendation UI, dashboard redesign, replay UI,
+dependencies, live Gemini, browser automation, environment/Render changes,
+deployment, commit, push, and later days.
+
+### Objective
+
+Turn completed V2 answer feedback into immutable, answer-linked, owner-scoped
+skill evidence and a reproducible confidence-labelled profile without changing
+V1 feedback or claiming mastery after a failed evidence write.
+
+### Requirement traceability matrix
+
+| ID     | Required behavior / source              | Planned implementation evidence                                                                                             | Independent verification                                             | Status  |
+| ------ | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------- |
+| D9-R01 | Day 1 evidence contract; Timeline Day 9 | V2 evaluation accepts only 1–3 validated categorical entries for question-tested skill keys.                                | Exact output, unknown-skill, malformed, and V1-shape cases.          | Pending |
+| D9-R02 | Immutable answer-linked evidence        | Add owner/session/question/answer/skill identity with unique answer-skill dedupe and safe read indexes.                     | Retry/concurrent evaluation yields one immutable owned record.       | Pending |
+| D9-R03 | Deterministic mastery/readiness         | Derive fixed weighted score, label, confidence, ordering, and empty profile from persisted evidence only.                   | Formula boundary, recency, count/session-confidence, ordering tests. | Pending |
+| D9-R04 | Profile and privacy contract            | Add owner-scoped bounded profile API without raw answer, prompt, payload, or final provider mastery.                        | Owner/foreign, safe serialization, empty-profile tests.              | Pending |
+| D9-R05 | Feedback-first recovery                 | Stage validated evidence after feedback; pending sync never claims mastery and later idempotent reconciliation writes once. | Persistence failure/retry and no-duplicate tests.                    | Pending |
+| D9-R06 | Compatibility and documentation         | Keep V1/legacy response shapes, existing evaluation replay, limits, and Day 10 targeted-practice scope intact.              | Focused V1/V2 evaluation regressions and affected contracts.         | Pending |
+
+### Verification matrix
+
+| Category                    | Day 9 evidence                                                                  | Status               |
+| --------------------------- | ------------------------------------------------------------------------------- | -------------------- |
+| Success                     | Completed V2 answer creates immutable evidence and changes derived profile.     | Pending              |
+| Validation                  | Exact categorical output, tested-skill membership, bounds, and formula inputs.  | Pending              |
+| Authentication/ownership    | All evidence/profile reads and writes include authenticated owner identity.     | Pending              |
+| State and concurrency       | Unique answer-skill identity and evaluation replay prevent duplicate evidence.  | Pending              |
+| Dependency/provider failure | Malformed/provider failure saves neither invented evidence nor mastery.         | Pending              |
+| Persistence failure         | Feedback remains completed; staged evidence marks sync pending.                 | Pending              |
+| Recovery/retry              | Idempotent reconcile writes once and clears only its own staged output.         | Pending              |
+| Privacy/security            | No raw answer, prompt, provider payload, or final LLM mastery persists/returns. | Pending              |
+| Regression                  | V1 feedback/replay and legacy sessions remain unchanged.                        | Pending              |
+| UI                          | Profile API only; dashboard/recommendation interface is Day 10/12.              | N/A — deferred scope |
+| Documentation               | API, database, data flow, security, decisions, and status match behavior.       | Pending              |
+
+### Day 9 refinements
+
+- Evidence is allowed only for V2 questions with complete tested-skill metadata;
+  V1 and legacy answers remain feedback-only.
+- Provider output may propose categorical evidence, never mastery. Server checks
+  every proposed key against the saved question before any write.
+- One completed answer may produce one record per tested skill, maximum three.
+  The unique `{userId,answerId,skillKey}` identity is authoritative.
+- The fixed 20-entry/180-day formula, weights, labels, and confidence thresholds
+  in `V2_DAY1_CONTRACTS.md` are the sole mastery calculation.
+- A single answer is always `provisional`; no UI/API wording implies hiring
+  certainty. Day 10 owns weak-skill recommendation and targeted practice.
+
+### Risk and gap-remediation matrix
+
+| ID    | Severity | Gap / risk                                               | Control                                                                 |
+| ----- | -------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| G9-01 | P1       | Feedback succeeds but evidence write fails.              | Private validated staging, `pending` sync state, idempotent reconcile.  |
+| G9-02 | P1       | Retry/concurrency duplicates immutable evidence.         | Unique answer-skill index plus owner-scoped upsert/replay tests.        |
+| G9-03 | P1       | Provider invents skill/outcome or writes mastery.        | Exact V2-only schema; saved tested-key membership; server formula only. |
+| G9-04 | P1       | Formula varies with clock/order or overstates certainty. | Inject fixed time in tests; frozen formula/window/confidence rules.     |
+| G9-05 | P2       | Day 9 expands into targeted practice or dashboard UI.    | Profile API only; defer recommendation action/UI to Days 10 and 12.     |
+
+### Task breakdown
+
+| Task | Work                                                                      | Stop condition                                                     |
+| ---- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| T1   | Add contract-first evidence/profile/recovery tests.                       | Stop on V1 evaluation-contract conflict.                           |
+| T2   | Add evidence model, validator, provider boundary, and evaluation staging. | Stop on unvalidated output, duplicate, or partial-write risk.      |
+| T3   | Add deterministic profile service and owner-scoped profile route.         | Stop on non-reproducible formula or data-isolation issue.          |
+| T4   | Run focused checks and reconcile affected documentation.                  | Any failed applicable check or unresolved P0/P1 blocks completion. |
+
+### Planned file boundary
+
+Evidence model/validator/service, profile route/controller/API boundary,
+evaluation/provider/session extensions, focused server tests, and affected
+design/status documents. No client page, dependency, environment variable,
+deployment setting, migration/backfill, or top-level folder is planned.
+
+### Current blockers / decisions needed
+
+Day 9 implementation requires explicit user approval. No technical blocker is
+known from planning.
+
+### Manual tasks for user
+
+Manual tasks for user: Review and approve or revise the Day 9 matrices. No
+credential, environment, provider, deployment, or installation action is needed.
+
+### Deviation and finding register
+
+- No deviation from the approved V2 scope is proposed.
+- Day 9 exposes profile data but defers recommendation action and all profile UI.
+- Existing V1 feedback remains authoritative when evidence synchronization is pending.
+
+### Implementation evidence
+
+Pending. Day 9 implementation has not started.
+
+### Verification evidence
+
+Planning-only formatting, delivery validation, and diff checks apply before
+approval. Code verification remains pending implementation.
+
+### Completion review
+
+Not applicable before implementation. Day 9 remains `Planned` and cannot be
+marked complete until the gate below is satisfied.
+
+### Completion gate
+
+- Every D9-R01–D9-R06 row has implementation and independent evidence.
+- Evidence is immutable, deduplicated, owner-scoped, and never stores raw answer
+  or provider content.
+- Profile math is reproducible and confidence-labelled; a failed sync is honest.
+- V1 compatibility passes, documents agree, and no unresolved P0/P1 remains.
+
+## V2 Day 8 Execution Record
+
+**Timeline position:** V2 Day 8 — claim-aware Project Defense follow-ups
+**Current status:** Complete — approved Day 8 scope implemented and verified
+**Planning authority:** On 2026-10-05, the user approved Day 8 as documented,
+including G8-01 through G8-05.
+**Approval scope:** Add bounded claim/fact-aware challenges to Project
+Defense follow-ups using the frozen project snapshot and latest saved answer.
+Preserve the Day 5 adaptive rules, five-question cap, recovery lifecycle, Role
+Simulation, and V1 behavior. Exclude skill evidence/mastery, targeted practice,
+replay UI, UI redesign, dependencies, live Gemini, browser automation,
+environment/Render changes, deployment, commit, push, and later days.
+
+### Objective
+
+Make each eligible Project Defense follow-up challenge a specific confirmed
+project fact or claim through a relevant technical axis while remaining bounded,
+replayable, recoverable, and free of invented project context.
+
+### Requirement traceability matrix
+
+| ID     | Required behavior / source                | Planned implementation evidence                                                                                          | Independent verification                                              | Status |
+| ------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | ------ |
+| D8-R01 | Timeline Day 8; Project Defense criterion | Derive one stable challenge directive from the frozen snapshot, parent topic, and latest saved answer.                   | Exact anchor/axis selection cases, including projects without claims. | Passed |
+| D8-R02 | Required technical challenge breadth      | Allow architecture, technology, data, security, testing, deployment, trade-off, and failure-scenario axes.               | Each axis is accepted only through its documented relevant mapping.   | Passed |
+| D8-R03 | Claim/fact-specific provider contract     | Send one bounded directive and latest answer; require matching structured axis/anchor metadata and an anchored prompt.   | Reject unknown, mismatched, generic, oversized, or invented output.   | Passed |
+| D8-R04 | Replayable follow-up relationship         | Persist safe challenge metadata with the existing valid `parentQuestionId`; never duplicate answer or project content.   | Reload proves exact parent, axis, anchor key, and prompt are durable. | Passed |
+| D8-R05 | Safe generation and retry                 | Reuse claim/staging/finalization so provider or final-write failure creates no partial question and retry is idempotent. | Focused malformed/provider/final-write/retry cases.                   | Passed |
+| D8-R06 | Compatibility and documentation           | Keep five-question, branch, difficulty, repetition, ownership, Role Simulation, and V1 contracts unchanged.              | Focused Project/Role/V1 regression plus affected docs/checks.         | Passed |
+
+### Verification matrix
+
+| Category                    | Day 8 evidence                                                                         | Status                   |
+| --------------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
+| Success                     | Confirmed claim/fact and latest answer produce one anchored persisted follow-up.       | Passed                   |
+| Validation                  | Exact directive/output, axis mapping, anchor, size, parent, and prompt checks.         | Passed                   |
+| Authentication/ownership    | Reuse the owned immutable Day 7 snapshot; no new source read or resource route.        | N/A — unchanged boundary |
+| State and concurrency       | Existing one-claim staging permits only one durable question.                          | Passed                   |
+| Dependency/provider failure | Invalid or failed provider work leaves no partial or invented question.                | Passed                   |
+| Persistence failure         | Failed staging/finalization cannot report success or leave partial metadata.           | Passed                   |
+| Recovery/retry              | Same-key retry reuses valid staged output and preserves one question.                  | Passed                   |
+| Privacy/security            | Only the frozen fact anchor and bounded latest answer enter provider context.          | Passed                   |
+| Regression                  | Role Simulation and V1 generation/evaluation remain unchanged; cap stays five.         | Passed                   |
+| UI                          | Existing cockpit already renders saved prompt/progress; replay presentation is Day 11. | N/A — no Day 8 UI change |
+| Documentation               | Affected contracts, architecture/data flow, decisions, and status agree.               | Passed                   |
+
+### Approved-on-Day-8 refinements
+
+- The required axes describe platform capability, not mandatory coverage of all
+  axes in one five-question session. The engine selects a relevant subset.
+- Stable anchor priority is: matching explicit confirmed claim, then a matching
+  confirmed fact from the current topic. A project with no explicit claim still
+  receives fact-aware challenges; absence never permits invention.
+- A Project Defense follow-up receives the latest immutable saved answer plus a
+  server-derived directive containing a bounded axis, safe anchor key, and one
+  confirmed anchor text. The total adaptive-input cap remains 32 KiB.
+- The provider must return the same axis and anchor key, and its prompt must
+  visibly reference the selected anchor. These fields are required only for
+  Project Defense follow-ups and forbidden for its opening, Role Simulation,
+  and V1 questions.
+- Persist only the safe axis and anchor key with the question. The source fact
+  remains in the existing immutable snapshot, and the answer is not duplicated.
+
+### Risk and gap-remediation matrix
+
+| ID    | Severity | Gap / risk                                                      | Control                                                                                    |
+| ----- | -------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| G8-01 | P1       | Eight axes cannot all fit meaningfully inside five questions.   | Treat them as allowed capability; select only relevant axes and retain the hard cap.       |
+| G8-02 | P1       | “Claim-aware” could invent or loosely paraphrase project facts. | Server selects a frozen fact anchor; exact key/axis and visible prompt grounding required. |
+| G8-03 | P1       | Current answers are absent from the present adaptive input.     | Add only the latest bounded saved answer; retain the 32 KiB whole-input limit.             |
+| G8-04 | P1       | New metadata could bypass Day 5 transition or retry invariants. | Validate it in the same provider and generation claim/staging/finalization boundaries.     |
+| G8-05 | P2       | Day 8 could expand into replay UI or skill evidence.            | Persist minimum safe metadata only; leave presentation to Day 11 and evidence to Day 9.    |
+
+### Task breakdown
+
+| Task | Work                                                                                | Stop condition                                                        |
+| ---- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| T1   | Add contract-first axis, anchor, grounding, and malformed-output tests.             | Stop if exact provider/persistence compatibility cannot be preserved. |
+| T2   | Add deterministic Project Defense directive selection and strict provider contract. | Stop on invented context, unbounded input, or generic acceptance.     |
+| T3   | Persist minimum challenge metadata through existing generation recovery.            | Stop on partial state, duplicate question, or broken replay.          |
+| T4   | Run focused checks, reconcile affected documents, and classify deviations.          | Any failed applicable check or unresolved P0/P1 blocks completion.    |
+
+### Planned file boundary
+
+Adaptive validators/services, provider adapters/prompts, optional question
+metadata, focused Project Defense/provider/model tests, and directly affected
+design/status documents. No new route, collection, top-level folder, package,
+environment variable, or deployment setting is planned.
+
+### Current blockers / decisions needed
+
+None for Day 8. Day 9 remains unapproved.
+
+### Manual tasks for user
+
+Manual tasks for user: None.
+
+### Deviation and finding register
+
+- No deviation from the approved V2 scope is proposed.
+- Day 8 interprets “across” the listed technical areas as supported bounded
+  challenge capability, not impossible all-axis coverage within one session.
+- Day 9 skill evidence and Day 11 replay presentation remain unimplemented.
+
+### Implementation evidence
+
+- Added deterministic challenge-axis and immutable snapshot-anchor selection,
+  including explicit-claim preference and projects without claims.
+- Extended exact adaptive input/output, Gemini/mock adapters, staged decisions,
+  persisted questions, and public question responses with bounded challenge
+  behavior.
+- Reused existing parent, five-question, generation-claim, staging,
+  finalization, and retry paths. No client or infrastructure change was needed.
+
+### Verification evidence
+
+- Contract-first run failed before implementation as expected: missing challenge
+  service and rejected new input shape.
+- Focused Day 8 plus Role Simulation set: 6 files, 97 tests passed.
+- Shared staged-decision and failed-final-write recovery: 2 passed, 33 skipped
+  by filter.
+- Provider/challenge unit rerun: 3 files, 72 tests passed.
+- Server lint, targeted formatting, delivery validation, diff check, and final
+  scope/configuration review passed.
+
+### Completion review
+
+Every D8-R01–D8-R06 requirement has implementation and independent evidence.
+All applicable focused checks pass; no unresolved P0/P1 remains. G8-01 through
+G8-05 are closed. Day 8 is `Complete`; Day 9 remains unapproved.
+
+### Completion gate
+
+- Every D8-R01–D8-R06 row has implementation and independent evidence.
+- A saved follow-up is grounded in one frozen confirmed anchor and its latest
+  answer, with a valid parent and safe challenge metadata.
+- Failure/retry leaves no partial or duplicate question; the cap remains five.
+- Role Simulation and V1 focused regressions pass, affected documents agree,
+  and no unresolved P0/P1 remains.
+
+## V2 Day 7 Execution Record
+
+**Timeline position:** V2 Day 7 — confirmed-project Project Defense foundation
+**Current status:** Complete — approved Day 7 scope implemented and verified
+**Planning authority:** On 2026-10-05, the user approved Day 7 as documented,
+including G7-01 and G7-02.
+**Approval scope:** First Project Defense slice: activate the type with
+an owned confirmed Candidate Project, immutable bounded facts snapshot,
+deterministic defense-category coverage/opening, existing adaptive lifecycle,
+and minimum Practice setup UI. It excludes Day 8 claim-aware challenges, skill
+evidence/mastery, targeted practice, UI redesign, dependencies, live Gemini,
+browser automation, environment/Render changes, deployment, commit, push, and
+later days.
+
+### Objective
+
+Allow a user to start a recoverable Project Defense from only confirmed owned
+facts, with a stable project snapshot and relevant architecture-led opening,
+without inventing claims or changing existing interview behavior.
+
+### Requirement traceability matrix
+
+| ID     | Requirement / source              | Planned implementation evidence                                                                                  | Planned verification                                                     | Status |
+| ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------ |
+| D7-R01 | Day 1 API; Timeline Day 7         | Add `Project Defense`; require `projectId`; reject target/project/type combinations and non-standard purpose.    | Exact validator/model combination cases.                                 | Passed |
+| D7-R02 | Confirmed Project contract        | Read only an authenticated owner's structurally valid project with `confirmedAt`; foreign/missing is `404`.      | Owned, foreign, missing, and invalid-legacy integration cases.           | Passed |
+| D7-R03 | Immutable project snapshot        | Save project ID plus <=16 KiB facts-only snapshot before generation; replay never rereads the source.            | Persist/reload, size, source-delete replay, and excluded-field checks.   | Passed |
+| D7-R04 | Defense category coverage/opening | Freeze deterministic category coverage from confirmed facts and open on architecture.                            | Exact coverage order/membership and architecture-opening assertions.     | Passed |
+| D7-R05 | Existing adaptive lifecycle       | Reuse Day 5/6 claim, staging, parent, idempotency, recovery, feedback, and five-question controls.               | Opening/next-question integration plus shared lifecycle evidence.        | Passed |
+| D7-R06 | Minimum usable setup UI           | Practice adds Project Defense and confirmed-project selector with loading/empty/error/retry and preserved setup. | Focused API/page selection, malformed response, and retry tests.         | Passed |
+| D7-R07 | Privacy and Day 8 boundary        | Provider receives stable snapshot facts only; no resume draft, source resume ID, timestamps, or invented claim.  | Context allow-list and no-unconfirmed/no-extra-field assertions.         | Passed |
+| D7-R08 | Compatibility and documentation   | V1 and Role Simulation paths remain unchanged; contracts and status match behavior.                              | Focused regressions, affected lints/build, docs, and final scope review. | Passed |
+
+### Approved and implemented Day 7 refinements
+
+- Activate only `Project Defense`; `sessionPurpose` is `standard` and
+  `projectId` is required. `jobTargetId` is forbidden for this type, and
+  `projectId` is forbidden for every other type. Existing optional resume
+  selection may remain, but adaptive project context uses the snapshot first.
+- A project is usable only when owner-scoped, `confirmedAt` is present, its
+  current persisted facts satisfy the Candidate Project contract, and the facts
+  serialize within 16 KiB. The complete snapshot envelope must also remain
+  within 16 KiB; a boundary-sized project that leaves no envelope headroom
+  returns `409 PROJECT_NOT_READY` rather than being truncated or altered.
+- Snapshot shape is exactly `kind="candidate_project"`, source ID, source
+  `updatedAt`, display label, and `facts` containing `name`, `summary`, `role`,
+  `technologies`, `responsibilities`, `architecture`, `decisions`, `tradeoffs`,
+  and `claims`. It excludes `sourceResumeId`, `confirmedAt`, raw resume text,
+  provider payloads, and database metadata.
+- Coverage uses stable entries in this order when facts exist:
+  `architecture`, `technology-choices`, `responsibilities`, `decisions`,
+  `tradeoffs`, and `claimed-results`. Architecture, technologies, and
+  responsibilities are always present by contract; optional empty categories
+  are omitted. Each entry uses its category key as `topicKey` and sole
+  `testedSkillKey`. The opening must use `architecture`.
+- Stable provider context is JSON containing only the frozen project facts.
+  Day 7 may use the existing score-aware generic adaptive transitions after the
+  opening; claim/evidence-specific challenges remain exclusively Day 8.
+- Same-key replay uses the saved snapshot after source edit/deletion. A fresh
+  start snapshots the current owned confirmed project. Setup-key rotation and
+  choice preservation follow the existing Role Simulation behavior.
+
+### Verification matrix
+
+| Category                    | Planned evidence                                                                      | Status |
+| --------------------------- | ------------------------------------------------------------------------------------- | ------ |
+| Success                     | Confirmed project starts Project Defense with saved architecture opening and context. | Passed |
+| Validation                  | Exact fields/type combinations, project facts, snapshot cap, and coverage membership. | Passed |
+| Authentication/ownership    | Unauthenticated and foreign/missing projects cannot start or leak context.            | Passed |
+| State and concurrency       | Same-key replay, changed-project conflict, and shared one-claim lifecycle.            | Passed |
+| Dependency/provider failure | Existing bounded adaptive provider failures save no invented question.                | Passed |
+| Persistence failure         | Snapshot/question failures cannot report success or leave misleading active state.    | Passed |
+| Recovery/retry              | Source deletion does not break replay; UI preserves project and operation key.        | Passed |
+| Privacy/security            | Only confirmed facts enter snapshot/context; drafts and source resume data stay out.  | Passed |
+| Regression                  | V1 types and Role Simulation retain setup, generation, feedback, and completion.      | Passed |
+| Documentation               | Formatting, delivery validation, diff, config, and contract review.                   | Passed |
+
+Verification will remain focused: new/changed model and Project Defense route
+cases, targeted Practice/API tests, affected server/client lint, and client
+build. Existing shared recovery/provider/concurrency tests will be reused where
+the new path demonstrably enters the same lifecycle. No full suite, browser, or
+live provider call is planned.
+
+### Task breakdown
+
+| Task | Work                                                                                          | Stop condition                                                                 |
+| ---- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| T1   | Add contract-first model/route tests for confirmed ownership, snapshot, coverage, and replay. | Stop on conflict with the frozen Project or interview contract.                |
+| T2   | Extend session/project/interview services for the facts snapshot and adaptive opening.        | Stop on unconfirmed context, partial state, source coupling, or second engine. |
+| T3   | Add minimum Project Defense project selection and focused client recovery tests.              | Stop if Day 12 redesign or unrelated Projects workspace work becomes needed.   |
+| T4   | Run the focused gate, reconcile documents, and record evidence/deviations.                    | Any failed applicable check or unresolved P0/P1 blocks completion.             |
+
+### Risk and gap-remediation matrix
+
+| ID    | Severity | Gap / risk                                                                | Proposed control                                                                               | Approval state      |
+| ----- | -------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------- |
+| G7-01 | P1       | “Relevant defense category” and opening order were ambiguous.             | Stable six-category mapping, omitted empty optional categories, and architecture opening.      | Closed              |
+| G7-02 | P1       | Snapshot shape and 16 KiB envelope versus 16 KiB fact cap were ambiguous. | Facts-only shape, exclusions, whole-envelope cap, and safe not-ready boundary behavior.        | Closed              |
+| G7-03 | P1       | Legacy or extracted-only data could be treated as confirmed context.      | Require owned persisted project, `confirmedAt`, full fact validation, and `PROJECT_NOT_READY`. | Closed              |
+| G7-04 | P1       | Day 7 could consume Day 8 claim-specific challenge behavior.              | Limit Day 7 to category foundation and generic adaptation; defer claim-aware logic.            | Controlled boundary |
+| G7-05 | P1       | Source edit/delete could change replay or provider context.               | Snapshot before generation; replay never rereads the source.                                   | Closed              |
+| G7-06 | P1       | A second interview lifecycle could weaken recovery/concurrency controls.  | Reused the existing claim/staging/finalization and adaptive service.                           | Closed              |
+| G7-07 | P2       | Setup UI could expand into the mandatory redesign.                        | Add only type/project selection and recovery states; retain existing Projects workspace.       | Controlled boundary |
+| G7-08 | P2       | New limits might become unnecessary deployment configuration.             | Keep approved bounds fixed in code; no `.env`, `render.yaml`, or dependency change.            | Controlled          |
+
+### Planned file boundary
+
+- Extend the interview request/model/service and Project service with one owned
+  confirmed snapshot read; reuse existing routes/controllers and adaptive
+  modules.
+- Extend Practice and its existing APIs/tests for confirmed-project selection.
+- Add focused Project Defense integration evidence. No new collection, route
+  family, top-level folder, dependency, environment variable, or deployment
+  setting is planned.
+
+### Current blockers / decisions needed
+
+None for Day 7. Day 8 remains unapproved.
+
+### Manual tasks for user
+
+Manual tasks for user: None.
+
+### Implementation evidence
+
+- Activated Project Defense with exact request combinations, owned confirmed
+  project readiness, immutable facts-only snapshot, stable six-category
+  coverage, architecture opening, and existing adaptive claim lifecycle.
+- Added confirmed-project Practice selection with loading, empty, error, retry,
+  link-to-workspace, choice preservation, and operation-key rotation.
+- Added focused model, service-boundary, route, API, and page evidence. No new
+  package, environment, Render, provider, or infrastructure surface was added.
+
+### Verification evidence
+
+- Initial client contract run failed as expected: 3 failed, 42 passed.
+- Day 5–7 server model/engine/Role/Project set: 4 files, 46 tests passed.
+- Project snapshot boundary and focused V1 compatibility: 9 passed, 35 skipped
+  by filter.
+- Client Project/API/Practice set: 3 files, 53 tests passed.
+- Server/client lint and client production build passed after one unused test
+  binding was removed.
+- Final formatting, delivery validation, diff, configuration, and scope review passed.
+
+### Deviation and finding register
+
+- No scope deviation. Day 8 claim-specific challenges remain unimplemented.
+- Confirmed projects whose facts fit their 16 KiB source cap but whose complete
+  snapshot envelope exceeds 16 KiB fail safely with `PROJECT_NOT_READY`; no
+  truncation or mutation occurs, as approved in G7-02.
+- Shared Day 5/6 provider, persistence, and concurrency proofs were reused; new
+  route tests prove Project Defense enters that lifecycle.
+
+### Completion review
+
+All D7-R01–D7-R08 requirements have implementation evidence and applicable
+focused checks pass. No unresolved P0/P1 remains. Day 7 is `Complete`; Day 8
+remains unapproved.
+
+### Completion gate
+
+- Every D7-R01–D7-R08 row has implementation and independent evidence.
+- Confirmed-only context, immutable replay, exact category coverage, and the
+  architecture opening pass focused checks.
+- Existing V1 and Role Simulation paths remain compatible.
+- No unresolved P0/P1, undocumented deviation, partial snapshot/question state,
+  or Day 8 scope remains. Only then may Day 7 be `Complete`.
+
+## V2 Day 6 Execution Record
+
+**Timeline position:** V2 Day 6 — Job Target-weighted Role Simulation
+**Current status:** Complete — approved Day 6 scope implemented and verified
+**Planning authority:** On 2026-10-05, the user approved Day 6 as documented,
+including G6-01 and G6-02.
+**Approval scope:** Phase 2 integration slice: activate Role Simulation
+with an owned ready Job Target, immutable bounded snapshot, deterministic
+weighted coverage, Day 5 adaptive generation inside the existing five-question
+claim/recovery lifecycle, and minimum setup UI/API support. It excludes Project
+Defense, targeted practice, skill evidence/mastery, full Job Target workspace,
+UI redesign, dependencies, live Gemini, browser automation, environment/render
+changes, deployment, commit, push, and Day 7.
+
+### Objective
+
+Let a user select an owned ready Job Target and complete a recoverable Role
+Simulation whose saved immutable target snapshot and weighted coverage produce
+target-specific adaptive questions without changing V1 interview behavior.
+
+### Requirement traceability matrix
+
+| ID     | Requirement / source                       | Planned implementation evidence                                                                                         | Planned verification                                                       | Status |
+| ------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------ |
+| D6-R01 | Day 1 interview API; Timeline Day 6        | Public start validation/model add `Role Simulation` and require `jobTargetId`; other combinations remain rejected.      | Exact request-combination and model tests.                                 | Passed |
+| D6-R02 | Owned ready target contract                | Start reads only authenticated owner's `ready` target; absent/foreign is `404`, non-ready is `409`.                     | Owned, foreign, missing, and pending integration cases.                    | Passed |
+| D6-R03 | Immutable snapshot and source independence | Session atomically stores target ID plus <=16 KiB analysis-only snapshot; replay never rereads source.                  | Start, reload/delete-after-start, size, and no-raw-JD assertions.          | Passed |
+| D6-R04 | Job Target weighting and distinct focus    | Deterministic coverage sorts by weight; highest-weight skill opens and frozen order breaks later ties.                  | Two materially different analyses produce different saved focus.           | Passed |
+| D6-R05 | Adaptive five-question lifecycle           | First/next questions use Day 5 engine, saved feedback, existing claims/staging, parent translation, and cap.            | Opening plus answer-aware next question; shared Day 4 recovery proof.      | Passed |
+| D6-R06 | Idempotency and concurrency                | Start equality includes `jobTargetId`; same request replays, changed target conflicts, existing claim path is reused.   | Role replay/conflict plus existing claim/concurrency recovery tests.       | Passed |
+| D6-R07 | Minimum usable setup UI                    | Practice adds Role Simulation, strict target-list wrapper, ready-target selector, and loading/empty/error/retry states. | Focused API/page tests prove selection, preservation, and adaptive render. | Passed |
+| D6-R08 | Compatibility, security, and documentation | DSA/HR/System Design retain V1 generation; no new secret/config/dependency; affected contracts match behavior.          | Focused V1 regressions, lints/build, documentation and final scope review. | Passed |
+
+### Approved and implemented Day 6 refinements
+
+- Activate only `Role Simulation`; `Project Defense` remains Day 7 and
+  `targeted_practice` remains Day 10.
+- Role Simulation requires `sessionPurpose=standard` (defaulted when omitted),
+  one valid `jobTargetId`, and may retain existing optional resume context.
+- Snapshot shape is exactly `kind="job_target"`, source ID, source `updatedAt`,
+  display label, and validated `roleSummary`, requirements, and skills. Raw JD
+  description and provider payload are excluded. Serialized snapshot cap is
+  16 KiB; `jobTargetId` must equal snapshot source ID.
+- Coverage contains all validated target skills, one topic per skill:
+  `{topicKey:skill.key,label:skill.label,skillKeys:[skill.key]}`. Sort by weight
+  descending, preserving analysis order for ties. Role Simulation opening must
+  use the first entry; later coverage-gap ties already follow frozen order.
+- Provider context is stable JSON made only from the snapshot's role summary,
+  requirements, and weighted skills, within the existing 16 KiB adaptive cap.
+- Existing same-key replay uses the saved session/snapshot even if the source is
+  edited or deleted. A fresh start always rereads and snapshots a currently
+  owned ready target.
+- Setup UI lists owned targets, permits selection only when `ready`, preserves
+  type/level/target/resume across failure, and rotates the start key when any
+  setting changes. Job Target create/edit workspace remains Day 12.
+
+### Verification matrix
+
+| Category                    | Planned evidence                                                                                   | Status |
+| --------------------------- | -------------------------------------------------------------------------------------------------- | ------ |
+| Success                     | Two different targets produce different saved coverage focus; Role Simulation advances adaptively. | Passed |
+| Validation                  | Exact fields, Role Simulation combinations, snapshot cap, coverage order, and response shape.      | Passed |
+| Authentication/ownership    | Authentication remains shared middleware; foreign and non-ready target access fails safely.        | Passed |
+| State and concurrency       | Role replay/conflict passes; existing shared claim/staging/concurrency path remains covered.       | Passed |
+| Dependency/provider failure | Day 5 validation/provider failure tests remain the active engine boundary; no second path added.   | Passed |
+| Persistence failure         | Existing shared claim/finalization recovery tests remain applicable; snapshot is saved first.      | Passed |
+| Recovery/retry              | Saved snapshot survives source deletion; UI selection and idempotency key survive safe retry.      | Passed |
+| Privacy/security            | No raw JD enters snapshot/provider context; owned filter and safe errors are asserted.             | Passed |
+| Regression                  | Focused V1 start/next/completion and client setup cases pass.                                      | Passed |
+| Documentation               | Targeted formatting, delivery validation, diff, configuration, and contract review.                | Passed |
+
+Verification remains focused: new/changed server unit and interview integration
+cases, targeted Practice/API tests, affected server/client lint, and client
+build. No full suite, browser run, or live provider call unless an implementation
+finding makes one necessary and receives approval.
+
+### Task breakdown
+
+| Task | Work                                                                                                    | Stop condition                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| T1   | Add failing model/validator/service/integration tests for snapshot, weighting, ownership, and recovery. | Stop on conflict with frozen API/snapshot/idempotency contracts.               |
+| T2   | Add additive session fields and integrate ready-target snapshot plus Day 5 engine into interview flow.  | Stop on partial-write, source-coupling, duplicate-call, or V1 regression risk. |
+| T3   | Add minimal Role Simulation target selection and focused client validation/recovery tests.              | Stop if full Job Target workspace or Day 12 redesign becomes required.         |
+| T4   | Run focused Phase 2 gate checks, reconcile documentation, and record final evidence/deviations.         | Any failed applicable check or unresolved P0/P1 blocks completion.             |
+
+Approval of Day 6 would authorize T1–T4 and the exact refinements below. Any
+dependency, migration, live-provider/browser action, deployment, or wider UI
+scope still requires renewed approval.
+
+### Risk and gap-remediation matrix
+
+| ID    | Severity | Gap / risk                                                                | Proposed control                                                                            | Approval state      |
+| ----- | -------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------- |
+| G6-01 | P1       | “Job Target weighting” lacked deterministic allocation rules.             | Descending skill weight, stable tie order, top-weight opening, and ordered switch policy.   | Closed              |
+| G6-02 | P1       | Snapshot shape/context serialization were not exact.                      | Analysis-only shape, stable JSON context, source equality, and 16 KiB cap.                  | Closed              |
+| G6-03 | P1       | Source edit/delete could alter or break replay.                           | Snapshot before generation; replay uses saved snapshot and never rereads source.            | Closed              |
+| G6-04 | P1       | V2 generation could bypass existing claim/idempotency recovery.           | Reused existing claim/staging/finalization path; no second lifecycle.                       | Closed              |
+| G6-05 | P1       | Missing feedback could fabricate an adaptive outcome.                     | History uses only completed saved feedback; unevaluated latest question is rejected.        | Closed              |
+| G6-06 | P1       | Enabling both new types would consume Day 7 and risk unconfirmed context. | Activate Role Simulation only; keep Project Defense rejected.                               | Controlled boundary |
+| G6-07 | P2       | No Job Target client workspace exists yet.                                | Add list/select/recovery only; keep create/edit workspace and visual upgrade on Day 12.     | Controlled boundary |
+| G6-08 | P2       | Model/API/UI changes could regress V1 or over-expand tests.               | Additive fields, focused V1 cases, changed-file lints/build; no full suite by default.      | Controlled          |
+| G6-09 | P2       | Limits may be exposed as unnecessary deployment configuration.            | Keep snapshot/coverage rules fixed in code; no `.env`, `render.yaml`, or dependency change. | Controlled          |
+
+### Planned file boundary
+
+- Extend interview model, request validator, service composition/orchestration,
+  serializers, and focused tests.
+- Add a strict client Job Target list wrapper; extend Practice setup and focused
+  tests/styles only as required for Role Simulation selection and recovery.
+- Reuse Day 5 adaptive service and existing Job Target/provider/session claim
+  modules. No new top-level folder, collection, route family, dependency,
+  environment variable, or deployment setting is planned.
+
+### Current blockers / decisions needed
+
+None for Day 6. Day 7 remains unapproved.
+
+### Manual tasks for user
+
+Manual tasks for user: None.
+
+### Implementation evidence
+
+- Added active Role Simulation validation, additive session target/snapshot
+  fields, owned-ready target snapshot lookup, deterministic weighted coverage,
+  and Day 5 adaptive generation through the existing claim lifecycle.
+- Added strict Job Target list validation and a ready-target Practice selector
+  with loading, empty, error, retry, and choice-preservation behavior.
+- Added focused server model/engine/route and client API/page evidence. No
+  package, environment, Render, deployment, browser, or provider call changed.
+
+### Verification evidence
+
+- Server Day 5/6 set: 3 files, 41 tests passed.
+- Server focused V1 compatibility: 4 passed, 31 skipped by filter.
+- Client Day 6/API/Practice set: 3 files, 44 tests passed.
+- Server lint, client lint, and client production build passed.
+- Final documentation formatting, delivery validation, and diff checks are
+  passed; final scope review found no package, environment, Render, deployment,
+  browser, live-provider, commit, or push action.
+
+### Deviation and finding register
+
+- No scope deviation. The planned full target workspace remains Day 12.
+- Existing shared Day 4/5 recovery, provider-failure, and concurrency tests were
+  reused rather than duplicated for Role Simulation; focused route evidence
+  proves the new path enters that lifecycle.
+
+### Completion review
+
+All D6-R01–D6-R08 requirements have implementation evidence and applicable
+focused checks pass. No unresolved P0/P1 remains. Day 6 is `Complete`; Day 7
+remains unapproved.
+
+### Completion gate
+
+- Every D6-R01–D6-R08 row has implementation and independent evidence.
+- Every applicable verification row passes; every `N/A` remains justified.
+- Two materially different targets produce different frozen focus, source
+  mutation cannot alter replay, and existing V1 flows remain compatible.
+- No unresolved P0/P1, undocumented deviation, or partial snapshot/question
+  state remains. Only then may Day 6 be `Complete` and Phase 2 gate pass.
+
+## V2 Day 5 Execution Record
+
 **Timeline position:** V2 Day 5 — deterministic adaptive interview engine
-**Current status:** Awaiting approval — implementation not started
-**Planning authority:** On 2026-10-04, the user authorized Day 5 matrix planning
-only. Implementation requires explicit approval.
-**Approval scope:** Proposed one-day backend service slice: deterministic
+**Current status:** Complete — approved Day 5 scope implemented and verified
+**Planning authority:** On 2026-10-04, the user approved Day 5 as documented,
+including G5-01, G5-02, and G5-03.
+**Approval scope:** One-day backend service slice: deterministic
 outcome derivation, branch/difficulty/parent/coverage/repetition rules, one
 bounded provider call, focused unit tests, affected server lint, documentation,
 and diff review. It excludes route activation, persistence integration, Role
@@ -29,17 +623,17 @@ state.
 
 ### Requirement traceability matrix
 
-| ID     | Requirement / source                      | Planned implementation evidence                                                                                                         | Planned verification                                                | Status  |
-| ------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------- |
-| D5-R01 | Day 1 outcomes; Timeline Day 5            | Derive `strong`, `partial`, `weak`, or `missing` only from validated saved `overallScore`; callers cannot supply outcome.               | Boundary tests for scores 0, 1, 59, 60, 84, 85, and 100.            | Planned |
-| D5-R02 | Day 1 branch legality                     | Deterministically require opening, deepen, clarify, recover, switch, or targeted opening based on purpose, latest outcome, and history. | Table-driven valid/invalid branch, reason, topic, and parent tests. | Planned |
-| D5-R03 | Difficulty, follow-up, and coverage rules | Enforce opening level, one-step directional difficulty, one clarify/recover follow-up, and deterministic least-covered topic switch.    | Focused sequence tests cover strong/partial/weak/missing/gap cases. | Planned |
-| D5-R04 | Repetition and five-question bounds       | Reject normalized prompt similarity `>=0.85`; stop before a sixth question or when no legal required switch exists.                     | Similarity boundary, cap, and safe-completion tests.                | Planned |
-| D5-R05 | Provider neutrality, failure, and cost    | Call existing `generateAdaptiveQuestion` once with derived bounded history; accept no model override, loop, tool, retry, or write.      | One-call success plus malformed, mismatch, timeout/quota failure.   | Planned |
-| D5-R06 | V1 compatibility and Day 6 boundary       | Add isolated validator/service modules only; no interview route, model, active enum, UI, or V1 provider path changes.                   | File/call-path review; existing Day 4 contracts remain unchanged.   | Planned |
-| D5-R07 | Documentation and truthful completion     | Reconcile architecture, flow, folder, decisions, contracts, timeline/status, and README only where behavior changes.                    | Prettier, delivery validation, `git diff --check`, scope review.    | Planned |
+| ID     | Requirement / source                      | Implementation evidence                                                                                                         | Verification evidence                                                     | Status |
+| ------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------ |
+| D5-R01 | Day 1 outcomes; Timeline Day 5            | `deriveAdaptiveOutcome` maps only validated integer `overallScore`; exact history input rejects caller-supplied outcome.        | All seven approved score boundaries pass.                                 | Passed |
+| D5-R02 | Day 1 branch legality                     | Service derives required opening, deepen, clarify, recover, switch, or targeted opening and rejects provider mismatches.        | Table-driven branch, reason, topic, skill, and parent cases pass.         | Passed |
+| D5-R03 | Difficulty, follow-up, and coverage rules | Service enforces opening level, directional one-step difficulty, one remediation follow-up, and least-used ordered switching.   | Strong, partial, weak, missing, repeated-topic, and exhaustion pass.      | Passed |
+| D5-R04 | Repetition and five-question bounds       | Normalized Levenshtein rejects similarity `>=0.85`; safe errors stop exhausted or five-question sequences before provider work. | Similarity, cap, and single-topic completion cases pass.                  | Passed |
+| D5-R05 | Provider neutrality, failure, and cost    | Service invokes existing `generateAdaptiveQuestion` once; it has no model override, loop, retry, tool, or persistence access.   | One-call assertions, mismatch rejection, and failure propagation pass.    | Passed |
+| D5-R06 | V1 compatibility and Day 6 boundary       | Added isolated validator/service modules only; routes, models, active enums, UI, and V1 provider paths remain unchanged.        | Final file/call-path review confirms dormant service-only scope.          | Passed |
+| D5-R07 | Documentation and truthful completion     | Architecture, flow, folder, decisions, contracts, security, timeline/status, and README match behavior.                         | Prettier, delivery validation, `git diff --check`, and scope review pass. | Passed |
 
-### Proposed exact Day 5 refinements
+### Implemented exact Day 5 refinements
 
 - Outcome mapping: `0=missing`, `1–59=weak`, `60–84=partial`,
   `85–100=strong`. This aligns `strong` with the existing UI threshold.
@@ -65,23 +659,22 @@ state.
 
 ### Verification matrix
 
-| Category                    | Planned evidence                                                                   | Status  |
-| --------------------------- | ---------------------------------------------------------------------------------- | ------- |
-| Success                     | One valid decision for opening, strong, partial, weak, missing, and coverage gap.  | Planned |
-| Validation                  | Exact internal input, score, branch, topic/skill, parent, difficulty, and prompt.  | Planned |
-| Authentication/ownership    | N/A: no route or owned-resource lookup changes.                                    | N/A     |
-| State and concurrency       | N/A: engine is stateless and performs no persistence.                              | N/A     |
-| Dependency/provider failure | One call maximum; safe propagation/rejection for provider failures and bad output. | Planned |
-| Persistence failure         | N/A: Day 5 writes no state.                                                        | N/A     |
-| Recovery/retry              | Invalid decisions save nothing; caller retains existing Day 4/6 claim authority.   | Planned |
-| Privacy/security            | Only Day 4-bounded summaries cross the provider boundary; no raw history or tools. | Planned |
-| Regression                  | Static call-path review; focused adjacent checks only if shared code changes.      | Planned |
-| Documentation               | Targeted formatting, delivery validation, diff, and contract review.               | Planned |
+| Category                    | Planned evidence                                                                   | Status |
+| --------------------------- | ---------------------------------------------------------------------------------- | ------ |
+| Success                     | Valid opening, strong, partial, weak, missing, and coverage-gap decisions.         | Passed |
+| Validation                  | Exact internal input, score, branch, topic/skill, parent, difficulty, and prompt.  | Passed |
+| Authentication/ownership    | N/A: no route or owned-resource lookup changes.                                    | N/A    |
+| State and concurrency       | N/A: engine is stateless and performs no persistence.                              | N/A    |
+| Dependency/provider failure | One call maximum; safe propagation/rejection for provider failures and bad output. | Passed |
+| Persistence failure         | N/A: Day 5 writes no state.                                                        | N/A    |
+| Recovery/retry              | Invalid decisions save nothing; caller retains existing Day 4/6 claim authority.   | Passed |
+| Privacy/security            | Only Day 4-bounded summaries cross provider boundary; no raw history or tools.     | Passed |
+| Regression                  | Static call-path review confirms no active route, model, client, or V1 change.     | Passed |
+| Documentation               | Targeted formatting, delivery validation, diff, and contract review.               | Passed |
 
-No full suite, client tests/build, browser run, or live provider call is
-planned. Test count remains behavior-derived. If implementation needs shared
-provider/model/route changes, work stops for scope review or adds only the
-directly affected checks.
+No full suite, client test/build, browser run, or live provider call was run.
+Test count remained behavior-derived; no shared provider/model/route change
+required adjacent checks.
 
 ### Task breakdown
 
@@ -92,57 +685,71 @@ directly affected checks.
 | T3   | Verify one-call provider orchestration, safe failures, and V1 isolation.                       | Any unresolved P0/P1 prevents completion.                              |
 | T4   | Update affected documents and record final evidence/deviations.                                | Day 6 remains unapproved.                                              |
 
-Approval of Day 5 would authorize T1–T4. Material algorithm, public API,
-persistence, privacy, dependency, or configuration changes still require
-renewed approval.
+Day 5 approval authorized and completed T1–T4. No material algorithm, public
+API, persistence, privacy, dependency, or configuration deviation occurred.
 
 ### Risk and gap-remediation matrix
 
-| ID    | Severity | Gap / risk                                                          | Proposed control                                                            | Approval state      |
-| ----- | -------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------- |
-| G5-01 | P1       | Frozen contracts do not map feedback scores to outcomes.            | Approve fixed `0/1–59/60–84/85–100` mapping above.                          | Approval required   |
-| G5-02 | P1       | Coverage-gap selection and single-topic exhaustion are vague.       | Approve least-used ordered switch policy and safe completion above.         | Approval required   |
-| G5-03 | P1       | Similarity threshold lacks an algorithm.                            | Approve normalized Levenshtein metric above; no dependency.                 | Approval required   |
-| G5-04 | P1       | Activating routes now would consume Day 6 scope.                    | Keep Day 5 service-only; Day 6 owns persistence and route integration.      | Controlled boundary |
-| G5-05 | P1       | Model output could override deterministic state rules.              | Validate every proposal; reject rather than repair or loop.                 | Planned             |
-| G5-06 | P1       | Caller-supplied outcome could falsify adaptation.                   | Accept validated score only; derive outcome internally.                     | Planned             |
-| G5-07 | P2       | New limits could become operator-tunable or require deploy changes. | Keep fixed code invariants; no `.env`, `render.yaml`, or dependency.        | Controlled          |
-| G5-08 | P2       | Broad testing would waste time/tokens.                              | One focused service test file; adjacent checks only if shared code changes. | Controlled          |
+| ID    | Severity | Gap / risk                                                          | Proposed control                                                             | Approval state      |
+| ----- | -------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------- |
+| G5-01 | P1       | Frozen contracts do not map feedback scores to outcomes.            | Fixed `0/1–59/60–84/85–100` mapping is implemented and boundary-tested.      | Resolved            |
+| G5-02 | P1       | Coverage-gap selection and single-topic exhaustion are vague.       | Least-used ordered switching and safe completion are implemented and tested. | Resolved            |
+| G5-03 | P1       | Similarity threshold lacks an algorithm.                            | Dependency-free normalized Levenshtein metric is implemented and tested.     | Resolved            |
+| G5-04 | P1       | Activating routes now would consume Day 6 scope.                    | Keep Day 5 service-only; Day 6 owns persistence and route integration.       | Controlled boundary |
+| G5-05 | P1       | Model output could override deterministic state rules.              | Every proposal is validated and rejected rather than repaired or looped.     | Resolved            |
+| G5-06 | P1       | Caller-supplied outcome could falsify adaptation.                   | Exact input accepts score only and derives outcome internally.               | Resolved            |
+| G5-07 | P2       | New limits could become operator-tunable or require deploy changes. | Keep fixed code invariants; no `.env`, `render.yaml`, or dependency.         | Controlled          |
+| G5-08 | P2       | Broad testing would waste time/tokens.                              | One focused service test file; adjacent checks only if shared code changes.  | Controlled          |
 
-### Planned file boundary
+### Implemented file boundary
 
 - New: `server/src/validators/adaptiveInterviewSchemas.js`,
   `server/src/services/adaptiveInterviewService.js`, and one focused unit test.
 - Existing provider adapters, `InterviewSession`, routes/controllers, client,
   environment files, `render.yaml`, and dependencies should remain unchanged.
-- Update only affected project-memory/README documents after behavior is proven.
+- Updated only affected project-memory/README documents after behavior was proven.
 
 ### Current blockers / decisions needed
 
-Approval must include G5-01, G5-02, and G5-03. No other blocker is known.
+No Day 5 blocker remains. Day 6 remains unapproved.
 
 ### Manual tasks for user
 
-Manual tasks for user: Review and approve or revise Day 5, especially the
-outcome thresholds, coverage-switch policy, and similarity metric.
+Manual tasks for user: None.
 
 ### Implementation evidence
 
-Not started. Populate only after explicit Day 5 approval.
+- Added exact internal input validation and server-owned outcome derivation.
+- Added deterministic branch, difficulty, parent, topic, skill, coverage,
+  completion, hard-cap, and repetition enforcement.
+- Added one-call provider orchestration with no persistence or active route.
+- Added one focused table-driven service test file.
 
 ### Verification evidence
 
-Not run. This planning change receives documentation-only checks.
+- Contract-first baseline failed because Day 5 modules did not exist.
+- Focused Day 5 unit tests: 23/23 passed.
+- Server lint passed.
+- Targeted Prettier, delivery validation, `git diff --check`, and final
+  file/call-path review passed.
+- No client test/build, full suite, browser automation, live Gemini, server,
+  environment/render change, deployment, commit, or push occurred.
 
 ### Deviation and finding register
 
-- No implementation deviation or finding exists because implementation has not
-  started.
-- G5-01–G5-03 are explicit proposed refinements, not completed decisions.
+- Approved G5-01–G5-03 refinements were implemented without deviation.
+- Standard openings allow any topic in the frozen coverage plan because the
+  approved refinement fixed branch, difficulty, and parent but did not assign
+  model-independent opening-topic priority. Targeted openings require the
+  focus skill's topic and skill membership.
+- No unresolved finding remains.
 
 ### Completion review
 
-Pending approval and implementation. Day 5 remains `Awaiting approval`; Day 6
+Every D5-R01–D5-R07 requirement has implementation and focused evidence. All
+applicable checks pass; reasoned `N/A` categories remain unaffected. No route,
+persistence, UI, dependency, provider adapter, environment, or deployment
+change occurred. No unresolved P0/P1 remains. Day 5 is `Complete`; Day 6
 remains unapproved.
 
 ### Completion gate
@@ -151,6 +758,8 @@ remains unapproved.
 - Every applicable focused check passes; every `N/A` remains justified.
 - No route activation, state write, V1 behavior change, or unresolved P0/P1.
 - Affected documentation matches behavior. Only then may Day 5 be `Complete`.
+- All gates are satisfied. Day 5 is `Complete`; Day 6 requires separate
+  approval.
 
 ## V2 Day 4 Execution Record
 
@@ -347,7 +956,7 @@ remains. V1 generation and public type selection remain unchanged. Day 4 is
 - Final behavior must not enable adaptive routing or either new interview type.
 - No unresolved P0/P1, undocumented contract deviation, or partial metadata
   recovery may remain.
-- All gates are satisfied. Day 4 is `Complete`; Day 5 requires separate
+- All gates are satisfied. Day 4 is `Complete`; Day 5 required separate
   approval.
 
 ## V2 Day 3 Execution Record
@@ -3170,6 +3779,10 @@ Add exactly one concise row per working day. If work spans multiple days, record
 | V2-2 | 2026-10-04 | Implemented authenticated owned Job Targets with bounded provider-neutral JD analysis, strict validation, CRUD/reanalysis, idempotency, concurrency claims, stale recovery, safe failure states, and additive app composition.                                                                                             | Focused Day 2 tests passed 26/26; adjacent V1 regressions passed 87/87; server lint, targeted formatting, delivery validation, diff check, and final scope review passed. No dependency, client, live-provider, browser, deployment, commit, or push action occurred.                     | Complete |
 | V2-3 | 2026-10-04 | Implemented owned confirmed Candidate Projects, bounded unsaved resume-assisted suggestions, explicit attestation, strict CRUD/API validation, bounded replay/concurrency control, and the accessible Projects workspace foundation.                                                                                       | Focused/adjacent server tests passed 83/83 and client tests 34/34; both lints, client build, targeted formatting, delivery validation, diff check, and final scope review passed. No dependency, environment/render, live-provider, browser, deployment, commit, or push action occurred. | Complete |
 | V2-4 | 2026-10-04 | Implemented exact dormant adaptive provider contracts, optional all-or-valid session/question metadata, recovery-safe complete decision staging, parent-ID translation, and strict active/replay client compatibility without enabling adaptive routing.                                                                   | Server unit 51/51, selected server integration 6/6, and selected client 7/7 passed; both lints, client build, formatting, delivery validation, diff check, and scope review passed. No dependency, environment/render, live-provider, browser, deployment, commit, or push occurred.      | Complete |
+| V2-5 | 2026-10-04 | Implemented the isolated deterministic adaptive engine with score-derived outcomes, legal branch/difficulty/parent/topic enforcement, coverage switching, sequence caps, and prompt-repetition rejection without route or persistence activation.                                                                          | Focused Day 5 tests passed 23/23; server lint, targeted formatting, delivery validation, diff check, and scope review passed. No client/full-suite/browser/live-provider/environment/render/deployment/commit/push action occurred.                                                       | Complete |
+| V2-6 | 2026-10-05 | Activated owned Job Target-weighted Role Simulation with an immutable bounded analysis snapshot, deterministic focus, answer-aware adaptive continuation, existing claim/recovery lifecycle, and minimum ready-target setup UI.                                                                                            | Day 5/6 server tests passed 41/41, focused V1 integration 4/4, client tests 44/44, both lints, client build, formatting, delivery validation, diff check, and scope review passed. No dependency/environment/render/browser/live-provider/deployment/commit/push action occurred.         | Complete |
+| V2-7 | 2026-10-05 | Activated confirmed-project Project Defense with an immutable facts-only snapshot, stable six-category coverage, architecture opening, generic adaptive continuation, existing claim/recovery lifecycle, and minimum confirmed-project setup UI.                                                                           | Focused server sets passed 46/46 and 9/9; client tests passed 53/53; both lints, client build, formatting, delivery validation, diff check, and scope review passed. No dependency/environment/render/browser/live-provider/deployment/commit/push action occurred.                       | Complete |
+| V2-8 | 2026-10-05 | Added grounded Project Defense follow-ups with deterministic confirmed fact/claim anchors, eight bounded technical axes, latest-answer context, exact provider validation, and replay-safe challenge metadata through the existing recovery lifecycle.                                                                     | Focused server set passed 97/97; shared recovery 2/2; provider/challenge rerun 72/72; server lint, formatting, delivery validation, diff check, and scope review passed. No client/dependency/environment/render/browser/live-provider/deployment/commit/push action occurred.            | Complete |
 
 ## Daily Update Template
 

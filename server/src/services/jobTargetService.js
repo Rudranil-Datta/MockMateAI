@@ -20,6 +20,14 @@ function inProgress() {
   );
 }
 
+function notReady() {
+  return new AppError(
+    "JOB_TARGET_NOT_READY",
+    "Job Target is not ready for Role Simulation.",
+    { status: 409 },
+  );
+}
+
 function idempotencyConflict() {
   return new AppError(
     "IDEMPOTENCY_KEY_REUSED",
@@ -149,6 +157,24 @@ export function createJobTargetService({
   }
 
   return {
+    async getReadyTargetSnapshot({ targetId, userId }) {
+      const target = await jobTargetModel.findOne(
+        getOwnedResourceFilter(targetId, userId),
+      );
+      if (!target) throw notFound();
+      if (target.status !== "ready" || !target.analysis) throw notReady();
+
+      return {
+        analysis: target.analysis.toObject?.() ?? target.analysis,
+        displayLabel: target.company
+          ? `${target.title} at ${target.company}`
+          : target.title,
+        kind: "job_target",
+        sourceId: target.id,
+        sourceUpdatedAt: target.updatedAt,
+      };
+    },
+
     async createTarget({
       company,
       description,

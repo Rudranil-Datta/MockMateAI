@@ -11,6 +11,29 @@ function notFound() {
   });
 }
 
+function notReady() {
+  return new AppError(
+    "PROJECT_NOT_READY",
+    "Project is not ready for Project Defense. Review and confirm shorter facts.",
+    { status: 409 },
+  );
+}
+
+function projectFacts(project) {
+  const value = project.toObject?.() ?? project;
+  return {
+    architecture: value.architecture,
+    claims: value.claims.map(({ evidence, text }) => ({ evidence, text })),
+    decisions: value.decisions,
+    name: value.name,
+    responsibilities: value.responsibilities,
+    role: value.role,
+    summary: value.summary,
+    technologies: value.technologies,
+    tradeoffs: value.tradeoffs,
+  };
+}
+
 function idempotencyConflict() {
   return new AppError(
     "IDEMPOTENCY_KEY_REUSED",
@@ -84,6 +107,31 @@ export function createProjectService({
   }
 
   return {
+    async getConfirmedProjectSnapshot({ projectId, userId }) {
+      const project = await candidateProjectModel.findOne(
+        getOwnedResourceFilter(projectId, userId),
+      );
+      if (!project) throw notFound();
+      if (!project.confirmedAt) throw notReady();
+      try {
+        await project.validate();
+      } catch {
+        throw notReady();
+      }
+
+      const snapshot = {
+        displayLabel: `${project.name} — ${project.role}`,
+        facts: projectFacts(project),
+        kind: "candidate_project",
+        sourceId: project.id,
+        sourceUpdatedAt: project.updatedAt,
+      };
+      if (Buffer.byteLength(JSON.stringify(snapshot), "utf8") > 16 * 1024) {
+        throw notReady();
+      }
+      return snapshot;
+    },
+
     async extractDrafts({ idempotencyKey, resumeId, userId }) {
       purgeExpired();
       const key = `${userId}:${idempotencyKey}`;
