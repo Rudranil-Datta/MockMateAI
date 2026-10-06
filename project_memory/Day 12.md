@@ -2,8 +2,8 @@
 
 ## Approval boundary
 
-Planning only. No Day 12 source, dependency, API, persistence, provider,
-migration, deployment, browser, commit, or push work is approved by this file.
+Implemented 2026-10-06. No server, dependency, persistence, provider,
+migration, deployment, browser, commit, or push work occurred.
 
 Day 12 is client-led. It may consume existing owned Job Target, Candidate
 Project, skill-profile, analytics, resume, and interview-start contracts. It
@@ -79,3 +79,22 @@ Day 11 exclusively owns replay/result timeline and retest comparison.
 
 Approve Day 12 implementation only if this exact client-led scope, reduced test
 scope, and stop gates are acceptable. Approval does not authorize Day 13.
+
+## Final execution record
+
+**Status:** Complete.
+
+| ID      | Final evidence                                                                 | Status |
+| ------- | ------------------------------------------------------------------------------ | ------ |
+| D12-R01 | Adaptive desktop rail/mobile drawer, preserved routes, Escape focus return.    | Passed |
+| D12-R02 | Resource-derived Preparation setup with clear non-gamified progression.        | Passed |
+| D12-R03 | Safe dashboard hero/action, skill snapshot, trend, and replay access.          | Passed |
+| D12-R04 | `/targets` workspace with validated list/create/delete and draft preservation. | Passed |
+| D12-R05 | `/skills` exact-safe profile, pending/empty/error states, focused handoff.     | Passed |
+| D12-R06 | Practice receives only existing Day 10 `sessionPurpose` and `focusSkillKey`.   | Passed |
+| D12-R07 | Semantic controls, visible focus, responsive/reduced-motion stylesheet review. | Passed |
+| D12-R08 | Final status/documentation reconciliation.                                     | Passed |
+
+Focused client tests: 59/59. Client lint, production build, and scoped diff
+check passed. No server, Atlas, provider, browser, dependency, migration, or
+deployment run occurred.

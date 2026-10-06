@@ -8,10 +8,105 @@ V1 day numbering follows [IMPLEMENTATION_TIMELINE.md](IMPLEMENTATION_TIMELINE.md
 
 ## Current Day Execution Plan
 
+**Timeline position:** V2 Day 13 — interview cockpit and feedback
+**Current status:** Complete — approved client-led Day 13 scope verified on
+2026-10-06.
+**Approval scope:** Active cockpit and in-place feedback presentation only. No
+dependency, API, persistence, provider, migration, deployment, browser,
+commit, or push work.
+
+Detailed Day 13 traceability, verification, risk, task, test, and stop-gate
+matrices are in [`Day 13.md`](Day%2013.md).
+
+### Objective
+
+Deliver a focused active-interview cockpit and safe in-place feedback while
+preserving existing text/voice lifecycle and excluding Days 11–12 ownership.
+
+### Requirement traceability matrix
+
+| ID      | Required behavior                                | Independent verification                   | Status  |
+| ------- | ------------------------------------------------ | ------------------------------------------ | ------- |
+| D13-R01 | Focused active cockpit and action hierarchy.     | Active text/voice/action tests.            | Passed |
+| D13-R02 | Safe in-place feedback and adaptive context.     | Feedback/metadata/privacy rendering tests. | Passed |
+| D13-R03 | Honest async/error/retry states preserve drafts. | Existing failure/retry regression.         | Passed |
+| D13-R04 | Keyboard-first semantic/live-focus flow.         | Focus/live-region tests and review.        | Passed |
+| D13-R05 | 44px, 320px, zoom, contrast, reduced motion.     | CSS review; browser smoke P2 deferred.     | Passed with P2 |
+| D13-R06 | V1/V2/text/voice compatibility.                  | Focused Practice/result regression.        | Passed |
+| D13-R07 | Tracker/contracts true; later work excluded.     | Delivery validation/diff review.           | Passed |
+
+### Verification matrix
+
+| Category                    | Planned evidence                                                      | Status  |
+| --------------------------- | --------------------------------------------------------------------- | ------- |
+| Success                     | 74 focused Practice/voice/API/result client tests.                     | Passed |
+| Validation                  | Existing malformed metadata/feedback cases.                            | Passed |
+| Authentication/ownership    | N/A — no server/query change.                                         | N/A     |
+| State and concurrency       | Existing operation/retry controls unchanged and passing.              | Passed |
+| Dependency/provider failure | Existing safe quota/provider states pass.                             | Passed |
+| Persistence failure         | Saved-answer/draft preservation passes.                               | Passed |
+| Recovery/retry              | Answer/next/complete retry usability passes.                          | Passed |
+| Privacy/security            | Safe metadata test excludes reason code/private content.              | Passed |
+| Regression                  | V1/V2/text/voice and result tests pass.                               | Passed |
+| Accessibility               | Focus/live/reflow review passed; browser smoke P2 deferred.           | Passed with P2 |
+| Documentation               | Status/design reconciliation and delivery validation pass.            | Passed |
+
+### Current blockers / decisions needed
+
+None. BrowserAct activation is needed only to close deferred P2 G13-07 with one
+focused browser smoke.
+
+### Manual tasks for user
+
+Manual tasks for user:
+
+1. Activate BrowserAct when convenient.
+2. Request one focused Day 13 cockpit smoke; verify text, voice fallback, and
+   320px reflow.
+
+### Deviation and finding register
+
+G13-07 is P2: BrowserAct was not activated, so no browser smoke ran. Component,
+CSS, lint, and production-build evidence passed. No P0/P1 remains.
+
+P3: the pre-existing unrelated EOF blank line in `V2_IMPLEMENTATION_PLAN.md`
+remains outside Day 13 scope; full-worktree `git diff --check` reports it while
+the Day 13 scoped check passes.
+
+### Implementation evidence
+
+`PracticePage` now uses a compact progress aside, a dominant question card,
+validated topic/difficulty/decision/follow-up labels, a bordered answer area,
+and priority-first feedback with safe tested-skill chips. Existing lifecycle,
+voice, API, and recovery code was retained.
+
+### Verification evidence
+
+Focused client tests passed: 74 across Practice, voice, interview API, and
+saved-result components. Client lint, production build, delivery validation,
+and scoped diff check passed.
+
+### Completion review
+
+- Requirement coverage: Every approved D13 row has implementation and
+  independent deterministic evidence.
+- Independent verification: Focused client tests, lint, production build,
+  delivery validation, stylesheet review, and scoped diff check passed.
+- Final diff versus plan: Client cockpit/feedback UI, one focused test, CSS,
+  and matching Day 13/status documentation only. No server/dependency scope.
+- Documentation consistency: Day 13 plan and live tracker match final behavior
+  and G13-07's P2 browser-smoke deferral.
+- Unresolved P0/P1 findings: None.
+- Current outcome: Complete. Browser smoke is the recorded P2 follow-up, not a
+  completion blocker.
+
+## V2 Day 12 Execution Record
+
 **Timeline position:** V2 Day 12 — workspace, onboarding, dashboard, and guided setup
-**Current status:** Planned — awaiting explicit implementation approval.
-**Approval scope:** Matrices only. No source, dependency, API, persistence,
-provider, migration, deployment, browser, commit, or push work is approved.
+**Current status:** Complete — approved client-led Day 12 scope verified on 2026-10-06.
+**Approval scope:** Adaptive navigation, Targets/Skills workspaces, dashboard
+composition, guided existing-contract setup. No server, dependency, persistence,
+provider, migration, deployment, browser, commit, or push work.
 
 Detailed Day 12 traceability, verification, risk, task, test, and stop-gate
 matrices are in [`Day 12.md`](Day%2012.md). Day 11 remains complete below.
@@ -23,59 +118,73 @@ using existing owned contracts; exclude Day 13 cockpit/feedback work.
 
 ### Requirement traceability matrix
 
-| ID      | Required behavior                                                            | Independent verification                        | Status  |
-| ------- | ---------------------------------------------------------------------------- | ----------------------------------------------- | ------- |
-| D12-R01 | Adaptive desktop rail and accessible mobile drawer preserve all routes.      | Shell/router keyboard and focus tests.          | Pending |
-| D12-R02 | Owned-resource Preparation setup gives clear non-gamified progression.       | Empty/partial/populated/retry client cases.     | Pending |
-| D12-R03 | Dashboard shows one safe action, confidence skills/trend, and replay access. | Safe profile/dashboard rendering tests.         | Pending |
-| D12-R04 | `/targets` uses existing owned API with complete recovery/draft states.      | Target page/API wrapper tests.                  | Pending |
-| D12-R05 | `/skills` uses safe profile and Day 10 focused-practice handoff.             | Profile state/malformed/handoff tests.          | Pending |
-| D12-R06 | Guided Practice preserves drafts and uses only existing Day 10 fields.       | Setup switch/failure/retry/V1 regression tests. | Pending |
-| D12-R07 | Day 12 components meet accessible responsive baseline.                       | Component and stylesheet review.                | Pending |
-| D12-R08 | Docs/tracker remain truthful and Day 13 stays excluded.                      | Delivery validation and scoped diff review.     | Pending |
+| ID      | Required behavior                                                            | Independent verification                        | Status |
+| ------- | ---------------------------------------------------------------------------- | ----------------------------------------------- | ------ |
+| D12-R01 | Adaptive desktop rail and accessible mobile drawer preserve all routes.      | Shell/router keyboard and focus tests.          | Passed |
+| D12-R02 | Owned-resource Preparation setup gives clear non-gamified progression.       | Empty/partial/populated/retry client cases.     | Passed |
+| D12-R03 | Dashboard shows one safe action, confidence skills/trend, and replay access. | Safe profile/dashboard rendering tests.         | Passed |
+| D12-R04 | `/targets` uses existing owned API with complete recovery/draft states.      | Target page/API wrapper tests.                  | Passed |
+| D12-R05 | `/skills` uses safe profile and Day 10 focused-practice handoff.             | Profile state/malformed/handoff tests.          | Passed |
+| D12-R06 | Guided Practice preserves drafts and uses only existing Day 10 fields.       | Setup switch/failure/retry/V1 regression tests. | Passed |
+| D12-R07 | Day 12 components meet accessible responsive baseline.                       | Component and stylesheet review.                | Passed |
+| D12-R08 | Docs/tracker remain truthful and Day 13 stays excluded.                      | Delivery validation and scoped diff review.     | Passed |
 
 ### Verification matrix
 
-| Category                    | Planned evidence                                                                           | Status  |
-| --------------------------- | ------------------------------------------------------------------------------------------ | ------- |
-| Success                     | Validated owned resource composition.                                                      | Pending |
-| Validation                  | Malformed resource/setup data fails safely.                                                | Pending |
-| Authentication/ownership    | Existing protected routes and foreign-safe wrappers.                                       | Pending |
-| State and concurrency       | N/A — no server mutation/lifecycle change planned.                                         | N/A     |
-| Dependency/provider failure | N/A — no dependency/provider boundary change planned.                                      | N/A     |
-| Persistence failure         | Target/Practice drafts survive existing failed write/start paths.                          | Pending |
-| Recovery/retry              | Loading, empty, error, and retry states.                                                   | Pending |
-| Privacy/security            | No private evidence/source/provider/hiring claim.                                          | Pending |
-| Regression                  | Existing V1/V2 routes remain reachable.                                                    | Pending |
-| Accessibility               | Drawer keyboard/focus, labels/live status, visible focus, 320px/reduced-motion CSS review. | Pending |
-| Documentation               | API/data-flow/status reconciliation.                                                       | Pending |
+| Category                    | Planned evidence                                                                           | Status |
+| --------------------------- | ------------------------------------------------------------------------------------------ | ------ |
+| Success                     | Validated owned resource composition.                                                      | Passed |
+| Validation                  | Malformed resource/setup data fails safely.                                                | Passed |
+| Authentication/ownership    | Existing protected routes and foreign-safe wrappers.                                       | Passed |
+| State and concurrency       | N/A — no server mutation/lifecycle change planned.                                         | N/A    |
+| Dependency/provider failure | N/A — no dependency/provider boundary change planned.                                      | N/A    |
+| Persistence failure         | Target/Practice drafts survive existing failed write/start paths.                          | Passed |
+| Recovery/retry              | Loading, empty, error, and retry states.                                                   | Passed |
+| Privacy/security            | No private evidence/source/provider/hiring claim.                                          | Passed |
+| Regression                  | Existing V1/V2 routes remain reachable.                                                    | Passed |
+| Accessibility               | Drawer keyboard/focus, labels/live status, visible focus, 320px/reduced-motion CSS review. | Passed |
+| Documentation               | API/data-flow/status reconciliation.                                                       | Passed |
 
 ### Current blockers / decisions needed
 
-Explicit Day 12 implementation approval required.
+None.
 
 ### Manual tasks for user
 
-Manual tasks for user: Review `Day 12.md` and explicitly approve Day 12 before
-implementation.
+Manual tasks for user: None.
 
 ### Deviation and finding register
 
-None. Planned scope excludes Day 13 cockpit/feedback, server changes,
+No deviation. Scope excludes Day 13 cockpit/feedback, server changes,
 dependencies, provider work, migration, deployment, and browser work.
 
 ### Implementation evidence
 
-Planning only. No implementation exists.
+Added adaptive desktop rail/mobile drawer, Targets and Skills workspaces, safe
+dashboard resource composition, and guided Practice focused handoff.
 
 ### Verification evidence
 
-Documentation formatting and delivery validation pending final matrix edit.
+Focused client tests: 59/59. Client lint, production build, and scoped diff
+check passed. Delivery validation pending final matrix update.
 
 ### Completion review
 
-Not started. Do not mark complete until every D12 row has implementation and
-independent evidence.
+See final execution record below. Day 13 remains unstarted and needs separate
+matrices and approval.
+
+### Final Day 12 execution record
+
+| Requirement | Final evidence                                                                                 | Status |
+| ----------- | ---------------------------------------------------------------------------------------------- | ------ |
+| D12-R01     | Rail/drawer routes, semantic links, Escape focus return, responsive CSS; shell/App regression. | Passed |
+| D12-R02     | Resource-derived Preparation setup with one link/action; dashboard state tests.                | Passed |
+| D12-R03     | Existing analytics remains core; optional safe resources compose without blocking it.          | Passed |
+| D12-R04     | Validated Targets workspace; failed create keeps draft.                                        | Passed |
+| D12-R05     | Exact-safe Skills profile, empty/pending/error states, focused handoff.                        | Passed |
+| D12-R06     | Existing Day 10 fields only in Practice start payload; existing Practice tests pass.           | Passed |
+| D12-R07     | Semantic controls, existing focus/reduced-motion primitives, responsive review.                | Passed |
+| D12-R08     | No server/dependency/provider scope; delivery validation and scoped diff pass.                 | Passed |
 
 ## V2 Day 11 Execution Record
 
@@ -4061,6 +4170,7 @@ Add exactly one concise row per working day. If work spans multiple days, record
 | V2-8  | 2026-10-05 | Added grounded Project Defense follow-ups with deterministic confirmed fact/claim anchors, eight bounded technical axes, latest-answer context, exact provider validation, and replay-safe challenge metadata through the existing recovery lifecycle.                                                                     | Focused server set passed 97/97; shared recovery 2/2; provider/challenge rerun 72/72; server lint, formatting, delivery validation, diff check, and scope review passed. No client/dependency/environment/render/browser/live-provider/deployment/commit/push action occurred.            | Complete |
 | V2-9  | 2026-10-05 | Added immutable answer-linked V2 skill evidence, deterministic owned mastery/profile derivation, safe profile API, and evidence-sync recovery.                                                                                                                                                                             | Focused units 58/58, integration 12/12, server lint, formatting, delivery validation, and diff check passed. No client, dependency, live-provider, deployment, commit, or push action occurred.                                                                                           | Complete |
 | V2-10 | 2026-10-05 | Added owned weak-skill targeted practice and retest using the existing bounded lifecycle; retest writes new immutable evidence.                                                                                                                                                                                            | Focused units 43/43, isolated Atlas integration 16/16, server lint, formatting, delivery validation, and diff check passed. No UI, dependency, live-provider, deployment, commit, or push action occurred.                                                                                | Complete |
+| V2-13 | 2026-10-06 | Reworked only active interview presentation into a compact cockpit with validated adaptive context, priority-first feedback, tested-skill labels, and preserved text/voice/recovery flow. | Focused client tests passed 74/74; client lint, production build, delivery validation, and scoped diff check passed. Browser smoke is deferred P2 G13-07 until BrowserAct activation; no server, dependency, Atlas, provider, deployment, commit, or push action occurred. | Complete |
 
 ## Daily Update Template
 

@@ -8,6 +8,8 @@ import LoginPage from "./pages/LoginPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 import PracticePage from "./pages/PracticePage.jsx";
 import ProjectsPage from "./pages/ProjectsPage.jsx";
+import SkillsPage from "./pages/SkillsPage.jsx";
+import TargetsPage from "./pages/TargetsPage.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import PublicOnlyRoute from "./routes/PublicOnlyRoute.jsx";
 import ResumesPage from "./pages/ResumesPage.jsx";
@@ -24,6 +26,8 @@ function App() {
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/practice" element={<PracticePage />} />
+          <Route path="/targets" element={<TargetsPage />} />
+          <Route path="/skills" element={<SkillsPage />} />
           <Route
             path="/practice/:interviewId/results"
             element={<InterviewResultPage />}

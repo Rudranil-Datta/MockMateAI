@@ -20,6 +20,7 @@ import {
 import { listJobTargets } from "../api/jobTargetApi.js";
 import { listProjects } from "../api/projectApi.js";
 import { listResumes } from "../api/resumeApi.js";
+import { getSkillProfile } from "../api/skillApi.js";
 import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
@@ -102,6 +103,30 @@ function getScoreLabel(score) {
   }
 
   return "Developing";
+}
+
+function formatMetadataLabel(value) {
+  return value
+    .split("-")
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function getQuestionContext(question) {
+  if (
+    !Object.hasOwn(question, "topicKey") ||
+    !hasValidAdaptiveQuestionMetadata(question)
+  ) {
+    return null;
+  }
+
+  return {
+    decisionLabel: formatMetadataLabel(question.decisionType),
+    difficultyLabel: formatMetadataLabel(question.difficulty),
+    isFollowUp: Boolean(question.parentQuestionId),
+    skillLabels: question.testedSkillKeys.map(formatMetadataLabel),
+    topicLabel: formatMetadataLabel(question.topicKey),
+  };
 }
 
 function createIdempotencyKey() {
@@ -195,6 +220,8 @@ function PracticePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedResumeId = searchParams.get("resumeId") || "";
+  const requestedTargetId = searchParams.get("targetId") || "";
+  const requestedFocusSkillKey = searchParams.get("focusSkillKey") || "";
   const answerIdempotencyKey = useRef(createIdempotencyKey());
   const nextQuestionIdempotencyKey = useRef(createIdempotencyKey());
   const startIdempotencyKey = useRef(createIdempotencyKey());
@@ -226,6 +253,7 @@ function PracticePage() {
   const [isProjectLoading, setIsProjectLoading] = useState(true);
   const [projectLoadError, setProjectLoadError] = useState("");
   const [projectLoadAttempt, setProjectLoadAttempt] = useState(0);
+  const [skillProfile, setSkillProfile] = useState(null);
   const [resumes, setResumes] = useState([]);
   const [isResumeLoading, setIsResumeLoading] = useState(true);
   const [resumeLoadError, setResumeLoadError] = useState("");
@@ -235,6 +263,11 @@ function PracticePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRoleSimulation = selectedType === "Role Simulation";
   const isProjectDefense = selectedType === "Project Defense";
+  const focusSkill = skillProfile?.skills.find(
+    (skill) =>
+      skill.skillKey === requestedFocusSkillKey && skill.masteryScore < 70,
+  );
+  const isTargetedPractice = Boolean(focusSkill);
   const isReady = Boolean(
     selectedType &&
     selectedLevel &&
@@ -301,6 +334,7 @@ function PracticePage() {
 
       try {
         setJobTargets(await listJobTargets({ signal: controller.signal }));
+        if (requestedTargetId) setSelectedJobTargetId(requestedTargetId);
       } catch (error) {
         if (!controller.signal.aborted) {
           setJobTargetLoadError(
@@ -314,7 +348,20 @@ function PracticePage() {
 
     loadJobTargetOptions();
     return () => controller.abort();
-  }, [jobTargetLoadAttempt]);
+  }, [jobTargetLoadAttempt, requestedTargetId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadSkillProfile() {
+      try {
+        setSkillProfile(await getSkillProfile({ signal: controller.signal }));
+      } catch {
+        if (!controller.signal.aborted) setSkillProfile(null);
+      }
+    }
+    loadSkillProfile();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -412,6 +459,12 @@ function PracticePage() {
         level: selectedLevel,
         ...(isProjectDefense ? { projectId: selectedProjectId } : {}),
         ...(selectedResumeId ? { resumeId: selectedResumeId } : {}),
+        ...(isTargetedPractice
+          ? {
+              focusSkillKey: focusSkill.skillKey,
+              sessionPurpose: "targeted_practice",
+            }
+          : {}),
       });
 
       if (!isInterviewStartResult(result, selectedType, selectedLevel)) {
@@ -618,9 +671,12 @@ function PracticePage() {
     const levelLabel =
       levels.find(({ value }) => value === interview.level)?.label ||
       interview.level;
+    const questionContext = getQuestionContext(question);
+    const priorityImprovement = feedback?.improvements?.[0];
+    const remainingImprovements = feedback?.improvements?.slice(1) || [];
 
     return (
-      <>
+      <section className="practice-cockpit">
         {quotaNotice ? (
           <InlineAlert tone="error">{quotaNotice}</InlineAlert>
         ) : null}
@@ -631,27 +687,46 @@ function PracticePage() {
             <p className="page-description">{levelLabel} level</p>
           </div>
         </section>
-        <Card className="active-question-card">
-          <div className="question-meta">
-            <p className="question-count">
-              Question {question.order} of {maxQuestionsPerInterview}
-            </p>
-            <span className="question-status">Saved</span>
-          </div>
-          <div
-            aria-label={`Question ${question.order} of ${maxQuestionsPerInterview}`}
-            aria-valuemax={maxQuestionsPerInterview}
-            aria-valuemin={1}
-            aria-valuenow={question.order}
-            className="question-progress"
-            role="progressbar"
-          >
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <p className="question-prompt">{question.prompt}</p>
-        </Card>
+        <div className="cockpit-layout">
+          <aside aria-label="Interview progress" className="cockpit-progress">
+            <p className="eyebrow">Session progress</p>
+            <strong>
+              {question.order}<span> / {maxQuestionsPerInterview}</span>
+            </strong>
+            <p>Question {question.order} is ready.</p>
+            <div
+              aria-label={`Question ${question.order} of ${maxQuestionsPerInterview}`}
+              aria-valuemax={maxQuestionsPerInterview}
+              aria-valuemin={1}
+              aria-valuenow={question.order}
+              className="question-progress"
+              role="progressbar"
+            >
+              <span style={{ width: `${progress}%` }} />
+            </div>
+          </aside>
+          <Card className="active-question-card">
+            <div className="question-meta">
+              <p className="question-count">
+                Question {question.order} of {maxQuestionsPerInterview}
+              </p>
+              <span className="question-status">Saved</span>
+            </div>
+            {questionContext ? (
+              <div aria-label="Question context" className="cockpit-context">
+                <span>{questionContext.topicLabel}</span>
+                <span>{questionContext.difficultyLabel}</span>
+                <span>{questionContext.decisionLabel} prompt</span>
+                {questionContext.isFollowUp ? <span>Follow-up</span> : null}
+              </div>
+            ) : (
+              <p className="cockpit-context-empty">Standard practice question</p>
+            )}
+            <p className="question-prompt">{question.prompt}</p>
+          </Card>
+        </div>
         <form
-          className="answer-form"
+          className="answer-form cockpit-response"
           noValidate
           onSubmit={(event) =>
             handleAnswerSubmit(event, interview.id, question.id)
@@ -766,6 +841,29 @@ function PracticePage() {
                 </dl>
               ))}
             </div>
+            {priorityImprovement ? (
+              <section
+                aria-labelledby="priority-improvement-heading"
+                className="feedback-priority"
+              >
+                <p className="eyebrow">Focus before continuing</p>
+                <h3 id="priority-improvement-heading">Priority improvement</h3>
+                <p>{priorityImprovement}</p>
+              </section>
+            ) : null}
+            {questionContext ? (
+              <section
+                aria-labelledby="tested-skills-heading"
+                className="tested-skills"
+              >
+                <h3 id="tested-skills-heading">Tested skills</h3>
+                <ul>
+                  {questionContext.skillLabels.map((skillLabel) => (
+                    <li key={skillLabel}>{skillLabel}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             <div className="feedback-details">
               <section aria-labelledby="strengths-heading">
                 <h3 id="strengths-heading">Strengths</h3>
@@ -775,14 +873,16 @@ function PracticePage() {
                   ))}
                 </ul>
               </section>
-              <section aria-labelledby="improvements-heading">
-                <h3 id="improvements-heading">Improve next</h3>
-                <ul>
-                  {feedback.improvements.map((improvement) => (
-                    <li key={improvement}>{improvement}</li>
-                  ))}
-                </ul>
-              </section>
+              {remainingImprovements.length ? (
+                <section aria-labelledby="improvements-heading">
+                  <h3 id="improvements-heading">Improve next</h3>
+                  <ul>
+                    {remainingImprovements.map((improvement) => (
+                      <li key={improvement}>{improvement}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </div>
             <section
               aria-labelledby="next-step-heading"
@@ -844,7 +944,7 @@ function PracticePage() {
             ) : null}
           </section>
         ) : null}
-      </>
+      </section>
     );
   }
 
@@ -872,6 +972,17 @@ function PracticePage() {
         </InlineAlert>
       ) : null}
       <form className="setup-form" noValidate onSubmit={handleSubmit}>
+        {isTargetedPractice ? (
+          <InlineAlert tone="info">
+            Focused retest: {focusSkill.skillLabel}. This session uses saved,
+            confidence-labelled evidence and does not estimate a hiring outcome.
+          </InlineAlert>
+        ) : requestedFocusSkillKey ? (
+          <InlineAlert tone="info">
+            Focused practice is unavailable until a saved weak-skill profile is
+            ready.
+          </InlineAlert>
+        ) : null}
         <fieldset className="setup-fieldset">
           <legend>Choose interview type</legend>
           <div className="choice-grid" aria-describedby="type-help">
@@ -983,10 +1094,13 @@ function PracticePage() {
             !jobTargetLoadError &&
             !jobTargets.some((target) => target.status === "ready") ? (
               <p className="field-help">
-                No ready Job Targets yet. Create one through the Job Target API;
-                the full workspace arrives in the planned UI phase.
+                No ready Job Targets yet. Add one before starting Role
+                Simulation.
               </p>
             ) : null}
+            <Link className="text-link" to="/targets">
+              Add or manage Job Targets
+            </Link>
           </Card>
         ) : null}
 

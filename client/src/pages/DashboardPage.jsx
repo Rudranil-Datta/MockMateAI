@@ -3,6 +3,9 @@ import { ArrowRight, CalendarDays, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { getAnalyticsSummary } from "../api/analyticsApi.js";
+import { listJobTargets } from "../api/jobTargetApi.js";
+import { listProjects } from "../api/projectApi.js";
+import { getSkillProfile } from "../api/skillApi.js";
 import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
@@ -232,6 +235,87 @@ function RecentSessions({ sessions }) {
   );
 }
 
+function PreparationSetup({ projects, skills, targets }) {
+  const nextStep = !targets.length
+    ? {
+        description: "Add a role to make Role Simulation relevant.",
+        label: "Add Job Target",
+        to: "/targets",
+      }
+    : !projects.length
+      ? {
+          description:
+            "Confirm a project for grounded Project Defense practice.",
+          label: "Add Project",
+          to: "/projects/new",
+        }
+      : !skills.length
+        ? {
+            description:
+              "Complete practice to establish confidence-labelled evidence.",
+            label: "Start practice",
+            to: "/practice",
+          }
+        : {
+            description:
+              "Review saved feedback and choose your next focused session.",
+            label: "Review skills",
+            to: "/skills",
+          };
+  return (
+    <Card className="preparation-setup">
+      <div>
+        <p className="eyebrow">Preparation setup</p>
+        <h2>Build context, then practise with intent</h2>
+        <p>{nextStep.description}</p>
+        <ol className="setup-steps">
+          <li className={targets.length ? "is-complete" : ""}>Job Target</li>
+          <li className={projects.length ? "is-complete" : ""}>
+            Confirmed Project
+          </li>
+          <li className={skills.length ? "is-complete" : ""}>
+            Practice evidence
+          </li>
+          <li>Review and refine</li>
+        </ol>
+      </div>
+      <Link className="button" to={nextStep.to}>
+        {nextStep.label} <ArrowRight aria-hidden="true" size={18} />
+      </Link>
+    </Card>
+  );
+}
+
+function SkillSnapshot({ skills }) {
+  if (!skills.length) return null;
+  return (
+    <Card className="dashboard-panel skill-snapshot">
+      <div className="dashboard-panel-heading">
+        <div>
+          <p className="eyebrow">Skill evidence</p>
+          <h2>Practice signals</h2>
+        </div>
+        <Link className="text-link" to="/skills">
+          View skills <ArrowRight aria-hidden="true" size={16} />
+        </Link>
+      </div>
+      <div className="skill-snapshot-list">
+        {skills.slice(0, 3).map((skill) => (
+          <div key={skill.skillKey}>
+            <strong>{skill.skillLabel}</strong>
+            <span>
+              {skill.masteryScore}/100 · {skill.confidence}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="trend-summary">
+        Evidence is confidence-labelled and does not predict hiring outcomes.
+      </p>
+    </Card>
+  );
+}
+
 function DashboardLoading() {
   return (
     <section aria-label="Dashboard loading">
@@ -251,6 +335,11 @@ function DashboardLoading() {
 
 function DashboardPage() {
   const [analytics, setAnalytics] = useState(null);
+  const [resources, setResources] = useState({
+    projects: [],
+    profile: null,
+    targets: [],
+  });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const controllerRef = useRef(null);
@@ -266,16 +355,30 @@ function DashboardPage() {
     setIsLoading(true);
 
     try {
-      const nextAnalytics = await getAnalyticsSummary({
-        signal: controller.signal,
-      });
+      const [analyticsResult, targetsResult, projectsResult, profileResult] =
+        await Promise.allSettled([
+          getAnalyticsSummary({ signal: controller.signal }),
+          listJobTargets({ signal: controller.signal }),
+          listProjects({ signal: controller.signal }),
+          getSkillProfile({ signal: controller.signal }),
+        ]);
+      if (analyticsResult.status !== "fulfilled") throw analyticsResult.reason;
+      const nextAnalytics = analyticsResult.value;
+      const targets =
+        targetsResult.status === "fulfilled" ? targetsResult.value : [];
+      const projects =
+        projectsResult.status === "fulfilled" ? projectsResult.value : [];
+      const profile =
+        profileResult.status === "fulfilled" ? profileResult.value : null;
 
       if (requestIdRef.current === requestId && !controller.signal.aborted) {
         setAnalytics(nextAnalytics);
+        setResources({ profile, projects, targets });
       }
     } catch {
       if (requestIdRef.current === requestId && !controller.signal.aborted) {
         setAnalytics(null);
+        setResources({ projects: [], profile: null, targets: [] });
         setError("We couldn't load your dashboard. Please try again.");
       }
     } finally {
@@ -312,8 +415,18 @@ function DashboardPage() {
             practise next.
           </p>
         </div>
-        <Link className="button" to="/practice">
-          Start practice <ArrowRight aria-hidden="true" size={18} />
+        <Link
+          className="button"
+          to={
+            resources.profile?.recommendedAction
+              ? `/practice?focusSkillKey=${encodeURIComponent(resources.profile.recommendedAction.skillKey)}`
+              : "/practice"
+          }
+        >
+          {resources.profile?.recommendedAction
+            ? "Practise a weak skill"
+            : "Start practice"}{" "}
+          <ArrowRight aria-hidden="true" size={18} />
         </Link>
       </section>
 
@@ -327,6 +440,11 @@ function DashboardPage() {
 
       {!isLoading && analytics ? (
         <div className="dashboard-content">
+          <PreparationSetup
+            projects={resources.projects}
+            skills={resources.profile?.skills || []}
+            targets={resources.targets}
+          />
           <section className="metric-grid" aria-label="Practice overview">
             <MetricCard
               label="Overall average"
@@ -382,6 +500,7 @@ function DashboardPage() {
                 <TrendChart trend={analytics.trend} />
                 <PerformanceBreakdown analytics={analytics} />
               </section>
+              <SkillSnapshot skills={resources.profile?.skills || []} />
               <RecentSessions sessions={analytics.recentSessions} />
             </>
           )}

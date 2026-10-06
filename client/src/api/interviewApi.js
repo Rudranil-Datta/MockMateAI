@@ -78,6 +78,8 @@ export function startInterview({
   level,
   projectId,
   resumeId,
+  focusSkillKey,
+  sessionPurpose,
 } = {}) {
   return apiRequest("interviews", {
     body: {
@@ -87,6 +89,8 @@ export function startInterview({
       level,
       ...(projectId ? { projectId } : {}),
       ...(resumeId ? { resumeId } : {}),
+      ...(focusSkillKey ? { focusSkillKey } : {}),
+      ...(sessionPurpose ? { sessionPurpose } : {}),
     },
     method: "POST",
     timeoutMs: 25_000,

@@ -474,6 +474,57 @@ describe("PracticePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders validated V2 context and prioritizes safe feedback", async () => {
+    startInterview.mockResolvedValueOnce(
+      interviewStartResult({
+        questionMetadata: {
+          decisionType: "retest",
+          difficulty: "intermediate",
+          parentQuestionId: "507f1f77bcf86cd799439011",
+          reasonCode: "targeted_retest",
+          testedSkillKeys: ["node-js", "error-handling"],
+          topicKey: "node-js",
+        },
+      }),
+    );
+    submitTextAnswer.mockResolvedValueOnce(
+      savedAnswerResult({
+        feedback: {
+          improvements: ["Explain the error boundary first.", "Add metrics."],
+        },
+      }),
+    );
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+
+    expect(await screen.findByLabelText("Question context")).toBeVisible();
+    expect(screen.getByText("Node Js")).toBeVisible();
+    expect(screen.getByText("Intermediate")).toBeVisible();
+    expect(screen.getByText("Retest prompt")).toBeVisible();
+    expect(screen.getByText("Follow-up")).toBeVisible();
+    expect(screen.queryByText("targeted_retest")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: { value: "I would isolate the failure and report it." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Submit for feedback" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Priority improvement" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Explain the error boundary first."),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Tested skills" })).toBeVisible();
+    expect(screen.getByText("Error Handling")).toBeVisible();
+    expect(screen.queryByText("targeted_retest")).not.toBeInTheDocument();
+  });
+
   it("preserves selections and retries after quota failure", async () => {
     startInterview
       .mockRejectedValueOnce({

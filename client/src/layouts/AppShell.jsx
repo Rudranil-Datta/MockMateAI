@@ -1,5 +1,15 @@
-import { LogOut, Menu, X } from "lucide-react";
-import { useState } from "react";
+import {
+  BriefcaseBusiness,
+  FolderKanban,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  NotebookTabs,
+  UserRound,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/httpClient.js";
@@ -8,10 +18,12 @@ import InlineAlert from "../components/common/InlineAlert.jsx";
 import useAuth from "../hooks/useAuth.js";
 
 const navigation = [
-  { label: "Dashboard", path: "/dashboard" },
-  { label: "Practice", path: "/practice" },
-  { label: "Resumes", path: "/resumes" },
-  { label: "Projects", path: "/projects" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: GraduationCap, label: "Practice", path: "/practice" },
+  { icon: BriefcaseBusiness, label: "Targets", path: "/targets" },
+  { icon: FolderKanban, label: "Projects", path: "/projects" },
+  { icon: NotebookTabs, label: "Skills", path: "/skills" },
+  { icon: UserRound, label: "Resumes", path: "/resumes" },
 ];
 
 function AppShell() {
@@ -20,7 +32,19 @@ function AppShell() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const triggerRef = useRef(null);
   const closeMenu = () => setIsMenuOpen(false);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key === "Escape" && isMenuOpen) {
+        closeMenu();
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isMenuOpen]);
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -53,6 +77,7 @@ function AppShell() {
         <button
           className="icon-button menu-trigger"
           type="button"
+          ref={triggerRef}
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
           aria-expanded={isMenuOpen}
           onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
@@ -72,6 +97,7 @@ function AppShell() {
               to={item.path}
               onClick={closeMenu}
             >
+              <item.icon aria-hidden="true" size={17} />
               {item.label}
             </NavLink>
           ))}

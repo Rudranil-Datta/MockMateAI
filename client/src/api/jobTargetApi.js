@@ -134,6 +134,13 @@ function isJobTarget(target) {
   );
 }
 
+function targetResult(result, message) {
+  if (!isExactObject(result, ["target"]) || !isJobTarget(result.target)) {
+    throw new Error(message);
+  }
+  return result.target;
+}
+
 export async function listJobTargets({ signal } = {}) {
   const result = await apiRequest("job-targets", { signal });
 
@@ -147,4 +154,48 @@ export async function listJobTargets({ signal } = {}) {
   }
 
   return result.items;
+}
+
+export async function createJobTarget({
+  company,
+  description,
+  idempotencyKey,
+  title,
+}) {
+  return targetResult(
+    await apiRequest("job-targets", {
+      body: {
+        company: company || undefined,
+        description,
+        idempotencyKey,
+        title,
+      },
+      method: "POST",
+      timeoutMs: 25_000,
+    }),
+    "Job Target could not be saved. Please try again.",
+  );
+}
+
+export async function updateJobTarget({
+  company,
+  description,
+  idempotencyKey,
+  targetId,
+  title,
+}) {
+  return targetResult(
+    await apiRequest(`job-targets/${encodeURIComponent(targetId)}`, {
+      body: { company: company || null, description, idempotencyKey, title },
+      method: "PATCH",
+      timeoutMs: 25_000,
+    }),
+    "Job Target could not be updated. Please try again.",
+  );
+}
+
+export function deleteJobTarget(targetId) {
+  return apiRequest(`job-targets/${encodeURIComponent(targetId)}`, {
+    method: "DELETE",
+  });
 }
