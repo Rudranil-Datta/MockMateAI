@@ -8,6 +8,33 @@ V1 day numbering follows [IMPLEMENTATION_TIMELINE.md](IMPLEMENTATION_TIMELINE.md
 
 ## Current Day Execution Plan
 
+**Timeline position:** V2 Extension E2 — Dashboard and preparation workspaces
+(before existing V2 Days 14–15)
+**Current status:** Complete — approved E2 client work is implemented and
+focused verification passes.
+**Approval scope:** Existing-data client presentation and existing Target update
+action only. No API, persistence, provider, dependency, migration, environment,
+deployment, commit, or push work.
+
+Detailed E1/E2 matrices, audit, remediation, and preventive controls are in
+[`UPGRADE.md`](UPGRADE.md). Future E3–E6 matrices also belong there.
+
+### Completion evidence
+
+Dashboard now presents Preparation coach and one deterministic next action.
+Targets show safe analysis summaries, readiness, edit/reanalysis/delete, and
+Role Simulation handoff. Projects identify confirmed facts and Project Defense
+context. Existing state surfaces remain labelled and preserved. Focused
+Dashboard/Targets/Projects/Practice tests (52) and Skills/Resumes tests (11),
+client lint, production build, and scoped diff pass. No browser smoke repeated:
+the E1 acceptance environment did not change and E2 has deterministic UI proof.
+
+### Manual tasks for user
+
+Manual tasks for user: None.
+
+## V2 Day 13 Execution Record
+
 **Timeline position:** V2 Day 13 — interview cockpit and feedback
 **Current status:** Complete — approved client-led Day 13 scope verified on
 2026-10-06.

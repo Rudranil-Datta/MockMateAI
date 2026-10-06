@@ -5,6 +5,7 @@ import {
   createJobTarget,
   deleteJobTarget,
   listJobTargets,
+  updateJobTarget,
 } from "../api/jobTargetApi.js";
 import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
@@ -24,6 +25,7 @@ function TargetsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState("");
+  const [editingId, setEditingId] = useState("");
   const keyRef = useRef(operationId());
 
   const loadTargets = useCallback(async () => {
@@ -60,20 +62,65 @@ function TargetsPage() {
     setIsSaving(true);
     setError("");
     try {
-      const target = await createJobTarget({
+      const payload = {
         ...draft,
         idempotencyKey: keyRef.current,
-      });
+      };
+      const target = editingId
+        ? await updateJobTarget({ ...payload, targetId: editingId })
+        : await createJobTarget(payload);
       setItems((current) => [
         target,
         ...current.filter(({ id }) => id !== target.id),
       ]);
       setDraft(emptyDraft);
+      setEditingId("");
       keyRef.current = operationId();
     } catch (requestError) {
       setError(
         `${requestError?.message || "Job Target could not be saved."} Your draft is still here.`,
       );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function editTarget(target) {
+    setDraft({
+      company: target.company || "",
+      description: target.description,
+      title: target.title,
+    });
+    setEditingId(target.id);
+    setError("");
+    keyRef.current = operationId();
+  }
+
+  function cancelEdit() {
+    setDraft(emptyDraft);
+    setEditingId("");
+    setError("");
+    keyRef.current = operationId();
+  }
+
+  async function reanalyzeTarget(target) {
+    setIsSaving(true);
+    setError("");
+    try {
+      const updatedTarget = await updateJobTarget({
+        company: target.company || "",
+        description: target.description,
+        idempotencyKey: operationId(),
+        targetId: target.id,
+        title: target.title,
+      });
+      setItems((current) =>
+        current.map((item) =>
+          item.id === updatedTarget.id ? updatedTarget : item,
+        ),
+      );
+    } catch (requestError) {
+      setError(requestError?.message || "Job Target could not be reanalyzed.");
     } finally {
       setIsSaving(false);
     }
@@ -115,8 +162,8 @@ function TargetsPage() {
       {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
       <div className="workspace-grid">
         <Card className="workspace-form-card">
-          <p className="eyebrow">New target</p>
-          <h2>Add a role</h2>
+          <p className="eyebrow">{editingId ? "Edit target" : "New target"}</p>
+          <h2>{editingId ? "Review role details" : "Add a role"}</h2>
           <form className="form-stack" onSubmit={saveTarget}>
             <label htmlFor="target-title">Role title</label>
             <input
@@ -143,11 +190,16 @@ function TargetsPage() {
             />
             <Button
               isLoading={isSaving}
-              loadingLabel="Analyzing target..."
+              loadingLabel={editingId ? "Analyzing target..." : "Analyzing target..."}
               type="submit"
             >
-              Save and analyze
+              {editingId ? "Save and reanalyze" : "Save and analyze"}
             </Button>
+            {editingId ? (
+              <Button className="button--secondary" onClick={cancelEdit} type="button">
+                Cancel edit
+              </Button>
+            ) : null}
           </form>
         </Card>
         <section aria-label="Saved Job Targets" className="workspace-list">
@@ -162,19 +214,50 @@ function TargetsPage() {
             items.map((target) => (
               <Card className="workspace-item" key={target.id}>
                 <div>
-                  <p className="eyebrow">
-                    {target.status.replaceAll("_", " ")}
-                  </p>
+                  <span className={`semantic-chip semantic-chip--${target.status === "ready" ? "success" : target.status === "analysis_failed" ? "error" : "attention"}`}>
+                    {target.status === "ready" ? "Ready for Role Simulation" : target.status.replaceAll("_", " ")}
+                  </span>
                   <h2>{target.title}</h2>
                   <p>{target.company || "Independent preparation"}</p>
+                  {target.analysis ? (
+                    <div className="target-analysis">
+                      <p>{target.analysis.roleSummary}</p>
+                      <p>
+                        Requirements: {target.analysis.requirements.map(({ label, priority }) => `${label} (${priority})`).join(", ")}
+                      </p>
+                      <p>
+                        Weighted skills: {target.analysis.skills.map(({ label, weight }) => `${label} (${weight}/5)`).join(", ")}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="field-help">
+                      {target.status === "analysis_failed"
+                        ? "Analysis did not finish. Edit and retry when ready."
+                        : "Analysis is still preparing role requirements."}
+                    </p>
+                  )}
                 </div>
                 <div className="workspace-item-actions">
-                  <Link
-                    className="text-link"
-                    to={`/practice?targetId=${target.id}`}
+                  {target.status === "ready" ? (
+                    <Link
+                      className="text-link"
+                      to={`/practice?type=${encodeURIComponent("Role Simulation")}&targetId=${target.id}`}
+                    >
+                      Role Simulation
+                    </Link>
+                  ) : null}
+                  <Button className="button--secondary" onClick={() => editTarget(target)}>
+                    Edit
+                  </Button>
+                  <Button
+                    className="button--secondary"
+                    disabled={isSaving}
+                    isLoading={isSaving}
+                    loadingLabel="Reanalyzing…"
+                    onClick={() => reanalyzeTarget(target)}
                   >
-                    Practice this role
-                  </Link>
+                    {target.status === "analysis_failed" ? "Retry analysis" : "Reanalyze"}
+                  </Button>
                   <Button
                     className="button--secondary"
                     isLoading={deletingId === target.id}

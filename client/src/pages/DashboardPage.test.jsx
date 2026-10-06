@@ -82,6 +82,9 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Progress over time" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Your next action" }),
+    ).toBeVisible();
 
     const overview = screen.getByRole("region", { name: "Practice overview" });
     expect(within(overview).getByText("80")).toBeVisible();

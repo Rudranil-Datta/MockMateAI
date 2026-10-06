@@ -180,6 +180,10 @@ describe("ProjectsPage", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
     await screen.findByText("MockMateAI");
+    expect(screen.getByText("Confirmed fact")).toBeVisible();
+    expect(
+      screen.getByText("Project Defense uses only these confirmed facts."),
+    ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText("Delete unavailable.")).toBeVisible();
     expect(screen.getByText("MockMateAI")).toBeVisible();

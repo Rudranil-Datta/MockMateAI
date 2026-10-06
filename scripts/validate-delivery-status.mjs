@@ -32,6 +32,7 @@ function requireTableEntry(content, entry, source) {
 const agents = readRequired("AGENTS.md");
 const assurance = readRequired("project_memory/DELIVERY_ASSURANCE.md");
 const status = readRequired("project_memory/IMPLEMENTATION_STATUS.md");
+const upgrade = readRequired("project_memory/UPGRADE.md");
 
 requireText(agents, "project_memory/DELIVERY_ASSURANCE.md", "AGENTS.md");
 
@@ -68,35 +69,50 @@ if (
       ? completedLogStart
       : Math.min(nextTopLevelSectionStart, completedLogStart);
   const currentPlan = status.slice(currentPlanStart, currentPlanEnd);
+  const isExtensionPlan = currentPlan.includes("V2 Extension E");
 
-  for (const requiredText of [
-    "**Current status:**",
-    "**Approval scope:**",
-    "### Objective",
-    "### Requirement traceability matrix",
-    "Implementation evidence",
-    "Verification evidence",
-    "### Verification matrix",
-    "### Current blockers / decisions needed",
-    "### Deviation and finding register",
-    "### Completion review",
-  ]) {
+  const requiredPlanText = isExtensionPlan
+    ? [
+        "**Current status:**",
+        "**Approval scope:**",
+        "[`UPGRADE.md`](UPGRADE.md)",
+        "### Completion evidence",
+        "### Manual tasks for user",
+      ]
+    : [
+        "**Current status:**",
+        "**Approval scope:**",
+        "### Objective",
+        "### Requirement traceability matrix",
+        "Implementation evidence",
+        "Verification evidence",
+        "### Verification matrix",
+        "### Current blockers / decisions needed",
+        "### Deviation and finding register",
+        "### Completion review",
+      ];
+
+  for (const requiredText of requiredPlanText) {
     requireText(currentPlan, requiredText, "current execution plan");
   }
 
-  for (const category of [
-    "Success",
-    "Validation",
-    "Authentication/ownership",
-    "State and concurrency",
-    "Dependency/provider failure",
-    "Persistence failure",
-    "Recovery/retry",
-    "Privacy/security",
-    "Regression",
-    "Documentation",
-  ]) {
-    requireTableEntry(currentPlan, category, "verification matrix");
+  if (isExtensionPlan) {
+    requireText(upgrade, "## E1 —", "UPGRADE.md");
+  } else {
+    for (const category of [
+      "Success",
+      "Validation",
+      "Authentication/ownership",
+      "State and concurrency",
+      "Dependency/provider failure",
+      "Persistence failure",
+      "Recovery/retry",
+      "Privacy/security",
+      "Regression",
+      "Documentation",
+    ]) {
+      requireTableEntry(currentPlan, category, "verification matrix");
+    }
   }
 
   const isComplete = /\*\*Current status:\*\*[^\n]*\bComplete\b/.test(

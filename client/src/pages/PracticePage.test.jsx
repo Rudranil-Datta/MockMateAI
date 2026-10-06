@@ -265,6 +265,27 @@ describe("PracticePage", () => {
     });
   });
 
+  it("opens a Role Simulation handoff with its target selected", async () => {
+    listJobTargets.mockResolvedValue([
+      {
+        company: "Example",
+        id: "target-ready",
+        status: "ready",
+        title: "Backend Engineer",
+      },
+    ]);
+    renderPracticePage(
+      "/practice?type=Role%20Simulation&targetId=target-ready",
+    );
+
+    expect(
+      screen.getByRole("button", { name: /Role Simulation/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByLabelText("Choose Job Target")).toHaveValue(
+      "target-ready",
+    );
+  });
+
   it("retries Job Target loading while generic practice stays available", async () => {
     listJobTargets
       .mockRejectedValueOnce(new Error("Target list unavailable."))

@@ -34,6 +34,13 @@ once, name its owning day/boundary, and resolve conflicts in the matrix. Do not
 silently defer a required contract field because another day owns its UI or
 downstream action; distinguish payload, presentation, and executable action.
 
+For V2 Extension E1–E6, record detailed traceability, verification,
+risk-remediation, task, audit, and preventive matrices in `UPGRADE.md`.
+`IMPLEMENTATION_STATUS.md` remains the live status record and links to the
+applicable extension section. Create a future extension matrix only when the
+user explicitly requests that extension; matrix creation never authorizes
+implementation.
+
 ### 2. Plan independent verification
 
 Acceptance tests come from the specification, not from the code being written. Use the matrix to classify risk. Record a direct test only for categories the approved change can affect; record `N/A` with a reason for the rest. The matrix is not a mandate to exercise every category for every task.

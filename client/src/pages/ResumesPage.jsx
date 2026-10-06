@@ -54,6 +54,12 @@ function statusLabel(status) {
   return "Reading";
 }
 
+function statusTone(status) {
+  if (status === "completed") return "success";
+  if (status === "failed") return "error";
+  return "attention";
+}
+
 function ResumesPage() {
   const fileInputRef = useRef(null);
   const uploadInFlightRef = useRef(false);
@@ -260,7 +266,7 @@ function ResumesPage() {
                 </div>
                 <div className="resume-list-actions">
                   <span
-                    className={`resume-status resume-status--${resume.extractionStatus}`}
+                    className={`resume-status semantic-chip semantic-chip--${statusTone(resume.extractionStatus)}`}
                   >
                     {statusLabel(resume.extractionStatus)}
                   </span>

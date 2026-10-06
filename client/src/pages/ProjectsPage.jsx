@@ -471,11 +471,17 @@ function ProjectsPage() {
           {projects.map((item) => (
             <Card className="project-list-item" key={item.id}>
               <div>
+                <span className="semantic-chip semantic-chip--success">
+                  Confirmed fact
+                </span>
                 <h2>{item.name}</h2>
                 <p>
                   {item.role} · {item.technologies.join(", ")}
                 </p>
                 <p>{item.summary}</p>
+                <p className="field-help">
+                  Project Defense uses only these confirmed facts.
+                </p>
               </div>
               <div className="project-actions">
                 <Link className="text-link" to={`/projects/${item.id}/edit`}>

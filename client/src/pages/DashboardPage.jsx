@@ -265,8 +265,8 @@ function PreparationSetup({ projects, skills, targets }) {
   return (
     <Card className="preparation-setup">
       <div>
-        <p className="eyebrow">Preparation setup</p>
-        <h2>Build context, then practise with intent</h2>
+        <p className="eyebrow">Preparation coach</p>
+        <h2>Your next action</h2>
         <p>{nextStep.description}</p>
         <ol className="setup-steps">
           <li className={targets.length ? "is-complete" : ""}>Job Target</li>

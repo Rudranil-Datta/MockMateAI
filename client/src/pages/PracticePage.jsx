@@ -222,6 +222,7 @@ function PracticePage() {
   const requestedResumeId = searchParams.get("resumeId") || "";
   const requestedTargetId = searchParams.get("targetId") || "";
   const requestedFocusSkillKey = searchParams.get("focusSkillKey") || "";
+  const requestedType = searchParams.get("type") || "";
   const answerIdempotencyKey = useRef(createIdempotencyKey());
   const nextQuestionIdempotencyKey = useRef(createIdempotencyKey());
   const startIdempotencyKey = useRef(createIdempotencyKey());
@@ -240,7 +241,11 @@ function PracticePage() {
     useState("");
   const [quotaNotice, setQuotaNotice] = useState("");
   const [submittedAnswerIds, setSubmittedAnswerIds] = useState({});
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedType, setSelectedType] = useState(() =>
+    interviewTypes.some(({ value }) => value === requestedType)
+      ? requestedType
+      : "",
+  );
   const [selectedLevel, setSelectedLevel] = useState("");
   const [selectedResumeId, setSelectedResumeId] = useState("");
   const [selectedJobTargetId, setSelectedJobTargetId] = useState("");
@@ -710,7 +715,9 @@ function PracticePage() {
               <p className="question-count">
                 Question {question.order} of {maxQuestionsPerInterview}
               </p>
-              <span className="question-status">Saved</span>
+              <span className="question-status semantic-chip semantic-chip--success">
+                Saved
+              </span>
             </div>
             {questionContext ? (
               <div aria-label="Question context" className="cockpit-context">
