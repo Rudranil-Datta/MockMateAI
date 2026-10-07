@@ -494,10 +494,109 @@ bounded idempotent recovery for pending owned evidence. `evidenceSyncStatus`
 is `pending` only when recovery still cannot complete; feedback remains
 available through unchanged interview responses.
 
+### V2 Extension E4 Coach roadmap API
+
+`GET /api/coach/roadmap` is authenticated, read-only, and rate-limited to 120
+requests per user and 240 per IP per 15 minutes. It accepts exactly one query
+selection: `context=overall`; `context=target&targetId=<owned ready ObjectId>`;
+or `context=project&projectId=<owned confirmed ObjectId>`. Unknown, repeated,
+missing, ambiguous, or malformed fields return the standard `400
+VALIDATION_ERROR` shape. Missing and foreign Target/Project contexts both return
+`404 COACH_CONTEXT_UNAVAILABLE` without resource details.
+
+The response contains only `{context:{kind,label}, evidenceSyncStatus, skills,
+actions}`. Skills are capped at 12 and contain safe key/label, categorical
+confidence, evidence count, and nullable derived mastery only. Actions are
+three to five allow-listed internal links for adding context, confirming a
+project, collecting evidence, targeted practice, retesting, or replay review.
+The route never returns raw answers, prompts, feedback, provider output, hidden
+reasoning, source text, storage identifiers, private evidence, or a
+hiring/readiness guarantee.
+
+Coach reads use a non-mutating projection of the existing evidence formula.
+Pending status comes from an owned pending-session existence read; Coach never
+invokes profile reconciliation, writes evidence, calls a provider, caches, or
+changes interview contracts. Overall uses the existing weak/non-established
+recommendation; Target orders by weight then evidence/mastery/confidence; and
+Project orders confirmed coverage categories needing evidence before stable
+keys.
+
 Every implemented route derives `userId` from authentication, validates bounded input, hides
 foreign records as not found, and uses the existing standard error shape.
 
-### Extended interview contract
+### V2 Extension E5 Coach knowledge-tree API
+
+`GET /api/coach/tree` is authenticated, read-only, and uses the same 120
+requests per user and 240 per IP per 15-minute Coach limit as the roadmap. Its
+query selection and invalid/missing/foreign error behaviour are exactly the
+roadmap contract above: Overall, owned ready Job Target, or owned confirmed
+Project only.
+
+The response contains only `{context:{kind,label}, evidenceSyncStatus, nodes,
+edges, omittedSkillCount}`. It has one context node, at most 12 safe branch
+nodes, at most 12 safe skill nodes, at most 25 nodes and 24 edges. Edges only
+connect context-to-branch or branch-to-skill known IDs. Target branch/skill
+relationships use saved analysed requirements in stable order; Project branches
+are non-empty confirmed coverage categories; Overall has one direct evidence
+branch. A selected skill is linked once to its first safe branch so bounds never
+silently produce a partial relationship graph.
+
+Skill nodes contain only safe key/label, evidence count, categorical confidence,
+nullable derived mastery, and an optional owned completed replay path of the
+form `/practice/:id/results`. They exclude source records, answers, prompts,
+feedback, provider data, reason codes, storage IDs, private evidence, and
+hiring/readiness claims. The tree uses the same non-mutating evidence projection
+as E4: no reconciliation, provider call, cache, persistence write, migration,
+or interview lifecycle change occurs.
+
+### Interview planning and extended interview contract
+
+#### `GET /api/interviews/plan`
+
+Returns a bounded, deterministic, read-only preview before interview start.
+Protected route; it is registered before `GET /api/interviews/:id`.
+
+Required query fields are `interviewType` and `level`. The optional fields
+match the supported start selection: `jobTargetId` only for Role Simulation,
+`projectId` only for Project Defense, completed owned `resumeId`, and
+`sessionPurpose=targeted_practice` with `focusSkillKey`. Unknown, repeated,
+ambiguous, or mismatched fields return the standard `400 VALIDATION_ERROR`.
+Missing or foreign owned context returns the same safe `404` response.
+
+```json
+{
+  "adaptiveNotice": "Later questions adapt to your answers and are not prewritten.",
+  "context": { "kind": "job_target", "label": "Backend Engineer" },
+  "openingFocus": { "label": "Node.js", "topicKey": "node-js" },
+  "rationale": { "kind": "target_coverage" },
+  "selection": {
+    "interviewType": "Role Simulation",
+    "level": "advanced",
+    "sessionPurpose": "standard"
+  },
+  "stages": [
+    {
+      "focus": { "label": "Node.js", "topicKey": "node-js" },
+      "order": 1,
+      "type": "opening"
+    }
+  ]
+}
+```
+
+`context` is `null` for generic and targeted-practice previews. The response
+has one to five ordered stages, never includes database IDs, source text,
+resume text, project facts, evidence reasons, answers, prompts, provider data,
+scores, readiness, or hiring claims. Generic DSA, HR, and System Design stages
+are fixed planning labels; Role Simulation and Project Defense use saved
+deterministic coverage ordering; targeted practice uses the selected owned weak
+skill and categorical evidence only.
+
+The endpoint is limited to 120 authenticated-user and 240 IP requests per
+15 minutes (`PLANNER_RATE_LIMITED`). It does not call an AI provider, consume
+AI quota, mutate/reconcile evidence, cache, create a session, or persist data.
+The client must obtain a current valid preview before using the unchanged
+`POST /api/interviews` start action.
 
 Days 6–7 add `Role Simulation` and `Project Defense` to
 `POST /api/interviews`. Role Simulation requires an owned `ready` target;

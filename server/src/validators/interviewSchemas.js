@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 import { AppError } from "../utils/AppError.js";
-import { interviewLevels, interviewTypes } from "./aiSchemas.js";
+import { interviewLevels, interviewTypes, v2InterviewTypes } from "./aiSchemas.js";
 
 const maxTextAnswerLength = 10000;
 const idempotencyKeyPattern =
@@ -126,6 +126,70 @@ export function validateStartInterviewRequest(body) {
         }
       : {}),
     ...(request.resumeId ? { resumeId: request.resumeId } : {}),
+  };
+}
+
+export function validateInterviewPlanQuery(query) {
+  const request = query && typeof query === "object" && !Array.isArray(query) ? query : {};
+  const allowedFields = new Set([
+    "focusSkillKey",
+    "interviewType",
+    "jobTargetId",
+    "level",
+    "projectId",
+    "resumeId",
+    "sessionPurpose",
+  ]);
+  const interviewType = normalizeString(request.interviewType);
+  const level = normalizeString(request.level);
+  const fields = {};
+
+  if (!v2InterviewTypes.includes(interviewType)) {
+    fields.interviewType = "Choose DSA, HR, System Design, Role Simulation, or Project Defense.";
+  }
+  if (!interviewLevels.includes(level)) {
+    fields.level = "Choose beginner, intermediate, or advanced.";
+  }
+  if (request.resumeId !== undefined && (!normalizeString(request.resumeId) || !mongoose.isObjectIdOrHexString(request.resumeId))) {
+    fields.resumeId = "Choose a valid resume.";
+  }
+
+  const isRoleSimulation = interviewType === "Role Simulation";
+  const isProjectDefense = interviewType === "Project Defense";
+  const isTargetedPractice = normalizeString(request.sessionPurpose) === "targeted_practice";
+  if (isRoleSimulation && (!normalizeString(request.jobTargetId) || !mongoose.isObjectIdOrHexString(request.jobTargetId))) {
+    fields.jobTargetId = "Choose a valid ready Job Target.";
+  } else if (!isRoleSimulation && request.jobTargetId !== undefined) {
+    fields.jobTargetId = "Job Target is available only for Role Simulation.";
+  }
+  if (isProjectDefense && (!normalizeString(request.projectId) || !mongoose.isObjectIdOrHexString(request.projectId))) {
+    fields.projectId = "Choose a valid confirmed Project.";
+  } else if (!isProjectDefense && request.projectId !== undefined) {
+    fields.projectId = "Project is available only for Project Defense.";
+  }
+  if (request.sessionPurpose !== undefined && !["standard", "targeted_practice"].includes(normalizeString(request.sessionPurpose))) {
+    fields.sessionPurpose = "Choose standard or targeted practice.";
+  }
+  if (isTargetedPractice && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizeString(request.focusSkillKey))) {
+    fields.focusSkillKey = "Choose a valid skill to practise.";
+  } else if (!isTargetedPractice && request.focusSkillKey !== undefined) {
+    fields.focusSkillKey = "Focus skill is available only for targeted practice.";
+  }
+  if (Object.keys(request).some((field) => !allowedFields.has(field))) {
+    fields.request = "Request contains unsupported fields.";
+  }
+  if (Object.keys(fields).length) {
+    throw new AppError("VALIDATION_ERROR", "Check the highlighted fields.", { fields, status: 400 });
+  }
+
+  return {
+    interviewType,
+    level,
+    ...(isRoleSimulation ? { jobTargetId: request.jobTargetId } : {}),
+    ...(isProjectDefense ? { projectId: request.projectId } : {}),
+    ...(request.resumeId ? { resumeId: request.resumeId } : {}),
+    ...(isTargetedPractice ? { focusSkillKey: normalizeString(request.focusSkillKey) } : {}),
+    sessionPurpose: isTargetedPractice ? "targeted_practice" : "standard",
   };
 }
 

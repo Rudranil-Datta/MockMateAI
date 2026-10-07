@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createSkillEvidenceService } from "../../src/services/skillEvidenceService.js";
 
@@ -72,6 +72,28 @@ describe("skillEvidenceService", () => {
       recommendedAction: null,
       skills: [],
     });
+  });
+
+  it("reads pending evidence state without reconciliation writes", async () => {
+    const exists = vi.fn().mockResolvedValue({ _id: "pending-session" });
+    const updateOne = vi.fn();
+    const bulkWrite = vi.fn();
+    const service = createSkillEvidenceService({
+      interviewSessionModel: { exists, updateOne },
+      now: () => now,
+      skillEvidenceModel: {
+        bulkWrite,
+        find: () => ({ sort: () => ({ lean: async () => [evidence()] }) }),
+      },
+    });
+
+    await expect(service.getReadOnlyProfile({ userId })).resolves.toMatchObject({
+      evidenceSyncStatus: "pending",
+      skills: [{ skillKey: "api-design" }],
+    });
+    expect(exists).toHaveBeenCalledWith({ evidenceSyncStatus: "pending", userId });
+    expect(bulkWrite).not.toHaveBeenCalled();
+    expect(updateOne).not.toHaveBeenCalled();
   });
 
   it("returns only an owned skill below the fixed weak threshold", async () => {

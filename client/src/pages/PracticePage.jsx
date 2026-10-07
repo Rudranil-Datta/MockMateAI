@@ -24,6 +24,7 @@ import { getSkillProfile } from "../api/skillApi.js";
 import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
+import InterviewPlannerPreview from "../components/interview/InterviewPlannerPreview.jsx";
 import VoiceRecorder from "../components/interview/VoiceRecorder.jsx";
 import { hasValidAdaptiveQuestionMetadata } from "../utils/interviewQuestion.js";
 
@@ -259,19 +260,22 @@ function PracticePage() {
   const [projectLoadError, setProjectLoadError] = useState("");
   const [projectLoadAttempt, setProjectLoadAttempt] = useState(0);
   const [skillProfile, setSkillProfile] = useState(null);
+  const [selectedFocusSkillKey, setSelectedFocusSkillKey] = useState(requestedFocusSkillKey);
   const [resumes, setResumes] = useState([]);
   const [isResumeLoading, setIsResumeLoading] = useState(true);
   const [resumeLoadError, setResumeLoadError] = useState("");
   const [resumeLoadAttempt, setResumeLoadAttempt] = useState(0);
   const [formError, setFormError] = useState("");
+  const [isPlanReady, setIsPlanReady] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRoleSimulation = selectedType === "Role Simulation";
   const isProjectDefense = selectedType === "Project Defense";
   const focusSkill = skillProfile?.skills.find(
     (skill) =>
-      skill.skillKey === requestedFocusSkillKey && skill.masteryScore < 70,
+      skill.skillKey === selectedFocusSkillKey && skill.masteryScore < 70,
   );
+  const availableFocusSkills = skillProfile?.skills.filter((skill) => skill.masteryScore < 70) || [];
   const isTargetedPractice = Boolean(focusSkill);
   const isReady = Boolean(
     selectedType &&
@@ -279,6 +283,16 @@ function PracticePage() {
     (!isRoleSimulation || selectedJobTargetId) &&
     (!isProjectDefense || selectedProjectId),
   );
+  const plannerSelection = isReady
+    ? {
+        interviewType: selectedType,
+        ...(isRoleSimulation ? { jobTargetId: selectedJobTargetId } : {}),
+        level: selectedLevel,
+        ...(isProjectDefense ? { projectId: selectedProjectId } : {}),
+        ...(selectedResumeId ? { resumeId: selectedResumeId } : {}),
+        ...(isTargetedPractice ? { focusSkillKey: focusSkill.skillKey, sessionPurpose: "targeted_practice" } : {}),
+      }
+    : null;
 
   function handleQuotaError(error) {
     if (error?.code !== "AI_QUOTA_EXCEEDED") {
@@ -397,6 +411,7 @@ function PracticePage() {
       startIdempotencyKey.current = createIdempotencyKey();
     }
     setSelectedType(value);
+    setIsPlanReady(false);
     setFormError("");
     setStatusMessage("");
   }
@@ -406,6 +421,7 @@ function PracticePage() {
       startIdempotencyKey.current = createIdempotencyKey();
     }
     setSelectedLevel(value);
+    setIsPlanReady(false);
     setFormError("");
     setStatusMessage("");
   }
@@ -415,6 +431,7 @@ function PracticePage() {
       startIdempotencyKey.current = createIdempotencyKey();
     }
     setSelectedResumeId(value);
+    setIsPlanReady(false);
     setFormError("");
     setStatusMessage("");
   }
@@ -424,6 +441,7 @@ function PracticePage() {
       startIdempotencyKey.current = createIdempotencyKey();
     }
     setSelectedJobTargetId(value);
+    setIsPlanReady(false);
     setFormError("");
     setStatusMessage("");
   }
@@ -433,6 +451,15 @@ function PracticePage() {
       startIdempotencyKey.current = createIdempotencyKey();
     }
     setSelectedProjectId(value);
+    setIsPlanReady(false);
+    setFormError("");
+    setStatusMessage("");
+  }
+
+  function selectFocusSkill(value) {
+    if (value !== selectedFocusSkillKey) startIdempotencyKey.current = createIdempotencyKey();
+    setSelectedFocusSkillKey(value);
+    setIsPlanReady(false);
     setFormError("");
     setStatusMessage("");
   }
@@ -440,13 +467,15 @@ function PracticePage() {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (!isReady) {
+    if (!isReady || !isPlanReady) {
       setFormError(
-        isRoleSimulation
+        !isReady && isRoleSimulation
           ? "Choose an interview level and ready Job Target to start."
-          : isProjectDefense
+          : !isReady && isProjectDefense
             ? "Choose an interview level and confirmed Project to start."
-            : "Choose an interview type and level to start.",
+            : !isReady
+              ? "Choose an interview type and level to start."
+              : "Wait for the current interview plan or retry it before starting.",
       );
       return;
     }
@@ -1211,9 +1240,23 @@ function PracticePage() {
           </Link>
         </Card>
 
+        {availableFocusSkills.length ? (
+          <Card className="resume-context-card">
+            <h2>Focused practice</h2>
+            <p>Optional. Focus one saved skill needing more evidence.</p>
+            <label htmlFor="focus-skill-select">Focus skill</label>
+            <select id="focus-skill-select" onChange={(event) => selectFocusSkill(event.target.value)} value={selectedFocusSkillKey}>
+              <option value="">No focused skill</option>
+              {availableFocusSkills.map((skill) => <option key={skill.skillKey} value={skill.skillKey}>{skill.skillLabel} — {skill.masteryLabel}</option>)}
+            </select>
+          </Card>
+        ) : null}
+
+          <InterviewPlannerPreview onReadyChange={setIsPlanReady} selection={plannerSelection} />
+
         <div className="setup-actions">
           <Button
-            disabled={!isReady || isSubmitting}
+            disabled={!isReady || !isPlanReady || isSubmitting}
             isLoading={isSubmitting}
             type="submit"
           >

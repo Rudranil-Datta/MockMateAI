@@ -10,6 +10,7 @@ import Button from "../components/common/Button.jsx";
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
 import LoadingState from "../components/common/LoadingState.jsx";
+import CoachWorkspace from "../components/coach/CoachWorkspace.jsx";
 
 const chartWidth = 640;
 const chartHeight = 240;
@@ -443,6 +444,10 @@ function DashboardPage() {
           <PreparationSetup
             projects={resources.projects}
             skills={resources.profile?.skills || []}
+            targets={resources.targets}
+          />
+          <CoachWorkspace
+            projects={resources.projects}
             targets={resources.targets}
           />
           <section className="metric-grid" aria-label="Practice overview">

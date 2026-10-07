@@ -11,8 +11,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardPage from "./DashboardPage.jsx";
 
 const getAnalyticsSummary = vi.hoisted(() => vi.fn());
+const getCoachRoadmap = vi.hoisted(() => vi.fn());
+const getCoachTree = vi.hoisted(() => vi.fn());
+const getInterviewPlan = vi.hoisted(() => vi.fn());
+const getSkillProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/analyticsApi.js", () => ({ getAnalyticsSummary }));
+vi.mock("../api/coachApi.js", () => ({ getCoachRoadmap }));
+vi.mock("../api/coachTreeApi.js", () => ({ getCoachTree }));
+vi.mock("../api/interviewPlanApi.js", () => ({ getInterviewPlan }));
+vi.mock("../api/skillApi.js", () => ({ getSkillProfile }));
+
+const coachRoadmap = {
+  actions: [
+    { description: "Build evidence.", label: "Start practice", to: "/practice", type: "collect_evidence" },
+    { description: "Add role context.", label: "Add Job Target", to: "/targets", type: "add_context" },
+    { description: "Confirm project facts.", label: "Confirm Project", to: "/projects", type: "confirm_project" },
+  ],
+  context: { kind: "overall", label: "Overall preparation" },
+  evidenceSyncStatus: "ready",
+  skills: [],
+};
 
 const analytics = {
   recentSessions: [
@@ -72,6 +91,24 @@ function renderPage() {
 describe("DashboardPage", () => {
   beforeEach(() => {
     getAnalyticsSummary.mockReset();
+    getCoachRoadmap.mockReset();
+    getCoachTree.mockReset();
+    getInterviewPlan.mockReset();
+    getSkillProfile.mockReset();
+    getCoachRoadmap.mockResolvedValue(coachRoadmap);
+    getCoachTree.mockResolvedValue({
+      context: { kind: "overall", label: "Overall preparation" },
+      edges: [], evidenceSyncStatus: "ready", nodes: [{ id: "context", kind: "context", label: "Overall preparation" }], omittedSkillCount: 0,
+    });
+    getSkillProfile.mockResolvedValue({ skills: [] });
+    getInterviewPlan.mockResolvedValue({
+      adaptiveNotice: "Later questions adapt to your answers and are not prewritten.",
+      context: null,
+      openingFocus: { label: "Fundamentals", topicKey: "dsa-1" },
+      rationale: { kind: "type_level" },
+      selection: { interviewType: "DSA", level: "intermediate", sessionPurpose: "standard" },
+      stages: [{ focus: { label: "Fundamentals", topicKey: "dsa-1" }, order: 1, type: "opening" }],
+    });
   });
 
   it("renders accurate metrics, accessible analysis, and saved-session links", async () => {

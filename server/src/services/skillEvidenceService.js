@@ -151,6 +151,47 @@ export function createSkillEvidenceService({
     );
   }
 
+  async function buildProfile({ hasPendingSync, userId }) {
+    const currentTime = now();
+    const cutoff = new Date(currentTime.getTime() - 180 * 86_400_000);
+    const evidence = (
+      await skillEvidenceModel
+        .find({ userId, createdAt: { $gte: cutoff } })
+        .sort({ createdAt: -1 })
+        .lean()
+    ).filter(({ createdAt }) => createdAt >= cutoff);
+    const bySkill = new Map();
+    for (const item of evidence) {
+      const entries = bySkill.get(item.skillKey) || [];
+      entries.push(item);
+      bySkill.set(item.skillKey, entries);
+    }
+    const skills = [...bySkill.entries()]
+      .map(([skillKey, entries]) => profileSkill(skillKey, entries, currentTime))
+      .sort(
+        (left, right) =>
+          left.masteryScore - right.masteryScore ||
+          right.evidenceCount - left.evidenceCount ||
+          left.skillKey.localeCompare(right.skillKey),
+      )
+      .slice(0, 30);
+    const recommended = skills
+      .filter(({ confidence }) => confidence !== "established")
+      .sort(
+        (left, right) =>
+          left.masteryScore - right.masteryScore ||
+          new Date(right.lastPracticedAt) - new Date(left.lastPracticedAt) ||
+          left.skillKey.localeCompare(right.skillKey),
+      )[0];
+    return {
+      evidenceSyncStatus: hasPendingSync ? "pending" : "ready",
+      recommendedAction: recommended
+        ? { skillKey: recommended.skillKey, type: "targeted_practice" }
+        : null,
+      skills,
+    };
+  }
+
   return {
     async getRetestComparison({ session, userId }) {
       if (
@@ -228,46 +269,15 @@ export function createSkillEvidenceService({
           hasPendingSync = true;
         }
       }
-      const currentTime = now();
-      const cutoff = new Date(currentTime.getTime() - 180 * 86_400_000);
-      const evidence = (
-        await skillEvidenceModel
-          .find({ userId, createdAt: { $gte: cutoff } })
-          .sort({ createdAt: -1 })
-          .lean()
-      ).filter(({ createdAt }) => createdAt >= cutoff);
-      const bySkill = new Map();
-      for (const item of evidence) {
-        const entries = bySkill.get(item.skillKey) || [];
-        entries.push(item);
-        bySkill.set(item.skillKey, entries);
-      }
-      const skills = [...bySkill.entries()]
-        .map(([skillKey, entries]) =>
-          profileSkill(skillKey, entries, currentTime),
-        )
-        .sort(
-          (left, right) =>
-            left.masteryScore - right.masteryScore ||
-            right.evidenceCount - left.evidenceCount ||
-            left.skillKey.localeCompare(right.skillKey),
-        )
-        .slice(0, 30);
-      const recommended = skills
-        .filter(({ confidence }) => confidence !== "established")
-        .sort(
-          (left, right) =>
-            left.masteryScore - right.masteryScore ||
-            new Date(right.lastPracticedAt) - new Date(left.lastPracticedAt) ||
-            left.skillKey.localeCompare(right.skillKey),
-        )[0];
-      return {
-        evidenceSyncStatus: hasPendingSync ? "pending" : "ready",
-        recommendedAction: recommended
-          ? { skillKey: recommended.skillKey, type: "targeted_practice" }
-          : null,
-        skills,
-      };
+      return buildProfile({ hasPendingSync, userId });
+    },
+
+    async getReadOnlyProfile({ userId }) {
+      const pendingSession = await interviewSessionModel.exists({
+        evidenceSyncStatus: "pending",
+        userId,
+      });
+      return buildProfile({ hasPendingSync: Boolean(pendingSession), userId });
     },
   };
 }

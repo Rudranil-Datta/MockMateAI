@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { createInterviewController } from "../controllers/interviewController.js";
+import { createInterviewPlanController } from "../controllers/interviewPlanController.js";
 import { createVoiceAnswerController } from "../controllers/voiceAnswerController.js";
 import { createAudioUpload } from "../middlewares/audioUpload.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -14,6 +15,8 @@ export function createInterviewRouter({
   audioUploadDir,
   maxAudioSizeBytes,
   jobTargetService,
+  interviewPlanService,
+  plannerRateLimit,
   projectService,
   resumeService,
   skillEvidenceService,
@@ -31,6 +34,7 @@ export function createInterviewRouter({
     skillEvidenceService,
   });
   const interviewController = createInterviewController({ interviewService });
+  const interviewPlanController = createInterviewPlanController({ interviewPlanService });
   const voiceAnswerController = createVoiceAnswerController({
     voiceAnswerService,
   });
@@ -45,6 +49,7 @@ export function createInterviewRouter({
     aiRateLimit,
     interviewController.startInterview,
   );
+  interviewRouter.get("/plan", requireAuth, plannerRateLimit, interviewPlanController.getPlan);
   interviewRouter.get("/:id", requireAuth, interviewController.getInterview);
   interviewRouter.post(
     "/:id/questions",

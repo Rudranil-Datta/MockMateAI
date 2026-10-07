@@ -9,6 +9,7 @@ import { createRateLimit, getRequestIp } from "./middlewares/rateLimit.js";
 import { requestLogger } from "./middlewares/requestLogger.js";
 import { createAnalyticsRouter } from "./routes/analyticsRoutes.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
+import { createCoachRouter } from "./routes/coachRoutes.js";
 import healthRouter from "./routes/healthRoutes.js";
 import { createInterviewRouter } from "./routes/interviewRoutes.js";
 import { createJobTargetRouter } from "./routes/jobTargetRoutes.js";
@@ -20,6 +21,9 @@ import { createAiProviderService } from "./services/aiProviderService.js";
 import { createAdaptiveInterviewService } from "./services/adaptiveInterviewService.js";
 import { createAnalyticsService } from "./services/analyticsService.js";
 import { createAnswerEvaluationService } from "./services/answerEvaluationService.js";
+import { createCoachRoadmapService } from "./services/coachRoadmapService.js";
+import { createCoachKnowledgeTreeService } from "./services/coachKnowledgeTreeService.js";
+import { createInterviewPlanService } from "./services/interviewPlanService.js";
 import { createJobTargetService } from "./services/jobTargetService.js";
 import { createProjectService } from "./services/projectService.js";
 import { createResumeService } from "./services/resumeService.js";
@@ -66,6 +70,10 @@ export function createApp({
   audioUploadDir = "/tmp/mockmateai-audio",
   authRequestsPerIpPer15Minutes = 10_000,
   clientOrigin = "http://localhost:5173",
+  coachRequestsPerIpPer15Minutes = 240,
+  coachRequestsPerUserPer15Minutes = 120,
+  coachRoadmapService,
+  coachKnowledgeTreeService,
   databaseReadiness = checkDatabaseReadiness,
   geminiApiKey,
   geminiModel,
@@ -78,6 +86,8 @@ export function createApp({
   questionCacheTtlMs = 60_000,
   rateLimitNow,
   projectService,
+  plannerRequestsPerIpPer15Minutes = 240,
+  plannerRequestsPerUserPer15Minutes = 120,
   resumeService,
   skillEvidenceService,
   resumeUploadDir = "/tmp/mockmateai-resumes",
@@ -105,6 +115,14 @@ export function createApp({
   const ownedResumeService = resumeService || createResumeService();
   const ownedSkillEvidenceService =
     skillEvidenceService || createSkillEvidenceService();
+  const ownedCoachRoadmapService =
+    coachRoadmapService ||
+    createCoachRoadmapService({
+      skillEvidenceService: ownedSkillEvidenceService,
+    });
+  const ownedCoachKnowledgeTreeService =
+    coachKnowledgeTreeService ||
+    createCoachKnowledgeTreeService({ skillEvidenceService: ownedSkillEvidenceService });
   const answerEvaluationService = createAnswerEvaluationService({
     aiProviderService: providerService,
     skillEvidenceService: ownedSkillEvidenceService,
@@ -118,6 +136,12 @@ export function createApp({
       aiProviderService: providerService,
       resumeService: ownedResumeService,
     });
+  const ownedInterviewPlanService = createInterviewPlanService({
+    jobTargetService: ownedJobTargetService,
+    projectService: ownedProjectService,
+    resumeService: ownedResumeService,
+    skillEvidenceService: ownedSkillEvidenceService,
+  });
   const ownedVoiceAnswerService =
     voiceAnswerService ||
     createVoiceAnswerService({
@@ -189,6 +213,44 @@ export function createApp({
       },
     ],
   });
+  const coachRateLimit = createRateLimit({
+    code: "COACH_RATE_LIMITED",
+    message: "Coach request limit reached. Try again later.",
+    now: rateLimitNow,
+    rules: [
+      {
+        key: (request) => request.auth.userId,
+        limit: coachRequestsPerUserPer15Minutes,
+        name: "coach-user",
+        windowMs: 15 * 60 * 1000,
+      },
+      {
+        key: getRequestIp,
+        limit: coachRequestsPerIpPer15Minutes,
+        name: "coach-ip",
+        windowMs: 15 * 60 * 1000,
+      },
+    ],
+  });
+  const plannerRateLimit = createRateLimit({
+    code: "PLANNER_RATE_LIMITED",
+    message: "Preview request limit reached. Try again later.",
+    now: rateLimitNow,
+    rules: [
+      {
+        key: (request) => request.auth.userId,
+        limit: plannerRequestsPerUserPer15Minutes,
+        name: "planner-user",
+        windowMs: 15 * 60 * 1000,
+      },
+      {
+        key: getRequestIp,
+        limit: plannerRequestsPerIpPer15Minutes,
+        name: "planner-ip",
+        windowMs: 15 * 60 * 1000,
+      },
+    ],
+  });
 
   app.disable("x-powered-by");
   if (trustProxy === "render") {
@@ -213,7 +275,9 @@ export function createApp({
       answerEvaluationService,
       audioUploadDir,
       maxAudioSizeBytes,
+      interviewPlanService: ownedInterviewPlanService,
       jobTargetService: ownedJobTargetService,
+      plannerRateLimit,
       projectService: ownedProjectService,
       resumeService: ownedResumeService,
       skillEvidenceService: ownedSkillEvidenceService,
@@ -245,6 +309,14 @@ export function createApp({
     "/api/skills",
     createSkillRouter({
       skillEvidenceService: ownedSkillEvidenceService,
+    }),
+  );
+  app.use(
+    "/api/coach",
+    createCoachRouter({
+      coachKnowledgeTreeService: ownedCoachKnowledgeTreeService,
+      coachRateLimit,
+      coachRoadmapService: ownedCoachRoadmapService,
     }),
   );
   app.use("/health", healthRouter);

@@ -12,6 +12,8 @@ const generateNextQuestion = vi.hoisted(() => vi.fn());
 const listResumes = vi.hoisted(() => vi.fn());
 const listJobTargets = vi.hoisted(() => vi.fn());
 const listProjects = vi.hoisted(() => vi.fn());
+const getInterviewPlan = vi.hoisted(() => vi.fn());
+const getSkillProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/interviewApi.js", () => ({
   startInterview,
@@ -24,6 +26,8 @@ vi.mock("../api/interviewApi.js", () => ({
 vi.mock("../api/resumeApi.js", () => ({ listResumes }));
 vi.mock("../api/jobTargetApi.js", () => ({ listJobTargets }));
 vi.mock("../api/projectApi.js", () => ({ listProjects }));
+vi.mock("../api/interviewPlanApi.js", () => ({ getInterviewPlan }));
+vi.mock("../api/skillApi.js", () => ({ getSkillProfile }));
 
 vi.mock("../components/interview/VoiceRecorder.jsx", () => ({
   default: ({ disabled, onTranscribe, onUseText }) => (
@@ -57,6 +61,12 @@ function renderPracticePage(initialEntry = "/practice") {
       <PracticePage />
     </MemoryRouter>,
   );
+}
+
+async function startCurrentInterview() {
+  const button = screen.getByRole("button", { name: "Start interview" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
 }
 
 function interviewStartResult({
@@ -100,6 +110,17 @@ function savedAnswerResult(overrides = {}) {
   };
 }
 
+function interviewPlan(selection = {}) {
+  return {
+    adaptiveNotice: "Later questions adapt to your answers and are not prewritten.",
+    context: null,
+    openingFocus: { label: "Fundamentals", topicKey: "dsa-1" },
+    rationale: { kind: "type_level" },
+    selection: { interviewType: selection.interviewType || "DSA", level: selection.level || "intermediate", sessionPurpose: selection.sessionPurpose || "standard", ...(selection.focusSkillKey ? { focusSkillKey: selection.focusSkillKey } : {}) },
+    stages: [{ focus: { label: "Fundamentals", topicKey: "dsa-1" }, order: 1, type: "opening" }],
+  };
+}
+
 describe("PracticePage", () => {
   beforeEach(() => {
     startInterview.mockReset();
@@ -110,9 +131,13 @@ describe("PracticePage", () => {
     listResumes.mockReset();
     listJobTargets.mockReset();
     listProjects.mockReset();
+    getInterviewPlan.mockReset();
+    getSkillProfile.mockReset();
     listResumes.mockResolvedValue([]);
     listJobTargets.mockResolvedValue([]);
     listProjects.mockResolvedValue([]);
+    getSkillProfile.mockResolvedValue({ skills: [] });
+    getInterviewPlan.mockImplementation(({ interviewType, level, sessionPurpose, focusSkillKey }) => Promise.resolve(interviewPlan({ interviewType, level, sessionPurpose, focusSkillKey })));
   });
 
   it("requires interview type and level before submission", () => {
@@ -123,6 +148,25 @@ describe("PracticePage", () => {
     ).toBeDisabled();
     expect(screen.getByText("Choose interview type")).toBeVisible();
     expect(screen.getByText("Choose your level")).toBeVisible();
+  });
+
+  it("keeps setup choices while a failed plan is retried before start", async () => {
+    getInterviewPlan
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValueOnce(interviewPlan({ interviewType: "DSA", level: "intermediate" }));
+    startInterview.mockResolvedValueOnce(interviewStartResult());
+    renderPracticePage();
+
+    fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
+    fireEvent.click(screen.getByLabelText(/Intermediate/i));
+    expect(await screen.findByText(/could not be loaded/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Start interview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /DSA/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/Intermediate/i)).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry plan" }));
+    await startCurrentInterview();
+    await screen.findByRole("heading", { name: "DSA practice" });
   });
 
   it.each([
@@ -141,7 +185,7 @@ describe("PracticePage", () => {
         screen.getByRole("button", { name: new RegExp(interviewType, "i") }),
       );
       fireEvent.click(screen.getByLabelText(new RegExp(levelLabel, "i")));
-      fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+      await startCurrentInterview();
 
       await waitFor(() => {
         expect(startInterview).toHaveBeenCalledWith({
@@ -192,12 +236,12 @@ describe("PracticePage", () => {
     fireEvent.change(resumeSelect, { target: { value: "resume-123" } });
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(await screen.findByText(/Question generation failed/)).toBeVisible();
     expect(resumeSelect).toHaveValue("resume-123");
     const firstKey = startInterview.mock.calls[0][0].idempotencyKey;
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     await screen.findByRole("heading", { name: "DSA practice" });
     expect(startInterview).toHaveBeenLastCalledWith({
@@ -249,12 +293,12 @@ describe("PracticePage", () => {
       screen.getByRole("option", { name: "Platform Engineer — Analyzing" }),
     ).toBeDisabled();
     fireEvent.change(targetSelect, { target: { value: "target-ready" } });
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(await screen.findByText(/Question generation failed/)).toBeVisible();
     expect(targetSelect).toHaveValue("target-ready");
     const firstKey = startInterview.mock.calls[0][0].idempotencyKey;
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     await screen.findByRole("heading", { name: "Role Simulation practice" });
     expect(startInterview).toHaveBeenLastCalledWith({
@@ -299,9 +343,9 @@ describe("PracticePage", () => {
     await waitFor(() => expect(listJobTargets).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    expect(
-      screen.getByRole("button", { name: "Start interview" }),
-    ).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Start interview" })).toBeEnabled();
+    });
   });
 
   it("requires and preserves a confirmed Project for Project Defense", async () => {
@@ -336,11 +380,11 @@ describe("PracticePage", () => {
 
     const projectSelect = await screen.findByLabelText("Choose Project");
     fireEvent.change(projectSelect, { target: { value: "project-123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     expect(await screen.findByText(/Question generation failed/)).toBeVisible();
     expect(projectSelect).toHaveValue("project-123");
     const firstKey = startInterview.mock.calls[0][0].idempotencyKey;
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     await screen.findByRole("heading", { name: "Project Defense practice" });
     expect(startInterview).toHaveBeenLastCalledWith({
@@ -364,9 +408,9 @@ describe("PracticePage", () => {
     await waitFor(() => expect(listProjects).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    expect(
-      screen.getByRole("button", { name: "Start interview" }),
-    ).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Start interview" })).toBeEnabled();
+    });
   });
 
   it("keeps no-resume interview available when resume loading fails", async () => {
@@ -383,7 +427,7 @@ describe("PracticePage", () => {
     expect(await screen.findByText(/Resume list unavailable/)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /HR/i }));
     fireEvent.click(screen.getByLabelText(/Beginner/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     await waitFor(() => {
       expect(startInterview).toHaveBeenCalledWith({
@@ -411,12 +455,12 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
     fireEvent.change(resumeSelect, { target: { value: "resume-123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     await screen.findByText(/Retry later/);
     const resumeKey = startInterview.mock.calls[0][0].idempotencyKey;
 
     fireEvent.change(resumeSelect, { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     await waitFor(() => expect(startInterview).toHaveBeenCalledTimes(2));
 
     expect(startInterview.mock.calls[1][0]).not.toHaveProperty("resumeId");
@@ -449,7 +493,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(
       await screen.findByText(/Interview could not be started.*retry\./),
@@ -479,14 +523,14 @@ describe("PracticePage", () => {
     const first = renderPracticePage();
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     expect(await screen.findByText("Explain stacks.")).toBeVisible();
 
     first.unmount();
     renderPracticePage();
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     expect(
       await screen.findByText(/Interview could not be started.*retry\./),
     ).toBeVisible();
@@ -519,7 +563,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(await screen.findByLabelText("Question context")).toBeVisible();
     expect(screen.getByText("Node Js")).toBeVisible();
@@ -563,7 +607,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /System Design/i }));
     fireEvent.click(screen.getByLabelText(/Advanced/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "AI practice is temporarily unavailable. Your saved work is safe; try again later.",
@@ -574,7 +618,7 @@ describe("PracticePage", () => {
     ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText(/Advanced/i)).toBeChecked();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(
       await screen.findByRole("heading", { name: "System Design practice" }),
@@ -598,7 +642,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /HR/i }));
     fireEvent.click(screen.getByLabelText(/Beginner/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     expect(screen.getByRole("button", { name: "Working..." })).toBeDisabled();
     expect(screen.getByText("Preparing your first question...")).toBeVisible();
@@ -621,7 +665,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Use a stack." } });
@@ -636,7 +680,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Draft stays safe." } });
@@ -659,7 +703,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     await screen.findByLabelText("Your answer");
     fireEvent.click(
@@ -685,7 +729,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     const typedAnswer = await screen.findByLabelText("Your answer");
     fireEvent.change(typedAnswer, { target: { value: "Preserved draft." } });
     fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
@@ -714,7 +758,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     const typedAnswer = await screen.findByLabelText("Your answer");
     fireEvent.change(typedAnswer, { target: { value: "Preserved draft." } });
     fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
@@ -744,7 +788,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Draft stays safe." } });
     fireEvent.click(
@@ -768,7 +812,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Typed fallback." } });
     fireEvent.click(screen.getByRole("button", { name: "Record answer" }));
@@ -795,7 +839,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Use a stack." } });
@@ -875,7 +919,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
 
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Use a stack." } });
@@ -920,7 +964,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     fireEvent.change(await screen.findByLabelText("Your answer"), {
       target: { value: "Use a stack." },
     });
@@ -966,7 +1010,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     const answer = await screen.findByLabelText("Your answer");
     fireEvent.change(answer, { target: { value: "Use a stack." } });
     fireEvent.click(
@@ -1015,7 +1059,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     fireEvent.change(await screen.findByLabelText("Your answer"), {
       target: { value: "Use a stack." },
     });
@@ -1070,7 +1114,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     fireEvent.change(await screen.findByLabelText("Your answer"), {
       target: { value: "Use a stack." },
     });
@@ -1120,7 +1164,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     fireEvent.change(await screen.findByLabelText("Your answer"), {
       target: { value: "Use a stack." },
     });
@@ -1172,7 +1216,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     fireEvent.change(await screen.findByLabelText("Your answer"), {
       target: { value: "Use a stack." },
     });
@@ -1203,7 +1247,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     fireEvent.change(await screen.findByLabelText("Your answer"), {
       target: { value: "Use a stack." },
     });
@@ -1254,7 +1298,7 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    await startCurrentInterview();
     for (let order = 1; order < 5; order += 1) {
       fireEvent.change(await screen.findByLabelText("Your answer"), {
         target: { value: `Answer ${order}` },
