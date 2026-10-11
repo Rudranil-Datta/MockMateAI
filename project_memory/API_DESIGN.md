@@ -88,7 +88,19 @@ Creates an account.
 { "user": { "id": "...", "name": "Asha Kumar", "email": "asha@example.com", "profile": {} } }
 ```
 
-Validate a normalized unique email of at most 254 characters and the password policy. Hash the password before storage. Establish auth state according to the chosen secure session/token approach.
+For signup, trim/lowercase email and require at most 254 characters, exactly one
+non-empty local part plus `@`, valid DNS-style domain labels, and an alphabetic
+final suffix of 2–63 characters. This accepts common suffixes such as `.com`,
+`.in`, `.org`, and `.co.uk`; it validates syntax only and does not verify
+mailbox ownership. The database unique email index is the final concurrent
+duplicate-account authority: a duplicate returns `409 DUPLICATE_EMAIL` with a
+safe email field error. Hash the password before storage. Establish auth state
+according to the chosen secure session/token approach.
+
+New or replacement passwords must contain 15–72 UTF-8 bytes, at least one
+number or punctuation/symbol character, and no control/format characters.
+Reject a password matching the account's normalized email or name. Never trim
+or silently truncate passwords.
 
 ### `POST /api/auth/login`
 
@@ -101,6 +113,10 @@ Authenticates an existing user.
 // 200 response
 { "user": { "id": "...", "name": "Asha Kumar", "email": "asha@example.com", "profile": {} } }
 ```
+
+Login never creates an account. Invalid email/password combinations return the
+same safe `401 INVALID_CREDENTIALS` response and do not reveal account
+existence.
 
 ### `POST /api/auth/logout`
 
@@ -122,6 +138,56 @@ Returns the current user's safe profile.
 ```
 
 Malformed JSON is rejected before route validation with `400 MALFORMED_JSON` and the stable message `Request body must contain valid JSON.` Parser details and submitted values are never returned.
+
+### `PATCH /api/auth/profile`
+
+Updates only the signed-in user's profile. Email is read-only in this phase.
+
+```json
+// request
+{
+  "name": "Asha Kumar",
+  "profile": {
+    "targetRole": "Backend Developer",
+    "experienceLevel": "intermediate"
+  }
+}
+
+// 200 response
+{ "user": { "id": "...", "name": "Asha Kumar", "email": "asha@example.com", "profile": { "targetRole": "Backend Developer", "experienceLevel": "intermediate" } } }
+```
+
+`name` is required after trimming and is at most 100 characters. `targetRole`
+is optional, trimmed, and at most 100 characters; `experienceLevel` is optional
+or one of `beginner`, `intermediate`, or `advanced`. The request may contain no
+other root or profile fields. Identity comes only from the authenticated cookie:
+the request cannot select another user. Invalid input returns `400
+VALIDATION_ERROR` with safe field errors; missing authentication returns `401
+UNAUTHENTICATED`; either failure makes no change.
+
+### `PATCH /api/auth/password`
+
+Changes the signed-in user's password only after current-password proof.
+
+```json
+// request
+{
+  "currentPassword": "existing-secret",
+  "newPassword": "replacement-secret-123",
+  "confirmation": "replacement-secret-123"
+}
+
+// 200 response
+{ "user": { "id": "...", "name": "Asha Kumar", "email": "asha@example.com", "profile": {} } }
+```
+
+`newPassword` follows the new/replacement password policy and cannot match the
+current stored password. `confirmation` must exactly match it. A wrong current
+password returns safe `401 INVALID_CREDENTIALS`; malformed, policy-invalid,
+mismatched, or reused replacements return `400 VALIDATION_ERROR` with safe
+field errors. A failure writes no hash and does not refresh the cookie. Success
+writes one bcrypt hash and reissues only the caller's current session cookie;
+other existing sessions remain valid until their normal expiry.
 
 ## Resumes
 

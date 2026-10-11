@@ -66,6 +66,16 @@ export function AuthProvider({ children }) {
         setUser(response.user);
         return response.user;
       },
+      async updateProfile(input) {
+        const response = await authApi.updateProfile(input);
+        setUser(response.user);
+        return response.user;
+      },
+      async updatePassword(input) {
+        const response = await authApi.updatePassword(input);
+        setUser(response.user);
+        return response.user;
+      },
       retrySession() {
         setIsAuthLoading(true);
         setSessionAttempt((attempt) => attempt + 1);

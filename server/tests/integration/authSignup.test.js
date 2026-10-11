@@ -56,6 +56,18 @@ describe("POST /api/auth/signup", () => {
     expect(response.body.user.email).toBe(validSignup.email);
   });
 
+  it.each(["asha@example.in", "asha@example.org", "asha@example.co.uk"])(
+    "accepts a valid signup email ending in %s",
+    async (email) => {
+      const response = await request(app)
+        .post("/api/auth/signup")
+        .send({ ...validSignup, email });
+
+      expect(response.status).toBe(201);
+      expect(response.body.user.email).toBe(email);
+    },
+  );
+
   it("establishes a session usable by current-user requests", async () => {
     const signupResponse = await request(app)
       .post("/api/auth/signup")
@@ -84,7 +96,7 @@ describe("POST /api/auth/signup", () => {
         fields: {
           email: "Enter a valid email address.",
           name: "Enter a name between 1 and 100 characters.",
-          password: "Use a password between 12 and 72 bytes.",
+          password: "Use a password between 15 and 72 bytes.",
         },
         message: "Check the highlighted fields.",
       },
@@ -96,6 +108,105 @@ describe("POST /api/auth/signup", () => {
     const response = await request(app)
       .post("/api/auth/signup")
       .send({ ...validSignup, email: oversizedEmail });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      fields: { email: "Enter a valid email address." },
+    });
+    expect(response.headers["set-cookie"]).toBeUndefined();
+    await expect(User.countDocuments()).resolves.toBe(0);
+  });
+
+  it.each([
+    [
+      "a too-short password",
+      "abcde12345!xyz",
+      "Use a password between 15 and 72 bytes.",
+    ],
+    [
+      "a password without number or special character",
+      "onlyletterslonger",
+      "Include at least one number or special character.",
+    ],
+    [
+      "a password with a control character",
+      "longpassword123\n",
+      "Password cannot contain control characters.",
+    ],
+    [
+      "a password matching email",
+      "asha.kumar@example.com",
+      "Password must not match your name or email.",
+    ],
+    [
+      "a password over 72 UTF-8 bytes",
+      `${"é".repeat(36)}1!`,
+      "Use a password between 15 and 72 bytes.",
+    ],
+  ])(
+    "rejects %s before persistence",
+    async (_description, password, message) => {
+      const response = await request(app)
+        .post("/api/auth/signup")
+        .send({ ...validSignup, password });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatchObject({
+        code: "VALIDATION_ERROR",
+        fields: { password: message },
+      });
+      await expect(User.countDocuments()).resolves.toBe(0);
+    },
+  );
+
+  it("rejects a password matching name before persistence", async () => {
+    const name = "Asha-Kumar-123abc";
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ ...validSignup, name, password: name });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.fields).toEqual({
+      password: "Password must not match your name or email.",
+    });
+    await expect(User.countDocuments()).resolves.toBe(0);
+  });
+
+  it.each(["longenoughpassword1", "longenoughpassword!"])(
+    "accepts a password with %s",
+    async (password) => {
+      const response = await request(app)
+        .post("/api/auth/signup")
+        .send({ ...validSignup, password });
+
+      expect(response.status).toBe(201);
+    },
+  );
+
+  it("accepts a 72-byte UTF-8 password", async () => {
+    const password = `${"é".repeat(35)}1!`;
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ ...validSignup, password });
+
+    expect(response.status).toBe(201);
+  });
+
+  it.each([
+    ".asha@example.com",
+    "asha..kumar@example.com",
+    "asha@example",
+    "asha@example.c",
+    "asha@-example.com",
+    "asha@example-.com",
+    "asha@example..com",
+    "asha@example_domain.com",
+    "asha@@example.com",
+  ])("rejects malformed signup email %s before persistence", async (email) => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ ...validSignup, email });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatchObject({
@@ -121,6 +232,22 @@ describe("POST /api/auth/signup", () => {
         message: "An account with this email already exists.",
       },
     });
+  });
+
+  it("allows only one concurrent case-variant signup", async () => {
+    const [firstResponse, secondResponse] = await Promise.all([
+      request(app).post("/api/auth/signup").send(validSignup),
+      request(app)
+        .post("/api/auth/signup")
+        .send({ ...validSignup, email: "ASHA.KUMAR@EXAMPLE.COM" }),
+    ]);
+
+    expect([firstResponse.status, secondResponse.status].sort()).toEqual([
+      201, 409,
+    ]);
+    await expect(
+      User.countDocuments({ email: validSignup.email }),
+    ).resolves.toBe(1);
   });
 
   it("maps signup persistence failure safely without setting a session", async () => {

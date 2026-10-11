@@ -193,4 +193,186 @@ describe("authentication session routes", () => {
       "Expires=Thu, 01 Jan 1970",
     );
   });
+
+  it("updates only signed-in user's allow-listed profile fields", async () => {
+    const signedInUser = await createUser();
+    const otherUser = await createUser({
+      email: "other.user@example.com",
+      name: "Other User",
+    });
+    const loginResponse = await request(app)
+      .post("/api/auth/login")
+      .send(validCredentials);
+
+    const response = await request(app)
+      .patch("/api/auth/profile")
+      .set("Cookie", getSessionCookie(loginResponse))
+      .send({
+        name: "Asha Updated",
+        profile: {
+          experienceLevel: "advanced",
+          targetRole: "Platform Engineer",
+        },
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        email: validCredentials.email,
+        id: signedInUser.id,
+        name: "Asha Updated",
+        profile: {
+          experienceLevel: "advanced",
+          targetRole: "Platform Engineer",
+        },
+      },
+    });
+    expect(response.body).not.toHaveProperty("user.passwordHash");
+    await expect(User.findById(signedInUser.id)).resolves.toMatchObject({
+      name: "Asha Updated",
+      profile: {
+        experienceLevel: "advanced",
+        targetRole: "Platform Engineer",
+      },
+    });
+    await expect(User.findById(otherUser.id)).resolves.toMatchObject({
+      name: "Other User",
+    });
+  });
+
+  it("rejects invalid or unauthenticated profile updates without mutation", async () => {
+    const user = await createUser();
+    const loginResponse = await request(app)
+      .post("/api/auth/login")
+      .send(validCredentials);
+
+    const invalidResponse = await request(app)
+      .patch("/api/auth/profile")
+      .set("Cookie", getSessionCookie(loginResponse))
+      .send({
+        name: "Asha Kumar",
+        profile: { experienceLevel: "expert", isAdmin: true },
+        userId: new mongoose.Types.ObjectId().toString(),
+      });
+    const unauthenticatedResponse = await request(app)
+      .patch("/api/auth/profile")
+      .send({ name: "Another Name" });
+
+    expect(invalidResponse.status).toBe(400);
+    expect(invalidResponse.body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      fields: {
+        experienceLevel: "Choose a supported experience level.",
+        profile: "Enter valid profile details.",
+      },
+    });
+    expect(unauthenticatedResponse.status).toBe(401);
+    await expect(User.findById(user.id)).resolves.toMatchObject({
+      name: "Asha Kumar",
+      profile: {},
+    });
+  });
+
+  it("changes password only after current-password proof and refreshes cookie", async () => {
+    const user = await createUser();
+    const loginResponse = await request(app)
+      .post("/api/auth/login")
+      .send(validCredentials);
+    const newPassword = "new-secure-password-456";
+
+    const response = await request(app)
+      .patch("/api/auth/password")
+      .set("Cookie", getSessionCookie(loginResponse))
+      .send({
+        confirmation: newPassword,
+        currentPassword: validCredentials.password,
+        newPassword,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.headers["set-cookie"][0]).toContain(`${authCookieName}=`);
+    expect(response.body).not.toHaveProperty("user.passwordHash");
+    const storedUser = await User.findById(user.id).select("+passwordHash");
+    await expect(
+      bcrypt.compare(newPassword, storedUser.passwordHash),
+    ).resolves.toBe(true);
+    await expect(
+      bcrypt.compare(validCredentials.password, storedUser.passwordHash),
+    ).resolves.toBe(false);
+    await request(app)
+      .post("/api/auth/login")
+      .send(validCredentials)
+      .expect(401);
+    await request(app)
+      .post("/api/auth/login")
+      .send({ ...validCredentials, password: newPassword })
+      .expect(200);
+  });
+
+  it("preserves password when proof, policy, reuse, or confirmation fails", async () => {
+    const user = await createUser();
+    const loginResponse = await request(app)
+      .post("/api/auth/login")
+      .send(validCredentials);
+    const cookie = getSessionCookie(loginResponse);
+    const requests = [
+      {
+        confirmation: "new-secure-password-456",
+        currentPassword: "wrong-password-123",
+        newPassword: "new-secure-password-456",
+      },
+      {
+        confirmation: validCredentials.password,
+        currentPassword: validCredentials.password,
+        newPassword: validCredentials.password,
+      },
+      {
+        confirmation: "onlyletterslonger",
+        currentPassword: validCredentials.password,
+        newPassword: "onlyletterslonger",
+      },
+      {
+        confirmation: "mismatch",
+        currentPassword: validCredentials.password,
+        newPassword: "new-secure-password-456",
+      },
+    ];
+
+    const responses = await Promise.all(
+      requests.map((body) =>
+        request(app)
+          .patch("/api/auth/password")
+          .set("Cookie", cookie)
+          .send(body),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([
+      401, 400, 400, 400,
+    ]);
+    expect(responses[0].body.error.code).toBe("INVALID_CREDENTIALS");
+    expect(
+      responses
+        .slice(1)
+        .every((response) => response.body.error.code === "VALIDATION_ERROR"),
+    ).toBe(true);
+    expect(responses.every((response) => !response.headers["set-cookie"])).toBe(
+      true,
+    );
+    const storedUser = await User.findById(user.id).select("+passwordHash");
+    await expect(
+      bcrypt.compare(validCredentials.password, storedUser.passwordHash),
+    ).resolves.toBe(true);
+  });
+
+  it("rejects unauthenticated password changes", async () => {
+    const response = await request(app).patch("/api/auth/password").send({
+      confirmation: "new-secure-password-456",
+      currentPassword: validCredentials.password,
+      newPassword: "new-secure-password-456",
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+  });
 });

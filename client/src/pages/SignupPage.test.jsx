@@ -45,8 +45,57 @@ describe("SignupPage", () => {
     expect(screen.getByText("Enter your name.")).toBeVisible();
     expect(screen.getByText("Enter your email address.")).toBeVisible();
     expect(
-      screen.getByText("Use a password with at least 12 characters."),
+      screen.getByText("Use a password between 15 and 72 bytes."),
     ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Use 15–72 bytes with at least one number or special character.",
+      ),
+    ).toBeVisible();
+    expect(authContext.signup).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["onlyletterslonger", "Include at least one number or special character."],
+    ["longpassword123\u200B", "Password cannot contain control characters."],
+    ["asha@example.com", "Password must not match your name or email."],
+  ])("blocks invalid password %s before submitting", (password, message) => {
+    renderSignup();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Asha Kumar" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "asha@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: password },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(screen.getByText(message)).toBeVisible();
+    expect(authContext.signup).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed email before submitting", () => {
+    renderSignup();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Asha Kumar" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "asha@example" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "secure-password-123" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(screen.getByText("Enter a valid email address.")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: /email/i })).toHaveAttribute(
+      "placeholder",
+      "name@example.com",
+    );
     expect(authContext.signup).not.toHaveBeenCalled();
   });
 

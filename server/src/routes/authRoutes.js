@@ -5,6 +5,8 @@ import {
   login,
   logout,
   signup,
+  updatePassword,
+  updateProfile,
 } from "../controllers/authController.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
@@ -15,6 +17,8 @@ export function createAuthRouter({ authRateLimit }) {
   authRouter.post("/login", authRateLimit, login);
   authRouter.post("/logout", logout);
   authRouter.get("/me", requireAuth, getCurrentUser);
+  authRouter.patch("/profile", requireAuth, updateProfile);
+  authRouter.patch("/password", requireAuth, updatePassword);
 
   return authRouter;
 }

@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getCurrentUser, login, logout, signup } from "./authApi.js";
+import {
+  getCurrentUser,
+  login,
+  logout,
+  signup,
+  updatePassword,
+  updateProfile,
+} from "./authApi.js";
 
 const apiRequest = vi.hoisted(() => vi.fn());
 
@@ -42,6 +49,30 @@ describe("authApi", () => {
     expect(apiRequest).toHaveBeenNthCalledWith(1, "auth/me", undefined);
     expect(apiRequest).toHaveBeenNthCalledWith(2, "auth/logout", {
       method: "POST",
+    });
+  });
+
+  it("maps protected profile and password updates", () => {
+    const profileInput = {
+      name: "Asha Updated",
+      profile: { experienceLevel: "advanced", targetRole: "Platform Engineer" },
+    };
+    const passwordInput = {
+      confirmation: "new-secure-password-456",
+      currentPassword: "secure-password-123",
+      newPassword: "new-secure-password-456",
+    };
+
+    updateProfile(profileInput);
+    updatePassword(passwordInput);
+
+    expect(apiRequest).toHaveBeenNthCalledWith(1, "auth/profile", {
+      body: profileInput,
+      method: "PATCH",
+    });
+    expect(apiRequest).toHaveBeenNthCalledWith(2, "auth/password", {
+      body: passwordInput,
+      method: "PATCH",
     });
   });
 });

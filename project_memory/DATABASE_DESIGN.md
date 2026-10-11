@@ -41,9 +41,22 @@ Stores account identity, securely hashed authentication data, and only the profi
 
 ### Validation and indexes
 
-- Require a non-empty name, valid normalized email of at most 254 characters, and password meeting the team's chosen minimum policy.
+- Require a non-empty name and normalized signup email of at most 254
+  characters: one local part, `@`, valid DNS-style domain labels, and a final
+  alphabetic suffix of 2–63 characters. This is syntax validation, not mailbox
+  verification.
+- New or replacement passwords require 15–72 UTF-8 bytes, at least one number or
+  punctuation/symbol character, no control/format characters, and must not
+  match normalized account email or name. Password replacement also requires
+  current-password proof, exact confirmation, and rejects a match to the current
+  hash. Do not trim or silently truncate passwords. Existing stored password
+  hashes remain compatible with login.
+- Authenticated profile updates may change only `name`, `profile.targetRole`,
+  and `profile.experienceLevel`; email and `passwordHash` are never writable by
+  this profile operation.
 - Store only a strong password hash (for example, bcrypt or Argon2 output); never store a plain password.
-- Unique index: `{ email: 1 }`.
+- Unique index: `{ email: 1 }`; it is the final authority for concurrent
+  duplicate-account rejection after lowercase normalization.
 - Return a safe projection from APIs: `_id`, `name`, `email`, `profile`, timestamps. Exclude `passwordHash` always.
 
 ## `resumes`

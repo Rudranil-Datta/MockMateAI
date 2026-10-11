@@ -60,6 +60,23 @@ Startup must validate the presence and format of required configuration. In prod
 ## Authentication and Access Control
 
 - Hash passwords using a modern password-hashing library such as bcrypt or Argon2. Never store or log a plain-text password.
+- For new signup, normalize email before persistence and validate one local
+  part, `@`, DNS-style domain labels, and a 2–63-letter final suffix. Keep the
+  database unique email index as the final concurrent duplicate-account guard;
+  return a safe duplicate-email field error. Syntax validation is not email
+  ownership verification.
+- New or replacement passwords require 15–72 UTF-8 bytes plus a number or
+  punctuation/symbol character. Reject control/format characters and values
+  matching normalized account email or name. Do not trim or silently truncate
+  passwords; existing stored password hashes remain valid for login.
+- Password change requires the authenticated user's current password, exact
+  confirmation, and a replacement that differs from the current bcrypt hash.
+  Select the hash only inside the password service; never include credentials in
+  API output or logs. Reissue only the successful caller's cookie. Independent
+  sessions are not revoked until a separately approved session-version design.
+- Profile updates derive identity from the verified session and allow-list only
+  name, target role, and experience level. Email remains read-only pending the
+  separately deferred verification/change feature.
 - Use secure, expiring authentication. For cookie sessions, set `HttpOnly`, `Secure`, and an appropriate `SameSite` policy. For token-based auth, keep tokens short-lived and avoid storing long-lived credentials in insecure browser storage.
 - Apply authentication middleware to all resume, interview, answer, and analytics routes.
 - Enforce authorization in each data query: retrieve/update resources by both resource ID and authenticated `userId`.

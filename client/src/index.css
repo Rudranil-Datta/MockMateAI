@@ -1435,6 +1435,10 @@ p {
   font-weight: 700;
   gap: 7px;
 }
+.auth-field {
+  display: grid;
+  gap: 7px;
+}
 .auth-form input {
   background: #ffffff;
   border: 1px solid #71809a;
@@ -1456,6 +1460,11 @@ p {
   font-size: 0.8125rem;
   font-weight: 650;
 }
+.field-hint {
+  color: #5f6f89;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
 .auth-form .button {
   margin-top: 0;
   width: 100%;
@@ -1474,6 +1483,28 @@ p {
 
 .account-card {
   margin-bottom: 24px;
+}
+.account-form-grid {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+.account-form-grid .auth-form {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 0;
+  padding-top: 24px;
+}
+.account-form-grid .auth-form h2,
+.account-form-grid .auth-form p {
+  margin: 0;
+}
+.account-form-grid .auth-form p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-top: 6px;
 }
 .account-details {
   display: grid;
@@ -2275,6 +2306,11 @@ textarea:focus-visible {
 .trend-data-list strong,
 .public-link a {
   color: var(--cobalt-500);
+}
+@media (max-width: 720px) {
+  .account-form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .choice-card-button {
   background: linear-gradient(

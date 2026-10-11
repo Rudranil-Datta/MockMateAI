@@ -1,8 +1,10 @@
 import {
   authenticateUser,
+  changeUserPassword,
   createUser,
   findUserById,
   toSafeUser,
+  updateUserProfile,
 } from "../services/authService.js";
 import {
   authCookieName,
@@ -13,6 +15,8 @@ import {
 import { AppError } from "../utils/AppError.js";
 import {
   validateLoginRequest,
+  validatePasswordChangeRequest,
+  validateProfileUpdateRequest,
   validateSignupRequest,
 } from "../validators/authSchemas.js";
 
@@ -62,6 +66,37 @@ export async function getCurrentUser(request, response, next) {
     }
 
     response.status(200).json({ user: toSafeUser(user) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateProfile(request, response, next) {
+  try {
+    const profileInput = validateProfileUpdateRequest(request.body);
+    const user = await updateUserProfile({
+      ...profileInput,
+      userId: request.auth.userId,
+    });
+
+    response.status(200).json({ user: toSafeUser(user) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updatePassword(request, response, next) {
+  try {
+    const passwordInput = validatePasswordChangeRequest(request.body);
+    const user = await changeUserPassword({
+      ...passwordInput,
+      userId: request.auth.userId,
+    });
+
+    response
+      .cookie(authCookieName, createAuthToken(user.id), getAuthCookieOptions())
+      .status(200)
+      .json({ user: toSafeUser(user) });
   } catch (error) {
     next(error);
   }

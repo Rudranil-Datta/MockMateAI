@@ -5,8 +5,34 @@ import { ApiError } from "../api/httpClient.js";
 import Button from "../components/common/Button.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
 import useAuth from "../hooks/useAuth.js";
+import { getPasswordPolicyError } from "../utils/passwordPolicy.js";
 
 const initialFields = { email: "", name: "", password: "" };
+const emailLocalPartPattern = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i;
+const emailDomainLabelPattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+const emailTopLevelDomainPattern = /^[a-z]{2,63}$/i;
+
+function hasValidSignupEmailSyntax(value) {
+  const email = value.trim();
+  const separatorIndex = email.indexOf("@");
+
+  if (separatorIndex <= 0 || separatorIndex !== email.lastIndexOf("@")) {
+    return false;
+  }
+
+  const localPart = email.slice(0, separatorIndex);
+  const domainLabels = email.slice(separatorIndex + 1).split(".");
+
+  return (
+    !localPart.startsWith(".") &&
+    !localPart.endsWith(".") &&
+    !localPart.includes("..") &&
+    emailLocalPartPattern.test(localPart) &&
+    domainLabels.length >= 2 &&
+    domainLabels.every((label) => emailDomainLabelPattern.test(label)) &&
+    emailTopLevelDomainPattern.test(domainLabels.at(-1))
+  );
+}
 
 function validate(fields) {
   const errors = {};
@@ -16,9 +42,12 @@ function validate(fields) {
   }
   if (!fields.email.trim()) {
     errors.email = "Enter your email address.";
+  } else if (!hasValidSignupEmailSyntax(fields.email)) {
+    errors.email = "Enter a valid email address.";
   }
-  if (fields.password.length < 12) {
-    errors.password = "Use a password with at least 12 characters.";
+  const passwordError = getPasswordPolicyError(fields);
+  if (passwordError) {
+    errors.password = passwordError;
   }
 
   return errors;
@@ -105,6 +134,7 @@ function SignupPage() {
               id="signup-email"
               name="email"
               onChange={updateField}
+              placeholder="name@example.com"
               type="email"
               value={fields.email}
             />
@@ -114,26 +144,33 @@ function SignupPage() {
               </span>
             ) : null}
           </label>
-          <label htmlFor="signup-password">
-            Password
-            <input
-              aria-describedby={
-                errors.password ? "signup-password-error" : undefined
-              }
-              aria-invalid={Boolean(errors.password)}
-              autoComplete="new-password"
-              id="signup-password"
-              name="password"
-              onChange={updateField}
-              type="password"
-              value={fields.password}
-            />
+          <div className="auth-field">
+            <label htmlFor="signup-password">
+              Password
+              <input
+                aria-describedby={
+                  errors.password
+                    ? "signup-password-hint signup-password-error"
+                    : "signup-password-hint"
+                }
+                aria-invalid={Boolean(errors.password)}
+                autoComplete="new-password"
+                id="signup-password"
+                name="password"
+                onChange={updateField}
+                type="password"
+                value={fields.password}
+              />
+            </label>
+            <span className="field-hint" id="signup-password-hint">
+              Use 15–72 bytes with at least one number or special character.
+            </span>
             {errors.password ? (
               <span className="field-error" id="signup-password-error">
                 {errors.password}
               </span>
             ) : null}
-          </label>
+          </div>
           <Button isLoading={isSubmitting} type="submit">
             Create account
           </Button>

@@ -10,6 +10,8 @@ const authApi = vi.hoisted(() => ({
   login: vi.fn(),
   logout: vi.fn(),
   signup: vi.fn(),
+  updatePassword: vi.fn(),
+  updateProfile: vi.fn(),
 }));
 
 vi.mock("../api/authApi.js", () => ({
@@ -17,6 +19,8 @@ vi.mock("../api/authApi.js", () => ({
   login: authApi.login,
   logout: authApi.logout,
   signup: authApi.signup,
+  updatePassword: authApi.updatePassword,
+  updateProfile: authApi.updateProfile,
 }));
 
 function AuthStatus() {
@@ -27,6 +31,8 @@ function AuthStatus() {
     logout,
     retrySession,
     signup,
+    updatePassword,
+    updateProfile,
     user,
   } = useAuth();
   return (
@@ -57,6 +63,22 @@ function AuthStatus() {
       </button>
       <button onClick={retrySession}>retry</button>
       <button onClick={() => logout().catch(() => undefined)}>logout</button>
+      <button
+        onClick={() =>
+          updateProfile({ name: "Updated User" }).catch(() => undefined)
+        }
+      >
+        profile
+      </button>
+      <button
+        onClick={() =>
+          updatePassword({ newPassword: "new-secure-password-456" }).catch(
+            () => undefined,
+          )
+        }
+      >
+        password
+      </button>
     </div>
   );
 }
@@ -202,5 +224,29 @@ describe("AuthProvider", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "logout" }));
     await screen.findByText("signed-out");
+  });
+
+  it.each([
+    ["profile", "updateProfile", { name: "Updated User" }],
+    ["password", "updatePassword", { newPassword: "new-secure-password-456" }],
+  ])("updates user after %s mutation", async (button, method, input) => {
+    authApi.getCurrentUser.mockResolvedValueOnce({
+      user: { email: "asha@example.com" },
+    });
+    authApi[method].mockResolvedValueOnce({
+      user: { email: `${button}@example.com` },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthStatus />
+      </AuthProvider>,
+    );
+
+    await screen.findByText("asha@example.com");
+    fireEvent.click(screen.getByRole("button", { name: button }));
+
+    expect(await screen.findByText(`${button}@example.com`)).toBeVisible();
+    expect(authApi[method]).toHaveBeenCalledWith(input);
   });
 });

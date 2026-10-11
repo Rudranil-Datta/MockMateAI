@@ -15,3 +15,19 @@ export function logout(options) {
 export function getCurrentUser(options) {
   return apiRequest("auth/me", options);
 }
+
+export function updateProfile(input, options) {
+  return apiRequest("auth/profile", {
+    ...options,
+    body: input,
+    method: "PATCH",
+  });
+}
+
+export function updatePassword(input, options) {
+  return apiRequest("auth/password", {
+    ...options,
+    body: input,
+    method: "PATCH",
+  });
+}
