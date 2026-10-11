@@ -215,6 +215,79 @@ describe("resumeService", () => {
     expect(limit).toHaveBeenCalledWith(100);
   });
 
+  it("detaches only owned project provenance before deleting a standalone resume", async () => {
+    const resumeId = "507f1f77bcf86cd799439011";
+    const userId = "507f1f77bcf86cd799439012";
+    const resumeLean = vi.fn().mockResolvedValue({ _id: resumeId });
+    const resumeSelect = vi.fn().mockReturnValue({ lean: resumeLean });
+    const projectLean = vi
+      .fn()
+      .mockResolvedValue([{ _id: "507f1f77bcf86cd799439013" }]);
+    const projectSelect = vi.fn().mockReturnValue({ lean: projectLean });
+    const candidateProjectModel = {
+      find: vi.fn().mockReturnValue({ select: projectSelect }),
+      updateMany: vi.fn().mockResolvedValue({ modifiedCount: 1 }),
+    };
+    const interviewSessionModel = { exists: vi.fn().mockResolvedValue(null) };
+    const resumeModel = {
+      deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+      findOne: vi.fn().mockReturnValue({ select: resumeSelect }),
+    };
+    const resumeService = createResumeService({
+      candidateProjectModel,
+      interviewSessionModel,
+      resumeModel,
+    });
+
+    await expect(
+      resumeService.deleteOwnedResume({ resumeId, userId }),
+    ).resolves.toBeUndefined();
+
+    expect(interviewSessionModel.exists).toHaveBeenCalledWith({
+      resumeId,
+      status: { $in: ["created", "active"] },
+      userId,
+    });
+    expect(candidateProjectModel.updateMany).toHaveBeenCalledWith(
+      {
+        _id: { $in: ["507f1f77bcf86cd799439013"] },
+        sourceResumeId: resumeId,
+        userId,
+      },
+      { $unset: { sourceResumeId: "" } },
+    );
+    expect(resumeModel.deleteOne).toHaveBeenCalledWith({
+      _id: resumeId,
+      userId,
+    });
+  });
+
+  it("does not detach projects or delete when an active interview references the resume", async () => {
+    const resumeId = "507f1f77bcf86cd799439011";
+    const resumeLean = vi.fn().mockResolvedValue({ _id: resumeId });
+    const resumeSelect = vi.fn().mockReturnValue({ lean: resumeLean });
+    const candidateProjectModel = { find: vi.fn(), updateMany: vi.fn() };
+    const interviewSessionModel = {
+      exists: vi.fn().mockResolvedValue({ _id: "session-1" }),
+    };
+    const resumeModel = {
+      deleteOne: vi.fn(),
+      findOne: vi.fn().mockReturnValue({ select: resumeSelect }),
+    };
+    const resumeService = createResumeService({
+      candidateProjectModel,
+      interviewSessionModel,
+      resumeModel,
+    });
+
+    await expect(
+      resumeService.deleteOwnedResume({ resumeId, userId: "owner-1" }),
+    ).rejects.toMatchObject({ code: "RESUME_IN_USE", status: 409 });
+
+    expect(candidateProjectModel.find).not.toHaveBeenCalled();
+    expect(resumeModel.deleteOne).not.toHaveBeenCalled();
+  });
+
   it("removes stored upload when metadata persistence fails", async () => {
     const directory = await mkdtemp(
       join(tmpdir(), "mockmateai-resume-service-"),

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/httpClient.js";
 import Button from "../components/common/Button.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
+import PasswordInput from "../components/common/PasswordInput.jsx";
 import useAuth from "../hooks/useAuth.js";
 import { getPasswordPolicyError } from "../utils/passwordPolicy.js";
 
@@ -147,7 +148,7 @@ function SignupPage() {
           <div className="auth-field">
             <label htmlFor="signup-password">
               Password
-              <input
+              <PasswordInput
                 aria-describedby={
                   errors.password
                     ? "signup-password-hint signup-password-error"
@@ -158,7 +159,6 @@ function SignupPage() {
                 id="signup-password"
                 name="password"
                 onChange={updateField}
-                type="password"
                 value={fields.password}
               />
             </label>

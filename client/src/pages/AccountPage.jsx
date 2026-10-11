@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import Card from "../components/common/Card.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
+import PasswordInput from "../components/common/PasswordInput.jsx";
 import useAuth from "../hooks/useAuth.js";
 import { ApiError } from "../api/httpClient.js";
 import Button from "../components/common/Button.jsx";
@@ -256,7 +257,7 @@ function AccountPage() {
             ) : null}
             <label htmlFor="account-current-password">
               Current password
-              <input
+              <PasswordInput
                 aria-describedby={
                   passwordErrors.currentPassword
                     ? "account-current-password-error"
@@ -282,7 +283,7 @@ function AccountPage() {
             <div className="auth-field">
               <label htmlFor="account-new-password">
                 New password
-                <input
+                <PasswordInput
                   aria-describedby={
                     passwordErrors.newPassword
                       ? "account-password-hint account-new-password-error"
@@ -293,7 +294,6 @@ function AccountPage() {
                   id="account-new-password"
                   name="newPassword"
                   onChange={updatePasswordField}
-                  type="password"
                   value={passwordFields.newPassword}
                 />
               </label>
@@ -308,7 +308,7 @@ function AccountPage() {
             </div>
             <label htmlFor="account-password-confirmation">
               Confirm new password
-              <input
+              <PasswordInput
                 aria-describedby={
                   passwordErrors.confirmation
                     ? "account-password-confirmation-error"
@@ -319,7 +319,6 @@ function AccountPage() {
                 id="account-password-confirmation"
                 name="confirmation"
                 onChange={updatePasswordField}
-                type="password"
                 value={passwordFields.confirmation}
               />
               {passwordErrors.confirmation ? (

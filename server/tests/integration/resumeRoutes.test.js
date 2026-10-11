@@ -6,6 +6,7 @@ import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../../src/app.js";
+import InterviewSession from "../../src/models/InterviewSession.js";
 import Resume from "../../src/models/Resume.js";
 import { createResumeService } from "../../src/services/resumeService.js";
 import { createTestPdf } from "../helpers/createTestPdf.js";
@@ -138,6 +139,7 @@ describe("resume routes", () => {
     const failingApp = createApp({
       resumeService: {
         assertOwnedCompletedResume: vi.fn(),
+        deleteOwnedResume: vi.fn(),
         listOwnedResumes: vi
           .fn()
           .mockRejectedValue(new Error("Private database list detail")),
@@ -200,6 +202,88 @@ describe("resume routes", () => {
     expect(resume.userId.toString()).toBe(user.id);
     expect(resume.storage).toBeUndefined();
     expect(await readdir(resumeUploadDir)).toEqual([]);
+  });
+
+  it("deletes only an owned standalone resume with a no-content response", async () => {
+    const { app } = await createUploadApp();
+    const { cookie, user } = await signup(app);
+    const { user: otherUser } = await signup(app, {
+      ...validSignup,
+      email: "resume.delete.other@example.com",
+    });
+    const ownedResume = await Resume.create({
+      extractedText: "Private owned resume text",
+      extractionStatus: "completed",
+      mimeType: "application/pdf",
+      originalName: "owned.pdf",
+      sizeBytes: 240,
+      userId: user.id,
+    });
+    const foreignResume = await Resume.create({
+      extractedText: "Private foreign resume text",
+      extractionStatus: "completed",
+      mimeType: "application/pdf",
+      originalName: "foreign.pdf",
+      sizeBytes: 240,
+      userId: otherUser.id,
+    });
+
+    const unauthenticatedResponse = await request(app).delete(
+      `/api/resumes/${ownedResume.id}`,
+    );
+    const foreignResponse = await request(app)
+      .delete(`/api/resumes/${foreignResume.id}`)
+      .set("Cookie", cookie);
+    const malformedResponse = await request(app)
+      .delete("/api/resumes/not-an-id")
+      .set("Cookie", cookie);
+    const deleteResponse = await request(app)
+      .delete(`/api/resumes/${ownedResume.id}`)
+      .set("Cookie", cookie);
+
+    expect(unauthenticatedResponse.status).toBe(401);
+    expect(foreignResponse.status).toBe(404);
+    expect(foreignResponse.body.error.code).toBe("RESUME_NOT_FOUND");
+    expect(malformedResponse.status).toBe(404);
+    expect(deleteResponse.status).toBe(204);
+    expect(deleteResponse.text).toBe("");
+    await expect(Resume.findById(ownedResume.id)).resolves.toBeNull();
+    await expect(Resume.findById(foreignResume.id)).resolves.toBeTruthy();
+  });
+
+  it("blocks a resume referenced by an active interview", async () => {
+    const { app } = await createUploadApp();
+    const { cookie, user } = await signup(app, {
+      ...validSignup,
+      email: "resume.delete.active@example.com",
+    });
+    const resume = await Resume.create({
+      extractedText: "Private active resume text",
+      extractionStatus: "completed",
+      mimeType: "application/pdf",
+      originalName: "active.pdf",
+      sizeBytes: 240,
+      userId: user.id,
+    });
+    await InterviewSession.create({
+      interviewType: "DSA",
+      level: "beginner",
+      resumeId: resume.id,
+      status: "active",
+      startedAt: new Date(),
+      userId: user.id,
+    });
+
+    const response = await request(app)
+      .delete(`/api/resumes/${resume.id}`)
+      .set("Cookie", cookie);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toEqual({
+      code: "RESUME_IN_USE",
+      message: "Finish the active interview before deleting this resume.",
+    });
+    await expect(Resume.findById(resume.id)).resolves.toBeTruthy();
   });
 
   it("requires authentication and rejects unsupported, invalid-signature, and oversized uploads", async () => {

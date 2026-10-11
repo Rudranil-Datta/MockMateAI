@@ -55,6 +55,17 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText("Email")).toHaveValue("asha@example.com");
   });
 
+  it("shows and hides the password without changing its value", () => {
+    renderLogin();
+    const password = screen.getByLabelText("Password");
+    fireEvent.change(password, { target: { value: "secure-password-123" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("secure-password-123");
+    expect(screen.getByRole("button", { name: "Hide password" })).toBeVisible();
+  });
+
   it("submits normalized credentials and redirects after login", async () => {
     let resolveLogin;
     authContext.login.mockImplementationOnce(

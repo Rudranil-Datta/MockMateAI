@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/httpClient.js";
 import Button from "../components/common/Button.jsx";
 import InlineAlert from "../components/common/InlineAlert.jsx";
+import PasswordInput from "../components/common/PasswordInput.jsx";
 import useAuth from "../hooks/useAuth.js";
 
 const initialFields = { email: "", password: "" };
@@ -93,7 +94,7 @@ function LoginPage() {
           </label>
           <label htmlFor="login-password">
             Password
-            <input
+            <PasswordInput
               aria-describedby={
                 errors.password ? "login-password-error" : undefined
               }

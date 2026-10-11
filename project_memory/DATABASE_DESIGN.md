@@ -297,7 +297,9 @@ optional owned completed `sourceResumeId`, server-written `confirmedAt`, and
 timestamps. Indexes are `{userId,updatedAt}` and `{userId,confirmedAt}`.
 Every read/update/delete filters by authenticated owner; extraction drafts stay
 only in bounded process memory and never enter MongoDB. No migration or backfill
-was required, and deleting a source resume/project has no cascade.
+was required. Deleting an owned resume detaches only its owned optional
+`sourceResumeId` links; it never deletes/downgrades candidate projects or
+cascades to interview history/snapshots.
 
 Day 4 added optional `sessionPurpose`, `focusSkillKey`, complete optional
 question metadata, and complete private adaptive-decision staging. Metadata is

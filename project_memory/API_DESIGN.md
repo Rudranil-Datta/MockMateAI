@@ -239,9 +239,16 @@ The empty state is `{ "resumes": [] }`. Never return `userId`, `storage`, `extra
 
 ### `DELETE /api/resumes/:id`
 
-**Deferred during Day 23 pending an approved reference/retention policy; not implemented.**
+Deletes one owned resume and returns `204 No Content`. The authenticated user is
+derived from the session; malformed, missing, repeated, or foreign IDs return
+the same safe `404 RESUME_NOT_FOUND` result. It returns `409 RESUME_IN_USE`
+when an owned `created` or `active` interview still references the resume.
 
-Optional but recommended for privacy. Deletes an owned resume under the documented reference/retention policy. Protected route.
+Deletion never cascades to Candidate Projects or interview history. It detaches
+only owned optional `CandidateProject.sourceResumeId` links, leaving confirmed
+project facts/status and completed interview snapshots intact. The client must
+ask for explicit confirmation, keep the card on failure/cancel, and remove it
+from the list only after `204`.
 
 ## Interviews
 

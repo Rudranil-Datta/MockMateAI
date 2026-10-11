@@ -8,6 +8,93 @@ V1 day numbering follows [IMPLEMENTATION_TIMELINE.md](IMPLEMENTATION_TIMELINE.md
 
 ## Current Day Execution Plan
 
+### UI-COACH-01 dashboard Coach responsive polish
+
+**Status:** Complete — user approved CSS-only repair on 2026-10-12. No API,
+state, persistence, provider, dependency, browser, deployment, commit, or push
+scope is included.
+
+| ID           | Authority                                                | Required result                                                                                                              | Boundary/risk control                                                                                | Verification                                          | Status |
+| ------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------ |
+| UI-COACH-01A | User direction; UI design responsive/accessibility rules | Preparation steps align status markers and labels at all widths.                                                             | `index.css` only; preserve labels and completion state.                                              | Static CSS review and client lint/build.              | Passed |
+| UI-COACH-01B | User direction; UI responsive rules                      | Coach selector never exceeds card/viewport width; long selected labels may truncate visually without changing option values. | `index.css` only; preserve native select, keyboard operation, full option values, and context state. | Static mobile-width CSS review and client lint/build. | Passed |
+| UI-COACH-01C | User direction; UI accessibility rules                   | Inactive navigation is more legible on dark navigation surfaces while active/focus behavior remains distinct.                | `index.css` only; no route/navigation behavior change.                                               | Static color/state review and client lint/build.      | Passed |
+
+**Manual tasks for user:** None.
+
+**Completion review:** Changed only `index.css` and this tracker. Step markers
+now use centered flex alignment. Coach/planner selects use bounded full width,
+minimum-width reset, and selected-label ellipsis styling. Navigation links use
+the higher-contrast secondary text token; active/focus rules remain unchanged.
+Focused Dashboard/Coach tests `12/12`, client lint, client build, and diff check
+passed. Browser smoke N/A: responsive CSS is statically bounded and no
+browser-only behavior changed.
+
+### DOC-01 documentation consolidation
+
+**Status:** Complete — documentation-only cleanup approved by the user on
+2026-10-11. No application code, configuration, dependency, provider,
+database, deployment, commit, or push work is in scope.
+
+| ID     | Authority                                                      | Expected result                                                                                                                         | Boundaries and risk control                                                                                                                                                                                        | Verification                                                                          | Status   |
+| ------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | -------- |
+| DOC-01 | User-requested documentation cleanup; Delivery Assurance §§1–5 | One clear V1/V2 documentation set, no duplicate Day 11–13 planning records, accurate V2 progress headers, and an academic-report guide. | Documentation only. Preserve live tracker, approved baselines, contracts, decisions, remediation evidence, and unresolved findings; delete only files whose material is retained by `UPGRADE.md` and this tracker. | Reference scan, `npm run validate:delivery`, formatting check, and final diff review. | Complete |
+
+**Manual tasks for user:** None.
+
+**Evidence:** Removed four superseded Day 11–13 records after retaining their
+durable scope/evidence in `UPGRADE.md` and this tracker. Reconciled stale V2
+plan/timeline status headers and E3 completion labels. `npm run
+validate:delivery`, `npm run format`, reference scan, and `git diff --check`
+passed.
+
+### R20-15 / AUTH-05 resume deletion and password visibility plan
+
+**Status:** Complete — user-approved `R20-15A–C` and `AUTH-05A–B` implemented
+and verified on 2026-10-11. Scope remained owned resume deletion plus client
+password visibility only; no configuration, provider, package, deployment,
+commit, or push action was performed.
+
+| ID       | Authority                                                                 | Required behavior                                                                                                                       | Affected boundaries                                                                                           | Risk control                                                                                                                                                                                                                                                                                                                                                        | Planned evidence                                                                                                                                                                  | Disposition               |
+| -------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| R20-15A  | User direction; API/database/security contracts; Delivery Assurance §§1–5 | An authenticated user can explicitly delete one owned resume from the Resumes list.                                                     | `DELETE /api/resumes/:id`; route/controller/service; `resumeApi`; `ResumesPage`; API/database/security docs.  | Derive owner solely from session; valid ObjectId only; foreign/missing ID returns existing-safe absence result; no raw extracted text, file path, or database detail in response/logs.                                                                                                                                                                              | Focused server 21/21 proves protected owned/foreign/malformed/active cases; client 28/28 proves confirmation, loading, failure recovery, and list removal.                        | Required; passed locally. |
+| R20-15B  | User direction; resume/interview/project lifecycle contracts              | Resume deletion must not break active practice or corrupt confirmed project facts/history.                                              | `InterviewSession.resumeId`; `CandidateProject.sourceResumeId`; resume/project/interview services and models. | Reject deletion with safe `409 RESUME_IN_USE` while an owned `created` or `active` interview references that resume. For completed history, retain historical session fields/snapshots. Before deletion, detach only owned optional `sourceResumeId` links from Candidate Projects; confirmed facts/status remain unchanged. No project/interview cascade deletion. | Focused unit proof covers active guard and owned provenance unlink. If the resume delete fails after unlink, the service restores those exact links before surfacing the failure. | Required; passed locally. |
+| R20-15C  | User direction; UI/accessibility/recovery rules                           | User sees destructive-action confirmation, one pending delete action, honest success/error notice, and updated list only after success. | `ResumesPage`, shared button/alert styles, focused component tests.                                           | Name selected resume in confirmation; retain list/action after cancel/failure; disable all delete actions while one request is pending; native keyboard control and visible error/status. No browser-only modal/package required.                                                                                                                                   | Focused client 28/28 covers cancel, confirm, pending lock, safe failure, success-only list removal, and accessible labels.                                                        | Required; passed locally. |
+| AUTH-05A | User direction; auth/security/accessibility rules                         | Each password field on Login, Signup, and Account password change has an independent Show/Hide control and remains masked initially.    | `LoginPage`, `SignupPage`, `AccountPage`, focused page tests and CSS only.                                    | Toggle only input `type`; never change submitted value, validation, autocomplete, API payload, persistence, logs, or password policy. Default returns to masked on new page/form state.                                                                                                                                                                             | Focused client 28/28 covers masked default, preserved value, each form integration, and independent Account controls.                                                             | Required; passed locally. |
+| AUTH-05B | User direction; accessibility rules                                       | Toggle labels communicate current action and remain keyboard/screen-reader usable.                                                      | Button semantics, `aria-label`, icon visibility, focus styling.                                               | Use native button with exact accessible action (`Show password`/`Hide password`); icon decorative; no tooltip-only instruction; field error associations stay intact.                                                                                                                                                                                               | Focused client 28/28 covers button role/action labels; CSS gives visible keyboard focus styling.                                                                                  | Required; passed locally. |
+
+#### Execution and verification matrix
+
+| Category             | R20-15 resume deletion                                                                                                    | AUTH-05 password visibility                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Success              | Owned standalone resume disappears only after confirmed successful delete.                                                | Each selected field switches masked/visible without changing its value.     |
+| Validation/ownership | Invalid, foreign, absent, and unauthenticated requests stay safe.                                                         | N/A: no request or persisted input changes.                                 |
+| State/concurrency    | One delete wins; active reference blocks; completed history survives; project provenance detaches safely.                 | Independent toggles do not alter submit/loading/error state.                |
+| Persistence/recovery | Failed dependent cleanup must not leave deleted resume with unsafe live dependency; UI retains retryable card on failure. | N/A: local component state only.                                            |
+| Privacy/security     | No raw resume, storage/path, or foreign existence disclosure.                                                             | No password appears in alerts/logs/API; masking remains default.            |
+| Regression           | Existing upload/list/practice/project flows remain usable.                                                                | Existing Login/Signup/password-update validation and payloads remain exact. |
+| Documentation        | API, database, security, and status records update after behavior is proved.                                              | Security/status records update after behavior is proved.                    |
+
+**Decisions requiring implementation approval:**
+
+1. `R20-15` permits deletion only after explicit user confirmation. A linked
+   `created`/`active` interview blocks deletion; user must finish that interview
+   or use another resume first.
+2. Deleting a resume detaches its optional source link from owned Candidate
+   Projects but never deletes/downgrades those projects or any completed
+   interview/history/snapshot.
+3. `AUTH-05` is client-only. No package, API, authentication, password-policy,
+   or configuration change.
+
+**Manual tasks for user:** None.
+
+**Evidence:** `server` focused resume route/service tests `21/21`; `client`
+focused Resume/Login/Signup/Account tests `28/28`; server/client lint passed
+(one pre-existing intentional control-regex warning remains in
+`readmeImportService.js`); client production build, Prettier, delivery
+validation, and `git diff --check` passed. No provider, browser, deployment,
+commit, or push action occurred.
+
 **Timeline position:** R1-19 shared Gemini live-compatibility remediation
 planning.
 **Current status:** Partial — local R1-19 instrumentation and central request
@@ -1090,8 +1177,8 @@ were confirmed free. No live provider, deployment, commit, or push action occurr
 dependency, API, persistence, provider, migration, deployment, browser,
 commit, or push work.
 
-Detailed Day 13 traceability, verification, risk, task, test, and stop-gate
-matrices are in [`Day 13.md`](Day%2013.md).
+Detailed Day 13 evidence is consolidated in [`UPGRADE.md`](UPGRADE.md#e3) and
+this live record.
 
 ### Objective
 
@@ -1183,8 +1270,8 @@ and scoped diff check passed.
 composition, guided existing-contract setup. No server, dependency, persistence,
 provider, migration, deployment, browser, commit, or push work.
 
-Detailed Day 12 traceability, verification, risk, task, test, and stop-gate
-matrices are in [`Day 12.md`](Day%2012.md). Day 11 remains complete below.
+Detailed Day 12 evidence is consolidated in [`UPGRADE.md`](UPGRADE.md#e2) and
+this live record. Day 11 remains complete below.
 
 ### Objective
 

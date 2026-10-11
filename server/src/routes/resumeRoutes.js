@@ -26,6 +26,7 @@ export function createResumeRouter({
     uploadResume,
     resumeController.createResume,
   );
+  resumeRouter.delete("/:resumeId", requireAuth, resumeController.deleteResume);
 
   return resumeRouter;
 }

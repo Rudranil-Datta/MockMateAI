@@ -1,6 +1,9 @@
 import { open, rm } from "node:fs/promises";
 import { basename } from "node:path";
+import mongoose from "mongoose";
 
+import CandidateProject from "../models/CandidateProject.js";
+import InterviewSession from "../models/InterviewSession.js";
 import Resume from "../models/Resume.js";
 import { AppError } from "../utils/AppError.js";
 import { getOwnedResourceFilter } from "../utils/getOwnedResourceFilter.js";
@@ -202,6 +205,20 @@ function unavailableContext() {
   );
 }
 
+function unavailableResume() {
+  return new AppError("RESUME_NOT_FOUND", "Resume is unavailable.", {
+    status: 404,
+  });
+}
+
+function resumeInUse() {
+  return new AppError(
+    "RESUME_IN_USE",
+    "Finish the active interview before deleting this resume.",
+    { status: 409 },
+  );
+}
+
 async function hasPdfSignature(path) {
   const fileHandle = await open(path, "r");
 
@@ -216,7 +233,9 @@ async function hasPdfSignature(path) {
 }
 
 export function createResumeService({
+  candidateProjectModel = CandidateProject,
   extractPdfText = defaultExtractPdfText,
+  interviewSessionModel = InterviewSession,
   resumeModel = Resume,
 } = {}) {
   const service = {
@@ -277,6 +296,57 @@ export function createResumeService({
         return toSafeResume(resume);
       } finally {
         await removeStoredFile(file.path);
+      }
+    },
+
+    async deleteOwnedResume({ resumeId, userId }) {
+      if (!mongoose.isObjectIdOrHexString(resumeId)) {
+        throw unavailableResume();
+      }
+
+      const resume = await resumeModel
+        .findOne(getOwnedResourceFilter(resumeId, userId))
+        .select("_id")
+        .lean();
+      if (!resume) throw unavailableResume();
+
+      const hasActiveInterview = await interviewSessionModel.exists({
+        resumeId: resume._id,
+        status: { $in: ["created", "active"] },
+        userId,
+      });
+      if (hasActiveInterview) throw resumeInUse();
+
+      const linkedProjects = await candidateProjectModel
+        .find({ sourceResumeId: resume._id, userId })
+        .select("_id")
+        .lean();
+      const linkedProjectIds = linkedProjects.map((project) => project._id);
+
+      if (linkedProjectIds.length) {
+        await candidateProjectModel.updateMany(
+          {
+            _id: { $in: linkedProjectIds },
+            sourceResumeId: resume._id,
+            userId,
+          },
+          { $unset: { sourceResumeId: "" } },
+        );
+      }
+
+      try {
+        const deletion = await resumeModel.deleteOne(
+          getOwnedResourceFilter(resume._id, userId),
+        );
+        if (deletion.deletedCount !== 1) throw unavailableResume();
+      } catch (error) {
+        if (linkedProjectIds.length) {
+          await candidateProjectModel.updateMany(
+            { _id: { $in: linkedProjectIds }, userId },
+            { $set: { sourceResumeId: resume._id } },
+          );
+        }
+        throw error;
       }
     },
 

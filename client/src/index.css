@@ -1350,6 +1350,19 @@ p {
 .resume-list-actions {
   justify-content: flex-end;
 }
+.resume-delete-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid #c84242;
+  color: #9a2828;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.resume-delete-button:hover:not(:disabled) {
+  background: var(--surface-coral);
+}
 .resume-status {
   font-size: 0.8125rem;
   white-space: nowrap;
@@ -1454,6 +1467,37 @@ p {
 }
 .auth-form input[aria-invalid="true"] {
   border-color: #c84242;
+}
+.password-input {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+.password-input input {
+  padding-right: 52px;
+}
+.password-visibility-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #4f607d;
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 44px;
+}
+.password-visibility-toggle:hover {
+  color: #174aa5;
+}
+.password-visibility-toggle:focus-visible {
+  outline: 3px solid #d7e5fb;
+  outline-offset: 1px;
 }
 .field-error {
   color: #9a2828;
@@ -1908,17 +1952,19 @@ p {
   padding: 0;
 }
 .setup-steps li {
+  align-items: center;
   color: #61708a;
+  display: flex;
   font-size: 0.875rem;
   font-weight: 650;
+  gap: 7px;
 }
 .setup-steps li::before {
   background: #dce3ef;
   border-radius: 50%;
   content: "";
-  display: inline-block;
+  flex: 0 0 8px;
   height: 8px;
-  margin-right: 7px;
   width: 8px;
 }
 .setup-steps li.is-complete {
@@ -2065,6 +2111,10 @@ body,
 .resume-list-item p,
 .resume-unavailable {
   color: var(--text-muted);
+}
+.nav-link,
+.profile-link {
+  color: var(--text-secondary);
 }
 .nav-link,
 .profile-link,
@@ -2500,9 +2550,19 @@ textarea:focus-visible {
   font-weight: 700;
   margin-bottom: 8px;
 }
-.coach-panel select {
+.coach-panel select,
+.coach-planner-controls select {
+  display: block;
   margin-bottom: 18px;
-  max-width: 440px;
+  max-width: min(100%, 440px);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.coach-planner-controls select {
+  margin-bottom: 0;
 }
 .coach-content,
 .coach-recovery,

@@ -140,4 +140,29 @@ describe("AccountPage", () => {
     expect(await screen.findByText("Password updated.")).toBeVisible();
     expect(screen.getByLabelText("Current password")).toHaveValue("");
   });
+
+  it("renders independent password visibility controls", () => {
+    render(<AccountPage />);
+    const [currentToggle, newToggle, confirmationToggle] = screen.getAllByRole(
+      "button",
+      { name: "Show password" },
+    );
+
+    fireEvent.click(currentToggle);
+    fireEvent.click(confirmationToggle);
+
+    expect(screen.getByLabelText("Current password")).toHaveAttribute(
+      "type",
+      "text",
+    );
+    expect(screen.getByLabelText("New password")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(screen.getByLabelText("Confirm new password")).toHaveAttribute(
+      "type",
+      "text",
+    );
+    expect(newToggle).toBeVisible();
+  });
 });

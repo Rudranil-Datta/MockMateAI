@@ -1,13 +1,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ResumesPage from "./ResumesPage.jsx";
 
 const listResumes = vi.hoisted(() => vi.fn());
 const uploadResume = vi.hoisted(() => vi.fn());
+const deleteResume = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/resumeApi.js", () => ({
+  deleteResume,
   listResumes,
   maxResumeSizeBytes: 5 * 1024 * 1024,
   uploadResume,
@@ -32,9 +34,12 @@ function renderPage() {
 
 describe("ResumesPage", () => {
   beforeEach(() => {
+    deleteResume.mockReset();
     listResumes.mockReset();
     uploadResume.mockReset();
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it("loads completed and failed resumes without private content", async () => {
     listResumes.mockResolvedValue([
@@ -178,5 +183,63 @@ describe("ResumesPage", () => {
       ),
     ).toBeVisible();
     await waitFor(() => expect(input).not.toBeDisabled());
+  });
+
+  it("confirms deletion and removes a resume only after success", async () => {
+    const otherResume = {
+      ...completedResume,
+      id: "resume-2",
+      originalName: "other.pdf",
+    };
+    let resolveDelete;
+    listResumes.mockResolvedValue([completedResume, otherResume]);
+    deleteResume.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDelete = resolve;
+      }),
+    );
+    const confirmSpy = vi
+      .spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    renderPage();
+    await screen.findByText("engineer.pdf");
+    const deleteButton = screen.getByRole("button", {
+      name: "Delete engineer.pdf",
+    });
+
+    fireEvent.click(deleteButton);
+    expect(deleteResume).not.toHaveBeenCalled();
+    fireEvent.click(deleteButton);
+    expect(confirmSpy).toHaveBeenLastCalledWith(
+      "Delete engineer.pdf? This cannot be undone.",
+    );
+    expect(deleteButton).toBeDisabled();
+    resolveDelete();
+
+    expect(await screen.findByText("Resume deleted.")).toBeVisible();
+    expect(screen.queryByText("engineer.pdf")).not.toBeInTheDocument();
+    expect(screen.getByText("other.pdf")).toBeVisible();
+  });
+
+  it("keeps the resume available after a safe deletion failure", async () => {
+    listResumes.mockResolvedValue([completedResume]);
+    deleteResume.mockRejectedValueOnce(
+      new Error("Finish the active interview before deleting this resume."),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+    await screen.findByText("engineer.pdf");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete engineer.pdf" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Finish the active interview before deleting this resume.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("engineer.pdf")).toBeVisible();
   });
 });

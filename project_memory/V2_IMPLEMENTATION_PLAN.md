@@ -2,7 +2,10 @@
 
 ## Status and Authority
 
-**Status:** Days 1–3 complete — implementation in progress; Day 4 unapproved.
+**Status:** Core Days 1–13 are complete. Day 14 assurance and Day 15 release
+handoff remain Partial; see `IMPLEMENTATION_STATUS.md` for current evidence,
+findings, and approval gates. This plan remains a scope baseline, not blanket
+execution approval.
 
 This plan extends the completed V1 demo/staging baseline. It does not authorize
 application code changes, dependencies, provider calls, deployments, commits,

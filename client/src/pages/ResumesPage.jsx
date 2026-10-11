@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, FileUp, Loader2 } from "lucide-react";
+import { FileText, FileUp, Loader2, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
+  deleteResume,
   listResumes,
   maxResumeSizeBytes,
   uploadResume,
@@ -66,6 +67,9 @@ function ResumesPage() {
   const [resumes, setResumes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeletingId, setIsDeletingId] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState("");
   const [loadError, setLoadError] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
@@ -163,6 +167,35 @@ function ResumesPage() {
     }
   }
 
+  async function handleDelete(resume) {
+    if (isDeletingId) return;
+
+    const isConfirmed = window.confirm(
+      `Delete ${resume.originalName}? This cannot be undone.`,
+    );
+    if (!isConfirmed) return;
+
+    setIsDeletingId(resume.id);
+    setDeleteError("");
+    setDeleteMessage("");
+
+    try {
+      await deleteResume(resume.id);
+      setResumes((currentResumes) =>
+        currentResumes.filter(
+          (currentResume) => currentResume.id !== resume.id,
+        ),
+      );
+      setDeleteMessage("Resume deleted.");
+    } catch (error) {
+      setDeleteError(
+        error?.message || "Resume could not be deleted. Please try again.",
+      );
+    } finally {
+      setIsDeletingId("");
+    }
+  }
+
   return (
     <>
       <section className="page-heading compact-heading">
@@ -211,6 +244,10 @@ function ResumesPage() {
       {!isUploading && uploadMessage ? (
         <InlineAlert>{uploadMessage}</InlineAlert>
       ) : null}
+      {deleteError ? (
+        <InlineAlert tone="error">{deleteError}</InlineAlert>
+      ) : null}
+      {deleteMessage ? <InlineAlert>{deleteMessage}</InlineAlert> : null}
 
       <section
         className="resume-list-section"
@@ -282,6 +319,19 @@ function ResumesPage() {
                       Upload another PDF or continue without one.
                     </span>
                   )}
+                  <Button
+                    aria-label={`Delete ${resume.originalName}`}
+                    className="resume-delete-button"
+                    disabled={
+                      Boolean(isDeletingId) && isDeletingId !== resume.id
+                    }
+                    isLoading={isDeletingId === resume.id}
+                    loadingLabel="Deleting..."
+                    onClick={() => handleDelete(resume)}
+                  >
+                    <Trash2 aria-hidden="true" size={16} />
+                    Delete
+                  </Button>
                 </div>
               </Card>
             ))}

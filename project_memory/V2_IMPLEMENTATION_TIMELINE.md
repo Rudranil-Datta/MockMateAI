@@ -6,9 +6,10 @@ approval-gated.
 
 ## Status
 
-**Days 1–8 complete — Day 9 unapproved.** This timeline is not blanket execution
-approval. Each day or grouped phase requires explicit user approval before edits
-or other state-changing actions.
+**Days 1–13 complete; Days 14–15 Partial.** Current evidence, findings, and
+approval gates are maintained only in `IMPLEMENTATION_STATUS.md`. This timeline
+is not blanket execution approval. Each future day or grouped phase requires
+explicit user approval before edits or other state-changing actions.
 
 ## Phase 1 — Contracts and Candidate Context
 

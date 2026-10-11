@@ -28,5 +28,18 @@ export function createResumeController({
         next(error);
       }
     },
+
+    async deleteResume(request, response, next) {
+      try {
+        await resumeService.deleteOwnedResume({
+          resumeId: request.params.resumeId,
+          userId: request.auth.userId,
+        });
+
+        response.status(204).end();
+      } catch (error) {
+        next(error);
+      }
+    },
   };
 }

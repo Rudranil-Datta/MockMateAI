@@ -53,6 +53,7 @@ describe("SignupPage", () => {
       ),
     ).toBeVisible();
     expect(authContext.signup).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Show password" })).toBeVisible();
   });
 
   it.each([

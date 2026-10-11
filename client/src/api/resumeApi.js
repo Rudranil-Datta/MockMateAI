@@ -51,3 +51,9 @@ export async function uploadResume(file) {
 
   return result.resume;
 }
+
+export async function deleteResume(id) {
+  await apiRequest(`resumes/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}

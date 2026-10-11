@@ -81,6 +81,13 @@ Startup must validate the presence and format of required configuration. In prod
 - Apply authentication middleware to all resume, interview, answer, and analytics routes.
 - Enforce authorization in each data query: retrieve/update resources by both resource ID and authenticated `userId`.
 - Return `404` or another safe denial response for foreign resources without revealing whether another user's resource exists.
+- Resume deletion requires an explicit client confirmation and an authenticated
+  owned lookup. Reject it while a `created` or `active` owned interview references
+  the resume; preserve completed history and confirmed project facts while only
+  detaching optional owned project provenance.
+- Password visibility controls are client-only, default to masked, and change
+  only the input type. They must never alter password validation, API payloads,
+  persistence, logs, or error text.
 - Limit login/signup attempts by IP and consider a small per-account delay/lockout after repeated failures. Do not permanently lock users based solely on an IP address.
 - Regenerate session identifiers after login where applicable and invalidate server-side sessions on logout if server sessions are used.
 

@@ -139,41 +139,41 @@ environment, deployment, commit, or push change.
 
 #### Verification matrix
 
-| Category                    | Planned evidence                                                                                                                                   | Status           |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Success                     | Setup, active text interview, feedback, completed replay/result, and safe evidence presentation retain expected hierarchy and actions.             | Pending approval |
-| Validation                  | Existing setup selection, targeted-focus, malformed metadata/result, and text constraints remain validated; no new request schema.                 | Pending approval |
-| Authentication/ownership    | N/A — E3 adds no API/data-access change; protected-route and owned replay behavior remain covered by existing regression.                          | N/A              |
-| State and concurrency       | Existing idempotency, disabled controls, pending answer/next/complete, and retry state remain unchanged.                                           | Pending approval |
-| Dependency/provider failure | Existing quota, provider, transcription, and parser-safe states remain accurate; no provider change.                                               | Pending approval |
-| Persistence failure         | Existing draft, saved-answer, completion, and result-recovery paths remain usable.                                                                 | Pending approval |
-| Recovery/retry              | Text/voice fallback, answer/next/complete retry, and result replay recovery remain visible and actionable.                                         | Pending approval |
-| Privacy/security            | No raw provider payload, hidden reason, private answer, or hiring claim added to cockpit/feedback/result presentation.                             | Pending approval |
-| Regression                  | Focused Practice, voice, result/replay, targeted-practice, Role Simulation, Project Defense, and V1 text-flow tests selected after source mapping. | Pending approval |
-| Accessibility/responsive    | One dominant labelled action, semantic/live status, visible focus, 44px changed controls, reduced motion, and 320px/200% review for changed views. | Pending approval |
-| Documentation               | E3 matrix/status reconciliation, scoped diff review, and `npm run validate:delivery`.                                                              | Pending approval |
+| Category                    | Planned evidence                                                                                                                                   | Status |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Success                     | Setup, active text interview, feedback, completed replay/result, and safe evidence presentation retain expected hierarchy and actions.             | Passed |
+| Validation                  | Existing setup selection, targeted-focus, malformed metadata/result, and text constraints remain validated; no new request schema.                 | Passed |
+| Authentication/ownership    | N/A — E3 adds no API/data-access change; protected-route and owned replay behavior remain covered by existing regression.                          | N/A    |
+| State and concurrency       | Existing idempotency, disabled controls, pending answer/next/complete, and retry state remain unchanged.                                           | Passed |
+| Dependency/provider failure | Existing quota, provider, transcription, and parser-safe states remain accurate; no provider change.                                               | Passed |
+| Persistence failure         | Existing draft, saved-answer, completion, and result-recovery paths remain usable.                                                                 | Passed |
+| Recovery/retry              | Text/voice fallback, answer/next/complete retry, and result replay recovery remain visible and actionable.                                         | Passed |
+| Privacy/security            | No raw provider payload, hidden reason, private answer, or hiring claim added to cockpit/feedback/result presentation.                             | Passed |
+| Regression                  | Focused Practice, voice, result/replay, targeted-practice, Role Simulation, Project Defense, and V1 text-flow tests selected after source mapping. | Passed |
+| Accessibility/responsive    | One dominant labelled action, semantic/live status, visible focus, 44px changed controls, reduced motion, and 320px/200% review for changed views. | Passed |
+| Documentation               | E3 matrix/status reconciliation, scoped diff review, and `npm run validate:delivery`.                                                              | Passed |
 
 #### Risk-remediation and task matrix
 
-| ID     | Severity                                                                           | Task / failure gate                                                                                                            | Control and completion evidence                                                                 | Status           |
-| ------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------- |
-| E3-G01 | P1                                                                                 | Hierarchy changes hide text answer, voice fallback, active question, feedback, replay, or dominant action.                     | Map existing Practice/result states before JSX/CSS edits; test each affected state and control. | Pending approval |
-| E3-G02 | P1                                                                                 | Styling implies fabricated progress, hides quota/failure/retry, or changes bounded interview lifecycle.                        | Use existing state values/labels only; no timers or behavior state; assert visible error/retry. | Pending approval |
-| E3-G03 | P1                                                                                 | Draft or saved result becomes unavailable after failure/retry.                                                                 | Preserve current state ownership and run draft/result-recovery regressions.                     | Pending approval |
-| E3-G04 | P1                                                                                 | Voice or V1 text journey regresses while styling cockpit/result.                                                               | Keep text path baseline; run constrained-voice and V1 setup/result tests.                       | Pending approval |
-| E3-G05 | P1                                                                                 | Motion violates reduced-motion or makes an error/retry state less visible.                                                     | Use E1 variables/override; review selectors and do not animate semantic state away.             | Pending approval |
-| E3-G06 | P1                                                                                 | E3 requires API/data/provider/package work not authorised here.                                                                | Stop, record exact requirement, request separate approval before edits.                         | Pending approval |
-| E3-T01 | Read only direct Practice, result/replay, voice, and related focused tests/styles. | Exact source map, state inventory, and affected-test list; no source change.                                                   | E3 approval after matrix review.                                                                | Pending approval |
-| E3-T02 | Apply setup/cockpit/feedback hierarchy using existing components/state.            | One dominant action with clear question, answer, draft, feedback, and recovery states.                                         | E3-T01; focused Practice and voice tests.                                                       | Pending approval |
-| E3-T03 | Apply result/replay hierarchy and evidence-state clarity.                          | Completed/recovery/replay result remains safe, legible, and linked without lifecycle changes.                                  | E3-T01; focused result/replay tests.                                                            | Pending approval |
-| E3-T04 | Verify changed journeys and final scope.                                           | Narrow regression, lint/build, scoped diff, delivery validation; browser smoke only if direct browser-only evidence is needed. | E3-T02–T03.                                                                                     | Pending approval |
+| ID     | Severity                                                                           | Task / failure gate                                                                                                            | Control and completion evidence                                                                 | Status |
+| ------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ------ |
+| E3-G01 | P1                                                                                 | Hierarchy changes hide text answer, voice fallback, active question, feedback, replay, or dominant action.                     | Map existing Practice/result states before JSX/CSS edits; test each affected state and control. | Passed |
+| E3-G02 | P1                                                                                 | Styling implies fabricated progress, hides quota/failure/retry, or changes bounded interview lifecycle.                        | Use existing state values/labels only; no timers or behavior state; assert visible error/retry. | Passed |
+| E3-G03 | P1                                                                                 | Draft or saved result becomes unavailable after failure/retry.                                                                 | Preserve current state ownership and run draft/result-recovery regressions.                     | Passed |
+| E3-G04 | P1                                                                                 | Voice or V1 text journey regresses while styling cockpit/result.                                                               | Keep text path baseline; run constrained-voice and V1 setup/result tests.                       | Passed |
+| E3-G05 | P1                                                                                 | Motion violates reduced-motion or makes an error/retry state less visible.                                                     | Use E1 variables/override; review selectors and do not animate semantic state away.             | Passed |
+| E3-G06 | P1                                                                                 | E3 requires API/data/provider/package work not authorised here.                                                                | Stop, record exact requirement, request separate approval before edits.                         | Passed |
+| E3-T01 | Read only direct Practice, result/replay, voice, and related focused tests/styles. | Exact source map, state inventory, and affected-test list; no source change.                                                   | E3 approval after matrix review.                                                                | Passed |
+| E3-T02 | Apply setup/cockpit/feedback hierarchy using existing components/state.            | One dominant action with clear question, answer, draft, feedback, and recovery states.                                         | E3-T01; focused Practice and voice tests.                                                       | Passed |
+| E3-T03 | Apply result/replay hierarchy and evidence-state clarity.                          | Completed/recovery/replay result remains safe, legible, and linked without lifecycle changes.                                  | E3-T01; focused result/replay tests.                                                            | Passed |
+| E3-T04 | Verify changed journeys and final scope.                                           | Narrow regression, lint/build, scoped diff, delivery validation; browser smoke only if direct browser-only evidence is needed. | E3-T02–T03.                                                                                     | Passed |
 
 #### Approval boundary
 
-Approve E3 only for client presentation and direct accessibility/recovery labels
-over existing interview/result state. Any API, persistence, provider, package,
-migration, environment, deployment, commit, or push change stops for separate
-approval.
+**Historical approval boundary:** E3 was approved only for client presentation
+and direct accessibility/recovery labels over existing interview/result state.
+No API, persistence, provider, package, migration, environment, deployment,
+commit, or push change occurred.
 
 ### E4
 
