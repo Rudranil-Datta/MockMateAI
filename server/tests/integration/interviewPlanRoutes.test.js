@@ -20,21 +20,43 @@ async function signup(app, email) {
     name: "Planner Candidate",
     password: "secure-password-123",
   });
-  return { cookie: response.headers["set-cookie"][0].split(";")[0], userId: response.body.user.id };
+  return {
+    cookie: response.headers["set-cookie"][0].split(";")[0],
+    userId: response.body.user.id,
+  };
 }
 
 async function createTarget(userId) {
   return JobTarget.create({
     analysis: {
-      requirements: [{ evidenceTerms: [], key: "backend", label: "Backend", priority: "required" }],
-      roleSummary: "Build reliable backend services with clear trade-offs and ownership.",
+      requirements: [
+        {
+          evidenceTerms: [],
+          key: "backend",
+          label: "Backend",
+          priority: "required",
+        },
+      ],
+      roleSummary:
+        "Build reliable backend services with clear trade-offs and ownership.",
       skills: [
-        { key: "node-js", label: "Node.js", sourceRequirementKeys: ["backend"], weight: 5 },
-        { key: "api-design", label: "API design", sourceRequirementKeys: ["backend"], weight: 3 },
+        {
+          key: "node-js",
+          label: "Node.js",
+          sourceRequirementKeys: ["backend"],
+          weight: 5,
+        },
+        {
+          key: "api-design",
+          label: "API design",
+          sourceRequirementKeys: ["backend"],
+          weight: 3,
+        },
       ],
     },
     analysisRequestId: randomUUID(),
-    description: "Private target source text must not enter planner output. ".repeat(3),
+    description:
+      "Private target source text must not enter planner output. ".repeat(3),
     status: "ready",
     title: "Backend Engineer",
     userId,
@@ -91,21 +113,30 @@ describe("interview plan route", () => {
     const resume = await createResume(owner.userId);
 
     const response = await request(app)
-      .get(`/api/interviews/plan?interviewType=DSA&level=intermediate&resumeId=${resume.id}`)
+      .get(
+        `/api/interviews/plan?interviewType=DSA&level=intermediate&resumeId=${resume.id}`,
+      )
       .set("Cookie", owner.cookie);
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      adaptiveNotice: "Later questions adapt to your answers and are not prewritten.",
+      adaptiveNotice:
+        "Later questions adapt to your answers and are not prewritten.",
       context: null,
-      openingFocus: { label: "Fundamentals" },
-      selection: { interviewType: "DSA", level: "intermediate", sessionPurpose: "standard" },
+      openingFocus: { label: "Problem and baseline approach" },
+      selection: {
+        interviewType: "DSA",
+        level: "intermediate",
+        sessionPurpose: "standard",
+      },
     });
     expect(response.body.stages.length).toBeLessThanOrEqual(5);
     expect(JSON.stringify(response.body)).not.toContain("prompt");
     expect(JSON.stringify(response.body)).not.toContain("Private resume text");
     expect(aiProviderService.generateQuestion).not.toHaveBeenCalled();
-    expect(await InterviewSession.countDocuments({ userId: owner.userId })).toBe(0);
+    expect(
+      await InterviewSession.countDocuments({ userId: owner.userId }),
+    ).toBe(0);
   });
 
   it("uses owned Target, Project, and read-only targeted evidence without raw source text", async () => {
@@ -117,19 +148,51 @@ describe("interview plan route", () => {
     const bulkWrite = vi.spyOn(SkillEvidence, "bulkWrite");
     const updateOne = vi.spyOn(SkillEvidence, "updateOne");
 
-    const targetPlan = await request(app).get(`/api/interviews/plan?interviewType=Role%20Simulation&level=advanced&jobTargetId=${target.id}`).set("Cookie", owner.cookie);
-    const projectPlan = await request(app).get(`/api/interviews/plan?interviewType=Project%20Defense&level=beginner&projectId=${project.id}`).set("Cookie", owner.cookie);
-    const targetedPlan = await request(app).get("/api/interviews/plan?interviewType=DSA&level=intermediate&sessionPurpose=targeted_practice&focusSkillKey=node-js").set("Cookie", owner.cookie);
+    const targetPlan = await request(app)
+      .get(
+        `/api/interviews/plan?interviewType=Role%20Simulation&level=advanced&jobTargetId=${target.id}`,
+      )
+      .set("Cookie", owner.cookie);
+    const projectPlan = await request(app)
+      .get(
+        `/api/interviews/plan?interviewType=Project%20Defense&level=beginner&projectId=${project.id}`,
+      )
+      .set("Cookie", owner.cookie);
+    const targetedPlan = await request(app)
+      .get(
+        "/api/interviews/plan?interviewType=DSA&level=intermediate&sessionPurpose=targeted_practice&focusSkillKey=node-js",
+      )
+      .set("Cookie", owner.cookie);
 
     expect(targetPlan.status).toBe(200);
-    expect(targetPlan.body.context).toEqual({ kind: "job_target", label: "Backend Engineer" });
-    expect(targetPlan.body.stages.map((stage) => stage.focus.label)).toEqual(["Node.js", "API design"]);
+    expect(targetPlan.body.context).toEqual({
+      kind: "job_target",
+      label: "Backend Engineer",
+    });
+    expect(targetPlan.body.stages.map((stage) => stage.focus.label)).toEqual([
+      "Node.js",
+      "API design",
+    ]);
     expect(projectPlan.status).toBe(200);
-    expect(projectPlan.body.stages.map((stage) => stage.focus.label)).toEqual(["Architecture", "Technology choices", "Responsibilities"]);
+    expect(projectPlan.body.stages.map((stage) => stage.focus.label)).toEqual([
+      "Architecture",
+      "Technology choices",
+      "Responsibilities",
+    ]);
     expect(targetedPlan.status).toBe(200);
-    expect(targetedPlan.body).toMatchObject({ selection: { focusSkillKey: "node-js", sessionPurpose: "targeted_practice" }, rationale: { kind: "targeted_evidence" } });
-    expect(JSON.stringify(targetPlan.body)).not.toContain("Private target source text");
-    expect(JSON.stringify(projectPlan.body)).not.toContain("Private architecture fact");
+    expect(targetedPlan.body).toMatchObject({
+      selection: {
+        focusSkillKey: "node-js",
+        sessionPurpose: "targeted_practice",
+      },
+      rationale: { kind: "targeted_evidence" },
+    });
+    expect(JSON.stringify(targetPlan.body)).not.toContain(
+      "Private target source text",
+    );
+    expect(JSON.stringify(projectPlan.body)).not.toContain(
+      "Private architecture fact",
+    );
     expect(bulkWrite).not.toHaveBeenCalled();
     expect(updateOne).not.toHaveBeenCalled();
   });
@@ -140,10 +203,24 @@ describe("interview plan route", () => {
     const other = await signup(app, "planner-other@example.com");
     const foreign = await createTarget(other.userId);
 
-    const unauthenticated = await request(app).get("/api/interviews/plan?interviewType=DSA&level=beginner");
-    const malformed = await request(app).get("/api/interviews/plan?interviewType=Role%20Simulation&level=beginner&jobTargetId=invalid&projectId=also-invalid").set("Cookie", owner.cookie);
-    const foreignResponse = await request(app).get(`/api/interviews/plan?interviewType=Role%20Simulation&level=beginner&jobTargetId=${foreign.id}`).set("Cookie", owner.cookie);
-    const missingResponse = await request(app).get(`/api/interviews/plan?interviewType=Role%20Simulation&level=beginner&jobTargetId=${new mongoose.Types.ObjectId()}`).set("Cookie", owner.cookie);
+    const unauthenticated = await request(app).get(
+      "/api/interviews/plan?interviewType=DSA&level=beginner",
+    );
+    const malformed = await request(app)
+      .get(
+        "/api/interviews/plan?interviewType=Role%20Simulation&level=beginner&jobTargetId=invalid&projectId=also-invalid",
+      )
+      .set("Cookie", owner.cookie);
+    const foreignResponse = await request(app)
+      .get(
+        `/api/interviews/plan?interviewType=Role%20Simulation&level=beginner&jobTargetId=${foreign.id}`,
+      )
+      .set("Cookie", owner.cookie);
+    const missingResponse = await request(app)
+      .get(
+        `/api/interviews/plan?interviewType=Role%20Simulation&level=beginner&jobTargetId=${new mongoose.Types.ObjectId()}`,
+      )
+      .set("Cookie", owner.cookie);
 
     expect(unauthenticated.status).toBe(401);
     expect(malformed.status).toBe(400);

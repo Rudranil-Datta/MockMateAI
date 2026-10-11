@@ -1,6 +1,7 @@
 import {
   validateExtractProjectsRequest,
   validateProjectId,
+  validatePartialProjectWriteRequest,
   validateProjectWriteRequest,
 } from "../validators/projectSchemas.js";
 
@@ -19,11 +20,34 @@ export function createProjectController({ projectService }) {
       }
     },
 
+    async importReadme(request, response, next) {
+      try {
+        const result = await projectService.importReadmeDraft({
+          file: request.file,
+        });
+        response.status(200).json(result);
+      } catch (error) {
+        next(error);
+      }
+    },
+
     async createProject(request, response, next) {
       try {
         const input = validateProjectWriteRequest(request.body);
         const project = await projectService.createProject({
           ...input,
+          userId: request.auth.userId,
+        });
+        response.status(201).json({ project });
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async createPartialProject(request, response, next) {
+      try {
+        const project = await projectService.createPartialProject({
+          ...validatePartialProjectWriteRequest(request.body),
           userId: request.auth.userId,
         });
         response.status(201).json({ project });
@@ -60,6 +84,19 @@ export function createProjectController({ projectService }) {
         const input = validateProjectWriteRequest(request.body);
         const project = await projectService.updateProject({
           ...input,
+          projectId: validateProjectId(request.params.id),
+          userId: request.auth.userId,
+        });
+        response.status(200).json({ project });
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async updatePartialProject(request, response, next) {
+      try {
+        const project = await projectService.updatePartialProject({
+          ...validatePartialProjectWriteRequest(request.body),
           projectId: validateProjectId(request.params.id),
           userId: request.auth.userId,
         });

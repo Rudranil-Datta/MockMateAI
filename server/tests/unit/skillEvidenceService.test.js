@@ -87,11 +87,16 @@ describe("skillEvidenceService", () => {
       },
     });
 
-    await expect(service.getReadOnlyProfile({ userId })).resolves.toMatchObject({
+    await expect(service.getReadOnlyProfile({ userId })).resolves.toMatchObject(
+      {
+        evidenceSyncStatus: "pending",
+        skills: [{ skillKey: "api-design" }],
+      },
+    );
+    expect(exists).toHaveBeenCalledWith({
       evidenceSyncStatus: "pending",
-      skills: [{ skillKey: "api-design" }],
+      userId,
     });
-    expect(exists).toHaveBeenCalledWith({ evidenceSyncStatus: "pending", userId });
     expect(bulkWrite).not.toHaveBeenCalled();
     expect(updateOne).not.toHaveBeenCalled();
   });

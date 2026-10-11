@@ -37,7 +37,8 @@ const readyTarget = {
   },
   company: "MockMateAI",
   createdAt: "2026-10-07T00:00:00.000Z",
-  description: "Build reliable backend services with Node.js and testing.".repeat(3),
+  description:
+    "Build reliable backend services with Node.js and testing.".repeat(3),
   id: "target-1",
   status: "ready",
   title: "Backend Engineer",
@@ -62,10 +63,19 @@ describe("TargetsPage", () => {
     );
 
     expect(await screen.findByText("Ready for Role Simulation")).toBeVisible();
-    expect(screen.getByText(/Requirements: Node.js \(required\)/)).toBeVisible();
-    expect(screen.getByText(/Weighted skills: Node.js \(5\/5\)/)).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Role Simulation" }),
+      screen.getByText(/Practice order: Node.js \(required\)/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Skills to assess: Node.js \(5\/5\)/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /Higher-weight skills get more practice attention\. This does not measure job eligibility/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Start Role Simulation" }),
     ).toHaveAttribute(
       "href",
       "/practice?type=Role%20Simulation&targetId=target-1",

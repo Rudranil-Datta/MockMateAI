@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   validateExtractProjectsRequest,
+  validatePartialProjectWriteRequest,
   validateProjectWriteRequest,
 } from "../../src/validators/projectSchemas.js";
 
@@ -16,6 +17,18 @@ const facts = {
   technologies: ["React", "Node.js"],
   tradeoffs: [],
 };
+
+function factsWithProjectTextLength(length) {
+  const text = "x".repeat(length);
+  return {
+    ...facts,
+    architecture: [text],
+    claims: [{ evidence: text, text }],
+    decisions: [text],
+    responsibilities: [text],
+    tradeoffs: [text],
+  };
+}
 
 describe("project request schemas", () => {
   it("accepts exact extraction and explicitly confirmed full writes", () => {
@@ -50,4 +63,36 @@ describe("project request schemas", () => {
       expect(error.status).toBe(400);
     }
   });
+
+  it.each([20, 600])(
+    "accepts complete and partial project facts at %i characters",
+    (length) => {
+      const boundedFacts = factsWithProjectTextLength(length);
+      expect(
+        validateProjectWriteRequest({ ...boundedFacts, confirmed: true }),
+      ).toMatchObject(boundedFacts);
+      expect(
+        validatePartialProjectWriteRequest({
+          ...boundedFacts,
+          partialConfirmed: true,
+        }),
+      ).toMatchObject(boundedFacts);
+    },
+  );
+
+  it.each([19, 601])(
+    "rejects complete and partial project facts at %i characters",
+    (length) => {
+      const boundedFacts = factsWithProjectTextLength(length);
+      expect(() =>
+        validateProjectWriteRequest({ ...boundedFacts, confirmed: true }),
+      ).toThrow();
+      expect(() =>
+        validatePartialProjectWriteRequest({
+          ...boundedFacts,
+          partialConfirmed: true,
+        }),
+      ).toThrow();
+    },
+  );
 });

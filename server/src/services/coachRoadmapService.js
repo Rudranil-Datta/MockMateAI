@@ -139,7 +139,10 @@ function actionSet({ context, replay, topSkill }) {
 
 function projectSkills(project, profileByKey) {
   return projectCoverageDefinitions
-    .filter(([, , factKey]) => Array.isArray(project[factKey]) && project[factKey].length)
+    .filter(
+      ([, , factKey]) =>
+        Array.isArray(project[factKey]) && project[factKey].length,
+    )
     .map(([skillKey, skillLabel], index) => ({
       ...safeSkill({
         profileSkill: profileByKey.get(skillKey),
@@ -150,9 +153,13 @@ function projectSkills(project, profileByKey) {
     }))
     .sort((left, right) => {
       const leftNeedsAttention =
-        left.confidence !== "established" || left.masteryScore === null || left.masteryScore < 70;
+        left.confidence !== "established" ||
+        left.masteryScore === null ||
+        left.masteryScore < 70;
       const rightNeedsAttention =
-        right.confidence !== "established" || right.masteryScore === null || right.masteryScore < 70;
+        right.confidence !== "established" ||
+        right.masteryScore === null ||
+        right.masteryScore < 70;
       return (
         Number(rightNeedsAttention) - Number(leftNeedsAttention) ||
         byAttention(left, right) ||
@@ -176,10 +183,19 @@ function targetSkills(target, profileByKey) {
     }))
     .sort(
       (left, right) =>
-        right.weight - left.weight || byAttention(left, right) || left.index - right.index,
+        right.weight - left.weight ||
+        byAttention(left, right) ||
+        left.index - right.index,
     )
     .map(({ index: _index, weight: _weight, ...skill }) => skill)
     .slice(0, 12);
+}
+
+function withRanking(skills, reason) {
+  return skills.map((skill, index) => ({
+    ...skill,
+    ranking: { priority: index + 1, reason },
+  }));
 }
 
 export function createCoachRoadmapService({
@@ -215,19 +231,30 @@ export function createCoachRoadmapService({
 
       if (context === "target") {
         const target = await jobTargetModel
-          .findOne({ ...getOwnedResourceFilter(targetId, userId), status: "ready" })
+          .findOne({
+            ...getOwnedResourceFilter(targetId, userId),
+            status: "ready",
+          })
           .select({ analysis: 1, company: 1, title: 1 })
           .lean();
         if (!target?.analysis?.skills?.length) throw unavailableContext();
         selectedContext = {
           id: target._id.toString(),
           kind: "job_target",
-          label: target.company ? `${target.title} at ${target.company}` : target.title,
+          label: target.company
+            ? `${target.title} at ${target.company}`
+            : target.title,
         };
-        skills = targetSkills(target, profileByKey);
+        skills = withRanking(
+          targetSkills(target, profileByKey),
+          "target_weight_then_evidence",
+        );
       } else if (context === "project") {
         const project = await candidateProjectModel
-          .findOne({ ...getOwnedResourceFilter(projectId, userId), confirmedAt: { $ne: null } })
+          .findOne({
+            ...getOwnedResourceFilter(projectId, userId),
+            confirmedAt: { $ne: null },
+          })
           .select({
             architecture: 1,
             claims: 1,
@@ -245,19 +272,29 @@ export function createCoachRoadmapService({
           kind: "candidate_project",
           label: `${project.name} — ${project.role}`,
         };
-        skills = projectSkills(project, profileByKey);
+        skills = withRanking(
+          projectSkills(project, profileByKey),
+          "project_coverage_attention",
+        );
       } else {
         selectedContext = { kind: "overall", label: "Overall preparation" };
-        skills = profile.skills.slice(0, 12).map((skill) => safeSkill({
-          profileSkill: skill,
-          skillKey: skill.skillKey,
-          skillLabel: skill.skillLabel,
-        }));
+        skills = withRanking(
+          profile.skills.slice(0, 12).map((skill) =>
+            safeSkill({
+              profileSkill: skill,
+              skillKey: skill.skillKey,
+              skillLabel: skill.skillLabel,
+            }),
+          ),
+          "overall_recommended",
+        );
       }
 
       const topSkill =
         context === "overall" && profile.recommendedAction
-          ? skills.find((skill) => skill.skillKey === profile.recommendedAction.skillKey) || skills[0]
+          ? skills.find(
+              (skill) => skill.skillKey === profile.recommendedAction.skillKey,
+            ) || skills[0]
           : skills[0];
       const replay = await latestReplay({ context: selectedContext, userId });
       return {

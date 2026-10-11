@@ -64,6 +64,19 @@ const adaptiveDecision = {
   topicKey: "api-design",
 };
 
+function expectCompatibleResponseSchema(value) {
+  if (Array.isArray(value)) {
+    value.forEach(expectCompatibleResponseSchema);
+    return;
+  }
+
+  if (!value || typeof value !== "object") return;
+  expect(value).not.toHaveProperty("nullable");
+  expect(value).not.toHaveProperty("minLength");
+  expect(value).not.toHaveProperty("maxLength");
+  Object.values(value).forEach(expectCompatibleResponseSchema);
+}
+
 describe("aiProviderService", () => {
   it("accepts only validated evidence for saved tested skills", async () => {
     const generateContent = vi.fn().mockResolvedValue({
@@ -81,6 +94,9 @@ describe("aiProviderService", () => {
     await expect(service.evaluateV2Answer(input)).resolves.toEqual(
       validV2Feedback,
     );
+    expectCompatibleResponseSchema(
+      generateContent.mock.calls[0][0].config.responseJsonSchema,
+    );
     await expect(
       service.evaluateV2Answer({ ...input, testedSkills: [] }),
     ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST" });
@@ -95,6 +111,27 @@ describe("aiProviderService", () => {
     await expect(service.evaluateV2Answer(input)).rejects.toMatchObject({
       code: "INVALID_AI_RESPONSE",
     });
+  });
+
+  it("accepts V2 types only through V2 evaluation", async () => {
+    const service = createAiProviderService({ aiProvider: "mock" });
+    const input = {
+      ...evaluationInput,
+      testedSkills: [{ key: "api-design", label: "API design" }],
+    };
+
+    for (const interviewType of ["Role Simulation", "Project Defense"]) {
+      await expect(
+        service.evaluateV2Answer({ ...input, interviewType }),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          skillEvidence: [expect.objectContaining({ skillKey: "api-design" })],
+        }),
+      );
+      await expect(
+        service.evaluateAnswer({ ...input, interviewType }),
+      ).rejects.toMatchObject({ code: "INVALID_AI_REQUEST" });
+    }
   });
 
   it("validates one provider-neutral adaptive question contract", async () => {
@@ -121,6 +158,12 @@ describe("aiProviderService", () => {
         model: "gemini-test-model",
       }),
     );
+    const schema = generateContent.mock.calls[0][0].config.responseJsonSchema;
+    expectCompatibleResponseSchema(schema);
+    expect(schema.properties.parentQuestionOrder.type).toEqual([
+      "integer",
+      "null",
+    ]);
 
     const mockService = createAiProviderService({ aiProvider: "mock" });
     await expect(
@@ -135,7 +178,7 @@ describe("aiProviderService", () => {
     });
   });
 
-  it("rejects unsafe adaptive input and output without retry", async () => {
+  it("rejects unsafe adaptive input/output and retries transient adaptive unavailability once", async () => {
     const generateContent = vi.fn().mockResolvedValue({
       text: JSON.stringify({ ...adaptiveDecision, topicKey: "unknown-topic" }),
     });
@@ -175,7 +218,7 @@ describe("aiProviderService", () => {
       code: "AI_PROVIDER_UNAVAILABLE",
       errorCategory: "provider_unavailable",
     });
-    expect(unavailable).toHaveBeenCalledOnce();
+    expect(unavailable).toHaveBeenCalledTimes(2);
   });
 
   it("enforces grounded Project Defense challenge metadata", async () => {
@@ -294,6 +337,9 @@ describe("aiProviderService", () => {
         }),
         model: "gemini-test-model",
       }),
+    );
+    expectCompatibleResponseSchema(
+      generateContent.mock.calls[0][0].config.responseJsonSchema,
     );
   });
 
@@ -446,6 +492,35 @@ describe("aiProviderService", () => {
       code: "AI_PROVIDER_UNAVAILABLE",
       errorCategory: "provider_unknown",
       status: 502,
+    });
+  });
+
+  it("attaches only allow-listed diagnostics to a rejected structured operation", async () => {
+    const failure = {
+      code: "INVALID_ARGUMENT",
+      message: "private provider rejection",
+      prompt: "private prompt",
+      providerPayload: { private: "payload" },
+      resumeContext: "private resume",
+      status: 400,
+    };
+    const service = createAiProviderService({
+      aiProvider: "gemini",
+      generateContent: vi.fn().mockRejectedValue(failure),
+    });
+
+    await expect(
+      service.extractProjectDrafts({
+        resumeContext: "Built a sufficiently described project.",
+      }),
+    ).rejects.toMatchObject({
+      errorCategory: "provider_rejected",
+      providerDiagnostics: {
+        operation: "project_extraction",
+        profile: "structured_json_v1",
+        sdkSignal: "INVALID_ARGUMENT",
+        statusClass: "4xx",
+      },
     });
   });
 
@@ -708,6 +783,9 @@ describe("aiProviderService", () => {
         }),
         model: "gemini-test-model",
       }),
+    );
+    expectCompatibleResponseSchema(
+      generateContent.mock.calls[0][0].config.responseJsonSchema,
     );
   });
 

@@ -31,12 +31,57 @@ const analysis = {
   ],
 };
 
+function expectCompatibleResponseSchema(value) {
+  if (Array.isArray(value)) {
+    value.forEach(expectCompatibleResponseSchema);
+    return;
+  }
+
+  if (!value || typeof value !== "object") return;
+  expect(value).not.toHaveProperty("nullable");
+  expect(value).not.toHaveProperty("minLength");
+  expect(value).not.toHaveProperty("maxLength");
+  Object.values(value).forEach(expectCompatibleResponseSchema);
+}
+
 describe("Job Target provider contract", () => {
   it("supports deterministic mock analysis", async () => {
     const service = createAiProviderService({ aiProvider: "mock" });
-    await expect(service.analyzeJobTarget(input)).resolves.toMatchObject({
-      requirements: expect.any(Array),
-      skills: expect.any(Array),
+    const backendAnalysis = await service.analyzeJobTarget(input);
+    const frontendAnalysis = await service.analyzeJobTarget({
+      ...input,
+      description:
+        "Build accessible React interfaces with TypeScript, CSS, and tested UI interactions. ".repeat(
+          2,
+        ),
+      title: "Frontend Engineer",
+    });
+
+    expect(backendAnalysis.skills.map(({ key }) => key)).toEqual(
+      expect.arrayContaining(["node-js", "database-design"]),
+    );
+    expect(frontendAnalysis.skills.map(({ key }) => key)).toEqual(
+      expect.arrayContaining(["react", "accessibility"]),
+    );
+    expect(frontendAnalysis).not.toEqual(backendAnalysis);
+  });
+
+  it("labels sparse mock coverage as broad", async () => {
+    const service = createAiProviderService({ aiProvider: "mock" });
+    await expect(
+      service.analyzeJobTarget({
+        ...input,
+        description:
+          "Collaborate across teams and communicate clearly. ".repeat(3),
+      }),
+    ).resolves.toMatchObject({
+      requirements: [
+        expect.objectContaining({
+          key: "role-fundamentals",
+          priority: "context",
+        }),
+      ],
+      roleSummary: expect.stringContaining("broad"),
     });
   });
 
@@ -60,6 +105,9 @@ describe("Job Target provider contract", () => {
           responseMimeType: "application/json",
         }),
       }),
+    );
+    expectCompatibleResponseSchema(
+      generateContent.mock.calls[0][0].config.responseJsonSchema,
     );
   });
 

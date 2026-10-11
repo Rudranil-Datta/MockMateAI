@@ -66,4 +66,16 @@ describe("CandidateProject", () => {
       ).validate(),
     ).rejects.toThrow();
   });
+
+  it("allows confirmed partial projects without ready confirmation", async () => {
+    await expect(
+      new CandidateProject(
+        validProject({
+          confirmedAt: undefined,
+          partialConfirmedAt: new Date(),
+          status: "partial",
+        }),
+      ).validate(),
+    ).resolves.toBeUndefined();
+  });
 });

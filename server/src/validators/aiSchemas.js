@@ -486,12 +486,12 @@ export function validateAdaptiveQuestionOutput(output, input) {
   };
 }
 
-export function validateEvaluationInput(input) {
+function validateEvaluationInputForTypes(input, allowedInterviewTypes) {
   if (!input || typeof input !== "object") {
     throw invalidInput("Evaluation input is required.");
   }
 
-  if (!interviewTypes.includes(input.interviewType)) {
+  if (!allowedInterviewTypes.includes(input.interviewType)) {
     throw invalidInput("Interview type is not supported.");
   }
 
@@ -516,6 +516,10 @@ export function validateEvaluationInput(input) {
     level: input.level,
     question,
   };
+}
+
+export function validateEvaluationInput(input) {
+  return validateEvaluationInputForTypes(input, interviewTypes);
 }
 
 function validateFeedbackTextList(value) {
@@ -595,7 +599,7 @@ export function validateEvaluationOutput(output) {
 }
 
 export function validateV2EvaluationInput(input) {
-  const evaluated = validateEvaluationInput(input);
+  const evaluated = validateEvaluationInputForTypes(input, v2InterviewTypes);
   if (
     !Array.isArray(input.testedSkills) ||
     input.testedSkills.length < 1 ||
@@ -843,44 +847,106 @@ function projectOutputList(value, minimum, maximum, itemMinimum, itemMaximum) {
   return items;
 }
 
-function validateProjectDraft(draft) {
-  if (!exactObject(draft, projectFactKeys)) throw invalidOutput();
-  const claims = Array.isArray(draft.claims)
-    ? draft.claims.map((claim) => {
-        if (!exactObject(claim, ["text", "evidence"])) throw invalidOutput();
-        return {
-          text: projectOutputText(claim.text, 5, 300),
-          evidence:
-            claim.evidence === null
-              ? null
-              : projectOutputText(claim.evidence, 5, 300),
-        };
-      })
-    : null;
-  if (
-    !claims ||
-    claims.length > 8 ||
-    !uniqueStrings(claims.map(({ text }) => text))
-  ) {
+function optionalProjectOutputText(value, minimum, maximum) {
+  return value === null ? null : projectOutputText(value, minimum, maximum);
+}
+
+function optionalProjectOutputList(value, maximum, itemMinimum, itemMaximum) {
+  return projectOutputList(value, 0, maximum, itemMinimum, itemMaximum);
+}
+
+function isPresentProjectFact(value) {
+  return Array.isArray(value) ? value.length > 0 : value !== null;
+}
+
+function normalizedSourceText(value) {
+  return value.replaceAll(/\s+/g, " ").trim().toLowerCase();
+}
+
+function assertSourceBacked(value, source) {
+  if (value !== null && !source.includes(normalizedSourceText(value))) {
+    throw invalidOutput();
+  }
+  return value;
+}
+
+function validatePartialProjectDraft(draft, resumeContext) {
+  if (!exactObject(draft, [...projectFactKeys, "missingFields"])) {
+    throw invalidOutput();
+  }
+  const source = normalizedSourceText(resumeContext);
+  if (!Array.isArray(draft.claims) || draft.claims.length > 8) {
+    throw invalidOutput();
+  }
+  const normalizedClaims = draft.claims.map((claim) => {
+    if (!exactObject(claim, ["text", "evidence"])) throw invalidOutput();
+    const text = projectOutputText(claim.text, 5, 300);
+    const evidence =
+      claim.evidence === null
+        ? null
+        : projectOutputText(claim.evidence, 5, 300);
+    return {
+      evidence: assertSourceBacked(evidence, source),
+      text: assertSourceBacked(text, source),
+    };
+  });
+  if (!uniqueStrings(normalizedClaims.map(({ text }) => text))) {
     throw invalidOutput();
   }
   const normalized = {
-    name: projectOutputText(draft.name, 2, 120),
-    summary: projectOutputText(draft.summary, 20, 1000),
-    role: projectOutputText(draft.role, 2, 120),
-    technologies: projectOutputList(draft.technologies, 1, 15, 1, 50),
-    responsibilities: projectOutputList(draft.responsibilities, 1, 10, 5, 300),
-    architecture: projectOutputList(draft.architecture, 1, 10, 5, 300),
-    decisions: projectOutputList(draft.decisions, 0, 8, 5, 300),
-    tradeoffs: projectOutputList(draft.tradeoffs, 0, 8, 5, 300),
-    claims,
+    architecture: optionalProjectOutputList(draft.architecture, 10, 5, 300),
+    claims: normalizedClaims,
+    decisions: optionalProjectOutputList(draft.decisions, 8, 5, 300),
+    name: optionalProjectOutputText(draft.name, 2, 120),
+    responsibilities: optionalProjectOutputList(
+      draft.responsibilities,
+      10,
+      5,
+      300,
+    ),
+    role: optionalProjectOutputText(draft.role, 2, 120),
+    summary: optionalProjectOutputText(draft.summary, 5, 1000),
+    technologies: optionalProjectOutputList(draft.technologies, 15, 1, 50),
+    tradeoffs: optionalProjectOutputList(draft.tradeoffs, 8, 5, 300),
   };
+  for (const field of projectFactKeys) {
+    if (field === "claims") continue;
+    const value = normalized[field];
+    if (Array.isArray(value)) {
+      value.forEach((item) => assertSourceBacked(item, source));
+    } else assertSourceBacked(value, source);
+  }
+  if (!(
+    normalized.name ||
+    normalized.summary ||
+    normalized.technologies.length ||
+    normalized.responsibilities.length ||
+    normalized.architecture.length ||
+    normalized.decisions.length ||
+    normalized.tradeoffs.length ||
+    normalized.claims.length
+  )) {
+    throw invalidOutput();
+  }
+  const missingFields = projectFactKeys.filter(
+    (field) => !isPresentProjectFact(normalized[field]),
+  );
   if (
-    Buffer.byteLength(JSON.stringify(normalized), "utf8") > maxProjectFactsBytes
+    !Array.isArray(draft.missingFields) ||
+    draft.missingFields.length !== missingFields.length ||
+    draft.missingFields.some((field, index) => field !== missingFields[index])
   ) {
     throw invalidOutput();
   }
-  return normalized;
+  if (
+    Buffer.byteLength(
+      JSON.stringify({ ...normalized, missingFields }),
+      "utf8",
+    ) > maxProjectFactsBytes
+  ) {
+    throw invalidOutput();
+  }
+  return { ...normalized, missingFields };
 }
 
 export function validateProjectExtractionInput(input) {
@@ -896,10 +962,14 @@ export function validateProjectExtractionInput(input) {
   return { resumeContext };
 }
 
-export function validateProjectExtractionOutput(output) {
+export function validateProjectExtractionOutput(output, resumeContext) {
   if (!exactObject(output, ["drafts"]) || !Array.isArray(output.drafts)) {
     throw invalidOutput();
   }
   if (output.drafts.length > 5) throw invalidOutput();
-  return { drafts: output.drafts.map(validateProjectDraft) };
+  return {
+    drafts: output.drafts.map((draft) =>
+      validatePartialProjectDraft(draft, resumeContext),
+    ),
+  };
 }

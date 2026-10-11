@@ -723,7 +723,11 @@ p {
   min-height: 220px;
 }
 .choice-card-button {
-  background: linear-gradient(145deg, rgb(25 37 66 / 94%), var(--surface-raised));
+  background: linear-gradient(
+    145deg,
+    rgb(25 37 66 / 94%),
+    var(--surface-raised)
+  );
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   color: var(--text-primary);
@@ -737,7 +741,11 @@ p {
   border-color: var(--cobalt-600);
 }
 .choice-card-button.is-selected {
-  background: linear-gradient(145deg, rgb(66 53 119 / 88%), var(--surface-cobalt));
+  background: linear-gradient(
+    145deg,
+    rgb(66 53 119 / 88%),
+    var(--surface-cobalt)
+  );
   border-color: var(--violet-700);
   box-shadow: 0 0 0 3px rgb(167 139 250 / 28%);
 }
@@ -779,7 +787,11 @@ p {
 }
 .level-option {
   align-items: flex-start;
-  background: linear-gradient(145deg, rgb(25 37 66 / 94%), var(--surface-raised));
+  background: linear-gradient(
+    145deg,
+    rgb(25 37 66 / 94%),
+    var(--surface-raised)
+  );
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   cursor: pointer;
@@ -793,7 +805,11 @@ p {
   border-color: var(--cobalt-600);
 }
 .level-option.is-selected {
-  background: linear-gradient(145deg, rgb(66 53 119 / 88%), var(--surface-cobalt));
+  background: linear-gradient(
+    145deg,
+    rgb(66 53 119 / 88%),
+    var(--surface-cobalt)
+  );
   border-color: var(--violet-700);
   box-shadow: 0 0 0 3px rgb(167 139 250 / 28%);
 }
@@ -1690,6 +1706,21 @@ p {
 .project-list-item {
   justify-content: space-between;
 }
+.project-source-card {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.project-source-resume {
+  align-items: end;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.project-source-readme {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 16px;
+}
 .project-source-card label,
 .project-fields label {
   color: #253653;
@@ -1709,6 +1740,10 @@ p {
   min-height: 44px;
   padding: 10px 12px;
   width: 100%;
+}
+.project-fields input[aria-invalid="true"],
+.project-fields textarea[aria-invalid="true"] {
+  border-color: #c84242;
 }
 .project-source-card select {
   min-width: 260px;
@@ -1828,7 +1863,11 @@ p {
   font-size: 1.75rem;
 }
 .preparation-setup {
-  background: linear-gradient(135deg, var(--surface-violet), var(--surface-raised));
+  background: linear-gradient(
+    135deg,
+    var(--surface-violet),
+    var(--surface-raised)
+  );
   margin-bottom: 20px;
 }
 .setup-steps {
@@ -1933,6 +1972,10 @@ p {
     align-items: flex-start;
     flex-direction: column;
   }
+  .project-source-resume {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
   .workspace-item-actions {
     justify-content: flex-start;
   }
@@ -1959,7 +2002,11 @@ p {
 body,
 .app-shell {
   background:
-    radial-gradient(circle at 80% -10%, rgb(109 124 255 / 14%), transparent 30%),
+    radial-gradient(
+      circle at 80% -10%,
+      rgb(109 124 255 / 14%),
+      transparent 30%
+    ),
     var(--surface-canvas);
 }
 ::selection {
@@ -2070,7 +2117,11 @@ textarea,
 .project-source-card,
 .retest-comparison,
 .resume-drop-zone {
-  background: linear-gradient(145deg, rgb(25 37 66 / 94%), var(--surface-raised));
+  background: linear-gradient(
+    145deg,
+    rgb(25 37 66 / 94%),
+    var(--surface-raised)
+  );
   box-shadow: var(--shadow-raised);
 }
 .dashboard-hero {
@@ -2088,7 +2139,11 @@ textarea,
   box-shadow: var(--shadow-raised);
 }
 .dashboard-metric-card {
-  background: linear-gradient(180deg, rgb(109 124 255 / 15%), var(--surface-raised) 48%);
+  background: linear-gradient(
+    180deg,
+    rgb(109 124 255 / 15%),
+    var(--surface-raised) 48%
+  );
 }
 .dashboard-metric-card::before,
 .score-bar-track span,
@@ -2158,7 +2213,11 @@ textarea,
 }
 .semantic-chip--planning,
 .preparation-setup {
-  background: linear-gradient(135deg, var(--surface-violet), var(--surface-raised));
+  background: linear-gradient(
+    135deg,
+    var(--surface-violet),
+    var(--surface-raised)
+  );
   border-color: rgb(167 139 250 / 42%);
   color: #e2d8ff;
 }
@@ -2218,11 +2277,19 @@ textarea:focus-visible {
   color: var(--cobalt-500);
 }
 .choice-card-button {
-  background: linear-gradient(145deg, rgb(25 37 66 / 94%), var(--surface-raised));
+  background: linear-gradient(
+    145deg,
+    rgb(25 37 66 / 94%),
+    var(--surface-raised)
+  );
   border-color: var(--border-subtle);
 }
 .choice-card-button.is-selected {
-  background: linear-gradient(145deg, rgb(66 53 119 / 88%), var(--surface-cobalt));
+  background: linear-gradient(
+    145deg,
+    rgb(66 53 119 / 88%),
+    var(--surface-cobalt)
+  );
   border-color: var(--violet-700);
 }
 .choice-card-button input[type="radio"] {
@@ -2244,7 +2311,11 @@ textarea:focus-visible {
 .level-option,
 .public-panel,
 .voice-transcript {
-  background: linear-gradient(145deg, rgb(25 37 66 / 94%), var(--surface-raised));
+  background: linear-gradient(
+    145deg,
+    rgb(25 37 66 / 94%),
+    var(--surface-raised)
+  );
   border-color: var(--border-subtle);
 }
 .public-page {
@@ -2466,6 +2537,22 @@ textarea:focus-visible {
 .coach-tree-list li::marker {
   color: var(--cobalt-500);
 }
+.coach-guidance,
+.coach-skill-help,
+.coach-tree-help,
+.planner-stage-help {
+  color: var(--text-secondary);
+  display: block;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin-top: 4px;
+}
+.coach-tree-list > li {
+  position: relative;
+}
+.coach-tree-list > li > ol > li {
+  position: relative;
+}
 .coach-tree-list span {
   color: var(--text-secondary);
   margin-right: 12px;
@@ -2508,6 +2595,22 @@ textarea:focus-visible {
 @media (min-width: 900px) {
   .coach-tree-list > li > ol {
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    padding-left: 34px;
+    position: relative;
+  }
+  .coach-tree-list > li > ol::before {
+    border-left: 1px solid var(--border-subtle);
+    content: "";
+    inset: 0 auto 0 12px;
+    position: absolute;
+  }
+  .coach-tree-list > li > ol > li::before {
+    border-top: 1px solid var(--border-subtle);
+    content: "";
+    left: -22px;
+    position: absolute;
+    top: 18px;
+    width: 18px;
   }
 }
 @media (hover: hover) {

@@ -41,6 +41,146 @@ describe("resumeService", () => {
     );
   });
 
+  it("keeps early, late, and headingless project material reachable", async () => {
+    const lateProject =
+      "Built late inventory platform using React and Node.js.";
+    const headinglessProject = "Developed a service for deployment automation.";
+    const lean = vi.fn().mockResolvedValue({
+      extractedText: [
+        "PROJECTS",
+        "Built early payments API using TypeScript.",
+        "Background summary ".repeat(700),
+        "Experience",
+        lateProject,
+        "OTHER",
+        headinglessProject,
+      ].join("\n"),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    const context = await resumeService.getOwnedResumeProjectContext({
+      resumeId: "507f1f77bcf86cd799439011",
+      userId: "owner-1",
+    });
+
+    expect(context).toContain("Built early payments API using TypeScript.");
+    expect(context).toContain(lateProject);
+    expect(context).toContain(headinglessProject);
+    expect(context.length).toBeLessThanOrEqual(8000);
+  });
+
+  it("keeps uncued project body lines with their project heading", async () => {
+    const body = "Users can create, edit, and revisit project records later.";
+    const lean = vi.fn().mockResolvedValue({
+      extractedText: [
+        "PROJECTS",
+        "MockMateAI",
+        body,
+        "Built with React and Node.js.",
+        "SKILLS",
+        "Communication",
+      ].join("\n"),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    await expect(
+      resumeService.getOwnedResumeProjectContext({
+        resumeId: "507f1f77bcf86cd799439011",
+        userId: "owner-1",
+      }),
+    ).resolves.toContain(body);
+  });
+
+  it("keeps separate project entry bodies reachable within one Projects section", async () => {
+    const entries = ["Atlas", "Beacon", "Cipher"].map(
+      (name) => `${name}\nBuilt ${name} API with React and Node.js.`,
+    );
+    const lean = vi.fn().mockResolvedValue({
+      extractedText: ["PROJECTS", ...entries].join("\n"),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    const context = await resumeService.getOwnedResumeProjectContext({
+      resumeId: "507f1f77bcf86cd799439011",
+      userId: "owner-1",
+    });
+    entries.forEach((entry) => expect(context).toContain(entry));
+  });
+
+  it("keeps deterministic first five equally supported project entries", async () => {
+    const names = ["Atlas", "Beacon", "Cipher", "Delta", "Ember", "Forge"];
+    const lean = vi.fn().mockResolvedValue({
+      extractedText: [
+        "PROJECTS",
+        ...names.flatMap((name) => [
+          name,
+          `Built ${name} API with React and Node.js.`,
+        ]),
+      ].join("\n"),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    const context = await resumeService.getOwnedResumeProjectContext({
+      resumeId: "507f1f77bcf86cd799439011",
+      userId: "owner-1",
+    });
+    names.slice(0, 5).forEach((name) => expect(context).toContain(name));
+    expect(context).not.toContain("Forge");
+  });
+
+  it("keeps equal-ranked excerpts in source order and excludes personal lines", async () => {
+    const lean = vi.fn().mockResolvedValue({
+      extractedText: [
+        "Projects",
+        "Built first API using React.",
+        "Built second API using React.",
+        "owner@example.com",
+      ].join("\n"),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    const context = await resumeService.getOwnedResumeProjectContext({
+      resumeId: "507f1f77bcf86cd799439011",
+      userId: "owner-1",
+    });
+
+    expect(context.indexOf("Built first API")).toBeLessThan(
+      context.indexOf("Built second API"),
+    );
+    expect(context).not.toContain("owner@example.com");
+  });
+
+  it("uses a bounded non-personal fallback when no project cue exists", async () => {
+    const fallback = "Coursework and volunteer activities are listed here.";
+    const lean = vi.fn().mockResolvedValue({
+      extractedText: [
+        "owner@example.com",
+        fallback,
+        "References available.",
+      ].join("\n"),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    const findOne = vi.fn().mockReturnValue({ select });
+    const resumeService = createResumeService({ resumeModel: { findOne } });
+
+    await expect(
+      resumeService.getOwnedResumeProjectContext({
+        resumeId: "507f1f77bcf86cd799439011",
+        userId: "owner-1",
+      }),
+    ).resolves.toContain(`[Fallback excerpt]\n${fallback}`);
+  });
+
   it("queries an owned bounded newest-first metadata list", async () => {
     const lean = vi.fn().mockResolvedValue([
       {

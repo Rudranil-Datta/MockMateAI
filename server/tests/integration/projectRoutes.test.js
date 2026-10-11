@@ -1,9 +1,13 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { createApp } from "../../src/app.js";
 import CandidateProject from "../../src/models/CandidateProject.js";
 import Resume from "../../src/models/Resume.js";
+import { createAiProviderService } from "../../src/services/aiProviderService.js";
 import useMongoTestDatabase from "../helpers/useMongoTestDatabase.js";
 
 useMongoTestDatabase();
@@ -55,6 +59,159 @@ async function completedResume(
 }
 
 describe("Project routes", () => {
+  it("imports an unconfirmed README draft and removes temporary input", async () => {
+    const readmeImportUploadDir = await mkdtemp(
+      join(tmpdir(), "mockmateai-readme-"),
+    );
+    const app = createApp({ readmeImportUploadDir });
+    const { cookie } = await signup(app);
+    try {
+      const response = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach(
+          "readme",
+          Buffer.from(
+            "# MockMateAI\n\n## Summary\nStructured interview preparation platform.\n\n## Role\nDeveloper\n\n## Technologies\n- React\n\n## Architecture\n- Client and API layers\n\n## Responsibilities\n- Built project workflows",
+          ),
+          { contentType: "text/markdown", filename: "README.md" },
+        );
+      expect(response.status).toBe(200);
+      expect(response.body.draft).toMatchObject({
+        name: "MockMateAI",
+        source: "readme_import",
+        technologies: ["React"],
+      });
+      expect(response.body).not.toHaveProperty("file");
+      await expect(readdir(readmeImportUploadDir)).resolves.toEqual([]);
+    } finally {
+      await rm(readmeImportUploadDir, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects unsafe README uploads without retaining temporary input", async () => {
+    const readmeImportUploadDir = await mkdtemp(
+      join(tmpdir(), "mockmateai-readme-"),
+    );
+    const app = createApp({
+      maxReadmeImportSizeBytes: 10,
+      readmeImportUploadDir,
+    });
+    const { cookie } = await signup(app, "readme-safety@example.com");
+    try {
+      const unauthenticated = await request(app).post(
+        "/api/projects/readme-draft",
+      );
+      const missing = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie);
+      const empty = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.alloc(0), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      const multiple = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from("# one"), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        })
+        .attach("readme", Buffer.from("# two"), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      const unexpected = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("other", Buffer.from("# one"), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      const wrongType = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from("# one"), {
+          contentType: "application/pdf",
+          filename: "README.md",
+        });
+      const binary = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from([0, 1]), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      const invalidUtf8 = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from([0xc3, 0x28]), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      const oversized = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from("# longer than ten bytes"), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+
+      expect(unauthenticated.status).toBe(401);
+      for (const response of [
+        missing,
+        empty,
+        multiple,
+        unexpected,
+        wrongType,
+        binary,
+        invalidUtf8,
+        oversized,
+      ]) {
+        expect(response.status).toBeGreaterThanOrEqual(400);
+        expect(JSON.stringify(response.body)).not.toContain("README.md");
+      }
+      await expect(readdir(readmeImportUploadDir)).resolves.toEqual([]);
+    } finally {
+      await rm(readmeImportUploadDir, { force: true, recursive: true });
+    }
+  });
+
+  it("rate limits README imports", async () => {
+    const readmeImportUploadDir = await mkdtemp(
+      join(tmpdir(), "mockmateai-readme-"),
+    );
+    const app = createApp({
+      readmeImportUploadDir,
+      uploadsPerIpPerHour: 1,
+      uploadsPerUserPerHour: 1,
+    });
+    const { cookie } = await signup(app, "readme-rate@example.com");
+    try {
+      const first = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from("# MockMateAI"), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      const second = await request(app)
+        .post("/api/projects/readme-draft")
+        .set("Cookie", cookie)
+        .attach("readme", Buffer.from("# MockMateAI"), {
+          contentType: "text/markdown",
+          filename: "README.md",
+        });
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(429);
+      await expect(readdir(readmeImportUploadDir)).resolves.toEqual([]);
+    } finally {
+      await rm(readmeImportUploadDir, { force: true, recursive: true });
+    }
+  });
+
   it("extracts unsaved owned suggestions and replays without another provider call", async () => {
     const aiProviderService = provider();
     const app = createApp({ aiProviderService });
@@ -81,6 +238,38 @@ describe("Project routes", () => {
     });
     expect(replay.body).toEqual(first.body);
     expect(aiProviderService.extractProjectDrafts).toHaveBeenCalledTimes(1);
+    expect(await CandidateProject.countDocuments()).toBe(0);
+  });
+
+  it("keeps provider rejection safe and transient for project suggestions", async () => {
+    const generateContent = vi.fn().mockRejectedValue({
+      message: "private upstream schema detail",
+      status: 400,
+    });
+    const app = createApp({
+      aiProviderService: createAiProviderService({
+        aiProvider: "gemini",
+        generateContent,
+      }),
+    });
+    const { cookie, user } = await signup(app);
+    const resume = await completedResume(user.id);
+
+    const response = await request(app)
+      .post("/api/projects/extract")
+      .set("Cookie", cookie)
+      .send({
+        idempotencyKey: "15111111-1111-4111-8111-111111111111",
+        resumeId: resume.id,
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body.error).toEqual({
+      code: "AI_PROVIDER_UNAVAILABLE",
+      message: "AI practice is temporarily unavailable. Please try again.",
+    });
+    expect(JSON.stringify(response.body)).not.toContain("upstream");
+    expect(generateContent).toHaveBeenCalledOnce();
     expect(await CandidateProject.countDocuments()).toBe(0);
   });
 

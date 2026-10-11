@@ -228,6 +228,12 @@ export function loadConfig(environment = process.env) {
       5 * 1024 * 1024,
       5 * 1024 * 1024,
     ),
+    maxReadmeImportSizeBytes: optionalPositiveInteger(
+      environment.MAX_README_IMPORT_SIZE_BYTES,
+      "MAX_README_IMPORT_SIZE_BYTES",
+      256 * 1024,
+      256 * 1024,
+    ),
     mongodbReadinessTimeoutMs: optionalPositiveInteger(
       environment.MONGODB_READINESS_TIMEOUT_MS,
       "MONGODB_READINESS_TIMEOUT_MS",
@@ -244,6 +250,12 @@ export function loadConfig(environment = process.env) {
       environment,
       "RESUME_UPLOAD_DIR",
       defaultResumeUploadDir,
+      nodeEnv,
+    ),
+    readmeImportUploadDir: parseUploadDirectory(
+      environment,
+      "README_IMPORT_UPLOAD_DIR",
+      "/tmp/mockmateai-readme-imports",
       nodeEnv,
     ),
     audioUploadDir: parseUploadDirectory(

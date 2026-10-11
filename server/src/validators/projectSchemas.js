@@ -79,10 +79,16 @@ function claims(value) {
   const items = value.map((claim, index) => {
     const item = exactRequest(claim, ["text", "evidence"]);
     return {
-      text: boundedText(item.text, `claims.${index}.text`, 5, 300),
-      evidence: boundedText(item.evidence, `claims.${index}.evidence`, 5, 300, {
-        nullable: true,
-      }),
+      text: boundedText(item.text, `claims.${index}.text`, 20, 600),
+      evidence: boundedText(
+        item.evidence,
+        `claims.${index}.evidence`,
+        20,
+        600,
+        {
+          nullable: true,
+        },
+      ),
     };
   });
   if (
@@ -105,12 +111,19 @@ export function validateProjectFacts(input) {
       "responsibilities",
       1,
       10,
-      5,
-      300,
+      20,
+      600,
     ),
-    architecture: textList(request.architecture, "architecture", 1, 10, 5, 300),
-    decisions: textList(request.decisions, "decisions", 0, 8, 5, 300),
-    tradeoffs: textList(request.tradeoffs, "tradeoffs", 0, 8, 5, 300),
+    architecture: textList(
+      request.architecture,
+      "architecture",
+      1,
+      10,
+      20,
+      600,
+    ),
+    decisions: textList(request.decisions, "decisions", 0, 8, 20, 600),
+    tradeoffs: textList(request.tradeoffs, "tradeoffs", 0, 8, 20, 600),
     claims: claims(request.claims),
   };
   if (Buffer.byteLength(JSON.stringify(facts), "utf8") > maxProjectFactsBytes) {
@@ -161,6 +174,73 @@ export function validateProjectWriteRequest(body) {
     ...validateProjectFacts(factInput),
     ...(sourceResumeId ? { sourceResumeId } : {}),
   };
+}
+
+export function validatePartialProjectWriteRequest(body) {
+  const request = exactRequest(body, [
+    ...editableFields,
+    "partialConfirmed",
+    "sourceResumeId",
+  ]);
+  if (request.partialConfirmed !== true) {
+    invalid(
+      {
+        partialConfirmed:
+          "Review and confirm this incomplete project before saving.",
+      },
+      "Review and confirm this incomplete project before saving.",
+      "PROJECT_CONFIRMATION_REQUIRED",
+    );
+  }
+  let sourceResumeId;
+  if (request.sourceResumeId !== undefined && request.sourceResumeId !== null) {
+    if (!mongoose.isObjectIdOrHexString(request.sourceResumeId))
+      invalid({ sourceResumeId: "Resume ID is invalid." });
+    sourceResumeId = request.sourceResumeId;
+  }
+  const optionalText = (value, field, minimum, maximum) => {
+    if (value === null) return null;
+    return boundedText(value, field, minimum, maximum);
+  };
+  const optionalList = (value, field, maximum, itemMinimum, itemMaximum) =>
+    textList(value, field, 0, maximum, itemMinimum, itemMaximum);
+  const facts = {
+    name: optionalText(request.name, "name", 2, 120),
+    summary: optionalText(request.summary, "summary", 5, 1000),
+    role: optionalText(request.role, "role", 2, 120),
+    technologies: optionalList(request.technologies, "technologies", 15, 1, 50),
+    responsibilities: optionalList(
+      request.responsibilities,
+      "responsibilities",
+      10,
+      20,
+      600,
+    ),
+    architecture: optionalList(
+      request.architecture,
+      "architecture",
+      10,
+      20,
+      600,
+    ),
+    decisions: optionalList(request.decisions, "decisions", 8, 20, 600),
+    tradeoffs: optionalList(request.tradeoffs, "tradeoffs", 8, 20, 600),
+    claims: claims(request.claims),
+  };
+  if (
+    !facts.name &&
+    !facts.summary &&
+    !facts.technologies.length &&
+    !facts.responsibilities.length &&
+    !facts.architecture.length &&
+    !facts.decisions.length &&
+    !facts.tradeoffs.length &&
+    !facts.claims.length
+  )
+    invalid({ request: "Incomplete project must contain at least one fact." });
+  if (Buffer.byteLength(JSON.stringify(facts), "utf8") > maxProjectFactsBytes)
+    invalid({ request: "Project facts exceed the allowed size." });
+  return { ...facts, ...(sourceResumeId ? { sourceResumeId } : {}) };
 }
 
 export function validateProjectId(value) {

@@ -153,13 +153,13 @@ const snapshotClaimSchema = new mongoose.Schema(
   {
     evidence: {
       default: null,
-      maxlength: 300,
+      maxlength: 600,
       minlength: 5,
       trim: true,
       type: String,
     },
     text: {
-      maxlength: 300,
+      maxlength: 600,
       minlength: 5,
       required: true,
       trim: true,
@@ -190,7 +190,7 @@ const snapshotProjectFactsSchema = new mongoose.Schema(
     architecture: {
       required: true,
       type: [String],
-      validate: boundedSnapshotList(1, 10, 5, 300),
+      validate: boundedSnapshotList(1, 10, 5, 600),
     },
     claims: {
       default: () => [],
@@ -205,7 +205,7 @@ const snapshotProjectFactsSchema = new mongoose.Schema(
     decisions: {
       default: () => [],
       type: [String],
-      validate: boundedSnapshotList(0, 8, 5, 300),
+      validate: boundedSnapshotList(0, 8, 5, 600),
     },
     name: {
       maxlength: 120,
@@ -217,7 +217,7 @@ const snapshotProjectFactsSchema = new mongoose.Schema(
     responsibilities: {
       required: true,
       type: [String],
-      validate: boundedSnapshotList(1, 10, 5, 300),
+      validate: boundedSnapshotList(1, 10, 5, 600),
     },
     role: {
       maxlength: 120,
@@ -241,7 +241,7 @@ const snapshotProjectFactsSchema = new mongoose.Schema(
     tradeoffs: {
       default: () => [],
       type: [String],
-      validate: boundedSnapshotList(0, 8, 5, 300),
+      validate: boundedSnapshotList(0, 8, 5, 600),
     },
   },
   { _id: false },

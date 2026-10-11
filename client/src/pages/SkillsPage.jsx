@@ -49,7 +49,8 @@ function SkillsPage() {
           <p className="eyebrow">Preparation workspace</p>
           <h1>Skills</h1>
           <p className="page-description">
-            Confidence-labelled practice evidence, not a hiring assessment.
+            Your saved answers highlight what to practise next. They do not
+            predict hiring outcomes.
           </p>
         </div>
       </section>
@@ -62,8 +63,8 @@ function SkillsPage() {
         <Card className="empty-state">
           <h2>No skill evidence yet</h2>
           <p>
-            Complete a V2 practice session to establish a confidence-labelled
-            baseline.
+            Complete a practice session to start building your
+            confidence-labelled skill view.
           </p>
           <Link className="button" to="/practice">
             Start practice
@@ -85,11 +86,18 @@ function SkillsPage() {
                 Last practised{" "}
                 {dateFormatter.format(new Date(skill.lastPracticedAt))}
               </p>
+              <p className="field-help">
+                {skill.evidenceCount} saved attempt
+                {skill.evidenceCount === 1 ? " supports" : "s support"} this
+                confidence label. Focused practice adds evidence. It does not
+                predict readiness.
+              </p>
               <Link
                 className="text-link"
                 to={`/practice?focusSkillKey=${encodeURIComponent(skill.skillKey)}`}
               >
-                Focused practice <ArrowRight aria-hidden="true" size={16} />
+                Practise {skill.skillLabel} next{" "}
+                <ArrowRight aria-hidden="true" size={16} />
               </Link>
             </Card>
           ))}

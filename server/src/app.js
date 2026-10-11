@@ -27,6 +27,7 @@ import { createInterviewPlanService } from "./services/interviewPlanService.js";
 import { createJobTargetService } from "./services/jobTargetService.js";
 import { createProjectService } from "./services/projectService.js";
 import { createResumeService } from "./services/resumeService.js";
+import { createReadmeImportService } from "./services/readmeImportService.js";
 import { createSkillEvidenceService } from "./services/skillEvidenceService.js";
 import { createTranscriptionService } from "./services/transcriptionService.js";
 import { createVoiceAnswerService } from "./services/voiceAnswerService.js";
@@ -82,6 +83,7 @@ export function createApp({
   jobTargetService,
   maxAudioSizeBytes = 5 * 1024 * 1024,
   maxResumeSizeBytes = 5 * 1024 * 1024,
+  maxReadmeImportSizeBytes = 256 * 1024,
   mongodbReadinessTimeoutMs = 1000,
   questionCacheTtlMs = 60_000,
   rateLimitNow,
@@ -91,6 +93,7 @@ export function createApp({
   resumeService,
   skillEvidenceService,
   resumeUploadDir = "/tmp/mockmateai-resumes",
+  readmeImportUploadDir = "/tmp/mockmateai-readme-imports",
   transcriptionService,
   trustProxy = "direct",
   uploadsPerIpPerHour = 10_000,
@@ -122,7 +125,9 @@ export function createApp({
     });
   const ownedCoachKnowledgeTreeService =
     coachKnowledgeTreeService ||
-    createCoachKnowledgeTreeService({ skillEvidenceService: ownedSkillEvidenceService });
+    createCoachKnowledgeTreeService({
+      skillEvidenceService: ownedSkillEvidenceService,
+    });
   const answerEvaluationService = createAnswerEvaluationService({
     aiProviderService: providerService,
     skillEvidenceService: ownedSkillEvidenceService,
@@ -134,6 +139,7 @@ export function createApp({
     projectService ||
     createProjectService({
       aiProviderService: providerService,
+      readmeImportService: createReadmeImportService(),
       resumeService: ownedResumeService,
     });
   const ownedInterviewPlanService = createInterviewPlanService({
@@ -303,7 +309,13 @@ export function createApp({
   );
   app.use(
     "/api/projects",
-    createProjectRouter({ aiRateLimit, projectService: ownedProjectService }),
+    createProjectRouter({
+      aiRateLimit,
+      maxReadmeImportSizeBytes,
+      projectService: ownedProjectService,
+      readmeImportUploadDir,
+      uploadRateLimit,
+    }),
   );
   app.use(
     "/api/skills",

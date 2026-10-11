@@ -29,13 +29,13 @@ const claimSchema = new mongoose.Schema(
   {
     evidence: {
       default: null,
-      maxlength: 300,
+      maxlength: 600,
       minlength: 5,
       trim: true,
       type: String,
     },
     text: {
-      maxlength: 300,
+      maxlength: 600,
       minlength: 5,
       required: true,
       trim: true,
@@ -48,9 +48,8 @@ const claimSchema = new mongoose.Schema(
 const candidateProjectSchema = new mongoose.Schema(
   {
     architecture: {
-      required: true,
       type: [String],
-      validate: boundedUniqueList(1, 10, 5, 300),
+      validate: boundedUniqueList(0, 10, 5, 600),
     },
     claims: {
       default: () => [],
@@ -60,28 +59,25 @@ const candidateProjectSchema = new mongoose.Schema(
           items.length <= 8 && uniqueStrings(items.map(({ text }) => text)),
       },
     },
-    confirmedAt: { required: true, type: Date },
+    confirmedAt: { type: Date },
     decisions: {
       default: () => [],
       type: [String],
-      validate: boundedUniqueList(0, 8, 5, 300),
+      validate: boundedUniqueList(0, 8, 5, 600),
     },
     name: {
       maxlength: 120,
       minlength: 2,
-      required: true,
       trim: true,
       type: String,
     },
     responsibilities: {
-      required: true,
       type: [String],
-      validate: boundedUniqueList(1, 10, 5, 300),
+      validate: boundedUniqueList(0, 10, 5, 600),
     },
     role: {
       maxlength: 120,
       minlength: 2,
-      required: true,
       trim: true,
       type: String,
     },
@@ -89,20 +85,20 @@ const candidateProjectSchema = new mongoose.Schema(
     summary: {
       maxlength: 1000,
       minlength: 20,
-      required: true,
       trim: true,
       type: String,
     },
     technologies: {
-      required: true,
       type: [String],
-      validate: boundedUniqueList(1, 15, 1, 50),
+      validate: boundedUniqueList(0, 15, 1, 50),
     },
     tradeoffs: {
       default: () => [],
       type: [String],
-      validate: boundedUniqueList(0, 8, 5, 300),
+      validate: boundedUniqueList(0, 8, 5, 600),
     },
+    partialConfirmedAt: { type: Date },
+    status: { default: "ready", enum: ["partial", "ready"], type: String },
     userId: {
       ref: "User",
       required: true,
@@ -113,6 +109,24 @@ const candidateProjectSchema = new mongoose.Schema(
 );
 
 candidateProjectSchema.pre("validate", function validateSerializedSize() {
+  if (this.status === "ready" && !this.confirmedAt) {
+    this.invalidate(
+      "confirmedAt",
+      "Ready projects require confirmed project facts.",
+    );
+  }
+  if (this.status === "partial" && this.confirmedAt) {
+    this.invalidate(
+      "confirmedAt",
+      "Partial projects cannot have ready confirmation.",
+    );
+  }
+  if (this.status === "partial" && !this.partialConfirmedAt) {
+    this.invalidate(
+      "partialConfirmedAt",
+      "Partial projects require user confirmation.",
+    );
+  }
   const facts = {
     architecture: this.architecture,
     claims: this.claims?.map(({ evidence, text }) => ({ evidence, text })),
@@ -134,6 +148,7 @@ candidateProjectSchema.pre("validate", function validateSerializedSize() {
 
 candidateProjectSchema.index({ userId: 1, updatedAt: -1 });
 candidateProjectSchema.index({ userId: 1, confirmedAt: -1 });
+candidateProjectSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 
 const CandidateProject =
   mongoose.models.CandidateProject ||

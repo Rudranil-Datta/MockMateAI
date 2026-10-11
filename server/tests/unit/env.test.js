@@ -13,6 +13,7 @@ const validProductionEnvironment = {
   CLIENT_ORIGIN: "https://mockmateai.example",
   MONGODB_DB_NAME: "mockmateai",
   NODE_ENV: "production",
+  README_IMPORT_UPLOAD_DIR: "/tmp/mockmateai-readme-imports",
   RESUME_UPLOAD_DIR: "/tmp/mockmateai-resumes",
   TRUST_PROXY: "render",
 };
@@ -30,6 +31,7 @@ describe("loadConfig", () => {
       geminiTranscriptionModel: "gemini-3.6-flash",
       jsonBodyLimitBytes: 100 * 1024,
       maxAudioSizeBytes: 5 * 1024 * 1024,
+      maxReadmeImportSizeBytes: 256 * 1024,
       maxResumeSizeBytes: 5 * 1024 * 1024,
       mongoDbName: "mockmateai-test",
       mongodbReadinessTimeoutMs: 1000,
@@ -110,6 +112,17 @@ describe("loadConfig", () => {
     ).toThrow(
       new ConfigurationError(
         "RESUME_UPLOAD_DIR must be an absolute path in production.",
+      ),
+    );
+    expect(() =>
+      loadConfig({
+        ...validProductionEnvironment,
+        AI_PROVIDER: "mock",
+        README_IMPORT_UPLOAD_DIR: "relative/readme-imports",
+      }),
+    ).toThrow(
+      new ConfigurationError(
+        "README_IMPORT_UPLOAD_DIR must be an absolute path in production.",
       ),
     );
   });

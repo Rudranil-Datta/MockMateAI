@@ -222,6 +222,7 @@ function PracticePage() {
   const [searchParams] = useSearchParams();
   const requestedResumeId = searchParams.get("resumeId") || "";
   const requestedTargetId = searchParams.get("targetId") || "";
+  const requestedProjectId = searchParams.get("projectId") || "";
   const requestedFocusSkillKey = searchParams.get("focusSkillKey") || "";
   const requestedType = searchParams.get("type") || "";
   const answerIdempotencyKey = useRef(createIdempotencyKey());
@@ -260,7 +261,9 @@ function PracticePage() {
   const [projectLoadError, setProjectLoadError] = useState("");
   const [projectLoadAttempt, setProjectLoadAttempt] = useState(0);
   const [skillProfile, setSkillProfile] = useState(null);
-  const [selectedFocusSkillKey, setSelectedFocusSkillKey] = useState(requestedFocusSkillKey);
+  const [selectedFocusSkillKey, setSelectedFocusSkillKey] = useState(
+    requestedFocusSkillKey,
+  );
   const [resumes, setResumes] = useState([]);
   const [isResumeLoading, setIsResumeLoading] = useState(true);
   const [resumeLoadError, setResumeLoadError] = useState("");
@@ -275,7 +278,8 @@ function PracticePage() {
     (skill) =>
       skill.skillKey === selectedFocusSkillKey && skill.masteryScore < 70,
   );
-  const availableFocusSkills = skillProfile?.skills.filter((skill) => skill.masteryScore < 70) || [];
+  const availableFocusSkills =
+    skillProfile?.skills.filter((skill) => skill.masteryScore < 70) || [];
   const isTargetedPractice = Boolean(focusSkill);
   const isReady = Boolean(
     selectedType &&
@@ -290,7 +294,12 @@ function PracticePage() {
         level: selectedLevel,
         ...(isProjectDefense ? { projectId: selectedProjectId } : {}),
         ...(selectedResumeId ? { resumeId: selectedResumeId } : {}),
-        ...(isTargetedPractice ? { focusSkillKey: focusSkill.skillKey, sessionPurpose: "targeted_practice" } : {}),
+        ...(isTargetedPractice
+          ? {
+              focusSkillKey: focusSkill.skillKey,
+              sessionPurpose: "targeted_practice",
+            }
+          : {}),
       }
     : null;
 
@@ -390,7 +399,12 @@ function PracticePage() {
       setProjectLoadError("");
 
       try {
-        setProjects(await listProjects({ signal: controller.signal }));
+        setProjects(
+          (await listProjects({ signal: controller.signal })).filter(
+            ({ status }) => !status || status === "ready",
+          ),
+        );
+        if (requestedProjectId) setSelectedProjectId(requestedProjectId);
       } catch (error) {
         if (!controller.signal.aborted) {
           setProjectLoadError(
@@ -404,7 +418,7 @@ function PracticePage() {
 
     loadProjectOptions();
     return () => controller.abort();
-  }, [projectLoadAttempt]);
+  }, [projectLoadAttempt, requestedProjectId]);
 
   function selectType(value) {
     if (value !== selectedType) {
@@ -457,7 +471,8 @@ function PracticePage() {
   }
 
   function selectFocusSkill(value) {
-    if (value !== selectedFocusSkillKey) startIdempotencyKey.current = createIdempotencyKey();
+    if (value !== selectedFocusSkillKey)
+      startIdempotencyKey.current = createIdempotencyKey();
     setSelectedFocusSkillKey(value);
     setIsPlanReady(false);
     setFormError("");
@@ -725,7 +740,8 @@ function PracticePage() {
           <aside aria-label="Interview progress" className="cockpit-progress">
             <p className="eyebrow">Session progress</p>
             <strong>
-              {question.order}<span> / {maxQuestionsPerInterview}</span>
+              {question.order}
+              <span> / {maxQuestionsPerInterview}</span>
             </strong>
             <p>Question {question.order} is ready.</p>
             <div
@@ -756,7 +772,9 @@ function PracticePage() {
                 {questionContext.isFollowUp ? <span>Follow-up</span> : null}
               </div>
             ) : (
-              <p className="cockpit-context-empty">Standard practice question</p>
+              <p className="cockpit-context-empty">
+                Standard practice question
+              </p>
             )}
             <p className="question-prompt">{question.prompt}</p>
           </Card>
@@ -989,7 +1007,7 @@ function PracticePage() {
       <section className="page-heading compact-heading">
         <div>
           <p className="eyebrow">Practice</p>
-          <h1>Start a mock interview</h1>
+          <h1>Start interview practice</h1>
           <p className="page-description">
             Choose the kind of conversation you want to practise.
           </p>
@@ -1047,7 +1065,7 @@ function PracticePage() {
             })}
           </div>
           <p className="field-help" id="type-help">
-            Choose a supported practice type.
+            Choose the practice type that fits your next goal.
           </p>
         </fieldset>
 
@@ -1081,8 +1099,8 @@ function PracticePage() {
           <Card className="resume-context-card">
             <h2>Job Target</h2>
             <p>
-              Required. Role Simulation uses a saved analysis snapshot so the
-              session remains reproducible.
+              Choose a ready target. Role Simulation uses its saved analysis so
+              your practice stays tied to the role you selected.
             </p>
             <label htmlFor="job-target-select">Choose Job Target</label>
             <select
@@ -1144,8 +1162,8 @@ function PracticePage() {
           <Card className="resume-context-card">
             <h2>Confirmed Project</h2>
             <p>
-              Required. Project Defense uses a saved facts snapshot so the
-              session remains reproducible.
+              Choose a ready project. Project Defense uses its saved facts so
+              your questions stay tied to the project you selected.
             </p>
             <label htmlFor="project-select">Choose Project</label>
             <select
@@ -1193,8 +1211,8 @@ function PracticePage() {
         <Card className="resume-context-card">
           <h2>Resume context</h2>
           <p>
-            Optional. We use relevant details to tailor questions. Full resume
-            text stays private.
+            Optional. Choose a resume to make questions more relevant. Full
+            resume text stays private.
           </p>
           <label htmlFor="resume-select">Use a resume?</label>
           <select
@@ -1243,16 +1261,27 @@ function PracticePage() {
         {availableFocusSkills.length ? (
           <Card className="resume-context-card">
             <h2>Focused practice</h2>
-            <p>Optional. Focus one saved skill needing more evidence.</p>
+            <p>Optional. Choose one saved skill for extra practice.</p>
             <label htmlFor="focus-skill-select">Focus skill</label>
-            <select id="focus-skill-select" onChange={(event) => selectFocusSkill(event.target.value)} value={selectedFocusSkillKey}>
+            <select
+              id="focus-skill-select"
+              onChange={(event) => selectFocusSkill(event.target.value)}
+              value={selectedFocusSkillKey}
+            >
               <option value="">No focused skill</option>
-              {availableFocusSkills.map((skill) => <option key={skill.skillKey} value={skill.skillKey}>{skill.skillLabel} — {skill.masteryLabel}</option>)}
+              {availableFocusSkills.map((skill) => (
+                <option key={skill.skillKey} value={skill.skillKey}>
+                  {skill.skillLabel} — {skill.masteryLabel}
+                </option>
+              ))}
             </select>
           </Card>
         ) : null}
 
-          <InterviewPlannerPreview onReadyChange={setIsPlanReady} selection={plannerSelection} />
+        <InterviewPlannerPreview
+          onReadyChange={setIsPlanReady}
+          selection={plannerSelection}
+        />
 
         <div className="setup-actions">
           <Button

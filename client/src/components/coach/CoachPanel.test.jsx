@@ -37,6 +37,7 @@ const roadmap = {
       evidenceCount: 1,
       masteryLabel: "needs_work",
       masteryScore: 30,
+      ranking: { priority: 1, reason: "overall_recommended" },
       skillKey: "node-js",
       skillLabel: "Node.js",
     },
@@ -48,7 +49,9 @@ function renderPanel() {
     <MemoryRouter>
       <CoachPanel
         projects={[{ id: "project-1", name: "MockMateAI" }]}
-        targets={[{ id: "target-1", status: "ready", title: "Backend Engineer" }]}
+        targets={[
+          { id: "target-1", status: "ready", title: "Backend Engineer" },
+        ]}
       />
     </MemoryRouter>,
   );
@@ -58,16 +61,20 @@ describe("CoachPanel", () => {
   beforeEach(() => getCoachRoadmap.mockReset());
 
   it("renders safe roadmap and changes owned context", async () => {
-    getCoachRoadmap
-      .mockResolvedValueOnce(roadmap)
-      .mockResolvedValueOnce({ ...roadmap, context: { kind: "job_target", label: "Backend Engineer" } });
+    getCoachRoadmap.mockResolvedValueOnce(roadmap).mockResolvedValueOnce({
+      ...roadmap,
+      context: { kind: "job_target", label: "Backend Engineer" },
+    });
     renderPanel();
 
     expect(await screen.findByText("Node.js")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Practise Node.js" })).toHaveAttribute(
-      "href",
-      "/practice?focusSkillKey=node-js",
+    expect(
+      screen.getByRole("link", { name: "Practise Node.js" }),
+    ).toHaveAttribute("href", "/practice?focusSkillKey=node-js");
+    expect(screen.getByText(/Priority 1:/)).toHaveTextContent(
+      "current overall evidence attention order",
     );
+    expect(screen.getByText(/Priority uses your saved answers/)).toBeVisible();
     fireEvent.change(screen.getByLabelText("Preparation context"), {
       target: { value: "target:target-1" },
     });
@@ -81,15 +88,20 @@ describe("CoachPanel", () => {
   it("shows labelled malformed-response recovery and retries", async () => {
     getCoachRoadmap
       .mockRejectedValueOnce(
-        Object.assign(new Error("Coach returned an unexpected response. Please try again."), {
-          code: "COACH_MALFORMED_RESPONSE",
-        }),
+        Object.assign(
+          new Error("Coach returned an unexpected response. Please try again."),
+          {
+            code: "COACH_MALFORMED_RESPONSE",
+          },
+        ),
       )
       .mockResolvedValueOnce(roadmap);
     renderPanel();
 
     expect(
-      await screen.findByText("Coach returned an unexpected response. Please try again."),
+      await screen.findByText(
+        "Coach returned an unexpected response. Please try again.",
+      ),
     ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Retry Coach" }));
     expect(await screen.findByText("Node.js")).toBeVisible();
@@ -103,7 +115,11 @@ describe("CoachPanel", () => {
     });
     renderPanel();
 
-    expect(await screen.findByText("No skill evidence yet. Choose an action to begin.")).toBeVisible();
+    expect(
+      await screen.findByText(
+        "No skill evidence yet. Choose an action to begin.",
+      ),
+    ).toBeVisible();
     expect(screen.getByText(/Evidence is still syncing/)).toBeVisible();
   });
 });

@@ -4,7 +4,11 @@ import {
   createAdaptiveInterviewService,
   normalizedPromptSimilarity,
 } from "../../src/services/adaptiveInterviewService.js";
-import { deriveAdaptiveOutcome } from "../../src/validators/adaptiveInterviewSchemas.js";
+import { createAiProviderService } from "../../src/services/aiProviderService.js";
+import {
+  deriveAdaptiveOutcome,
+  validateAdaptiveInterviewInput,
+} from "../../src/validators/adaptiveInterviewSchemas.js";
 
 const coveragePlan = [
   {
@@ -282,6 +286,121 @@ describe("adaptiveInterviewService", () => {
         input({ previousQuestions: [previousQuestion()] }),
       ),
     ).rejects.toMatchObject({ code: "INVALID_AI_RESPONSE", status: 502 });
+  });
+
+  it("generates a distinct mock Role continuation after partial feedback", async () => {
+    const request = input({
+      coveragePlan: [coveragePlan[0]],
+      previousQuestions: [
+        previousQuestion({
+          overallScore: 76,
+          prompt: "Explain API design at a intermediate level.",
+        }),
+      ],
+    });
+    const aiProviderService = createAiProviderService({ aiProvider: "mock" });
+    const providerDecision = await aiProviderService.generateAdaptiveQuestion(
+      validateAdaptiveInterviewInput(request),
+    );
+
+    expect(providerDecision).toMatchObject({
+      decisionType: "clarify",
+      difficulty: "intermediate",
+      parentQuestionOrder: 1,
+      prompt:
+        "Clarify API design at a intermediate level with a concrete example and reasoning.",
+      reasonCode: "partial_evidence",
+      testedSkillKeys: ["api-design"],
+      topicKey: "api-design",
+    });
+    expect(
+      normalizedPromptSimilarity(
+        providerDecision.prompt,
+        request.previousQuestions[0].prompt,
+      ),
+    ).toBeLessThan(0.85);
+
+    const service = createAdaptiveInterviewService({ aiProviderService });
+    await expect(service.generateNextQuestion(request)).resolves.toEqual(
+      providerDecision,
+    );
+  });
+
+  it("keeps every mock adaptive branch deterministic and non-repeating", async () => {
+    const challengeDirective = {
+      anchorKey: "architecture:0",
+      anchorText: "Modular monolith with bounded API modules.",
+      axis: "security",
+      latestAnswer: "I isolated payment and identity responsibilities.",
+    };
+    const switchHistory = [
+      previousQuestion({ overallScore: 76 }),
+      previousQuestion({
+        decisionType: "clarify",
+        order: 2,
+        overallScore: 76,
+        parentQuestionOrder: 1,
+        prompt: "Clarify API design with a concrete example.",
+        reasonCode: "partial_evidence",
+      }),
+    ];
+    const cases = [
+      {
+        decisionType: "baseline",
+        request: input({ coveragePlan: [coveragePlan[0]] }),
+      },
+      {
+        decisionType: "deepen",
+        request: input({ previousQuestions: [previousQuestion()] }),
+      },
+      {
+        decisionType: "clarify",
+        request: input({
+          previousQuestions: [previousQuestion({ overallScore: 76 })],
+        }),
+      },
+      {
+        decisionType: "recover",
+        request: input({
+          previousQuestions: [previousQuestion({ overallScore: 50 })],
+        }),
+      },
+      {
+        decisionType: "switch_topic",
+        request: input({ previousQuestions: switchHistory }),
+      },
+      {
+        decisionType: "retest",
+        request: input({
+          coveragePlan: [coveragePlan[0]],
+          focusSkillKey: "api-design",
+          sessionPurpose: "targeted_practice",
+        }),
+      },
+      {
+        decisionType: "deepen",
+        request: input({
+          challengeDirective,
+          interviewType: "Project Defense",
+          previousQuestions: [previousQuestion()],
+        }),
+      },
+    ];
+    const aiProviderService = createAiProviderService({ aiProvider: "mock" });
+    const service = createAdaptiveInterviewService({ aiProviderService });
+
+    for (const { decisionType, request } of cases) {
+      const first = await service.generateNextQuestion(request);
+      const second = await service.generateNextQuestion(request);
+
+      expect(first).toEqual(second);
+      expect(first.decisionType).toBe(decisionType);
+      for (const previous of request.previousQuestions) {
+        expect(
+          normalizedPromptSimilarity(first.prompt, previous.prompt),
+        ).toBeLessThan(0.85);
+      }
+    }
   });
 
   it("accepts only a grounded Project Defense follow-up challenge", async () => {

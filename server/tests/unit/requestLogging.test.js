@@ -37,6 +37,12 @@ describe("request failure logging", () => {
       {
         errorCategory: "provider_permission",
         expose: true,
+        providerDiagnostics: {
+          operation: "project_extraction",
+          profile: "structured_json_v1",
+          sdkSignal: "PERMISSION_DENIED",
+          statusClass: "4xx",
+        },
         status: 502,
       },
     );
@@ -63,6 +69,12 @@ describe("request failure logging", () => {
       code: "AI_PROVIDER_UNAVAILABLE",
       durationMs: 13,
       errorCategory: "provider_permission",
+      providerDiagnostics: {
+        operation: "project_extraction",
+        profile: "structured_json_v1",
+        sdkSignal: "PERMISSION_DENIED",
+        statusClass: "4xx",
+      },
     });
     expect(Object.keys(loggedError.mock.calls[0][1])).toEqual([
       "requestId",
@@ -72,6 +84,7 @@ describe("request failure logging", () => {
       "code",
       "durationMs",
       "errorCategory",
+      "providerDiagnostics",
     ]);
     expect(JSON.stringify(loggedError.mock.calls[0][1])).not.toMatch(
       /private|message|cause|stack|prompt|resume|payload|header|cookie|errorName/i,
@@ -93,6 +106,12 @@ describe("request failure logging", () => {
     const response = createResponse();
     const error = new AppError("INTERNAL_SERVER_ERROR", "private", {
       errorCategory: "provider_secret_detail",
+      providerDiagnostics: {
+        operation: "project_extraction",
+        profile: "structured_json_v1",
+        sdkSignal: "private provider signal",
+        statusClass: "4xx",
+      },
       status: 500,
     });
     const loggedError = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -108,6 +127,7 @@ describe("request failure logging", () => {
       durationMs: 0,
     });
     expect(error).not.toHaveProperty("errorCategory");
+    expect(error).not.toHaveProperty("providerDiagnostics");
   });
 
   it("logs one successful terminal event with the captured query-free path", () => {

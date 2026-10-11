@@ -34,7 +34,9 @@ export function createInterviewRouter({
     skillEvidenceService,
   });
   const interviewController = createInterviewController({ interviewService });
-  const interviewPlanController = createInterviewPlanController({ interviewPlanService });
+  const interviewPlanController = createInterviewPlanController({
+    interviewPlanService,
+  });
   const voiceAnswerController = createVoiceAnswerController({
     voiceAnswerService,
   });
@@ -49,7 +51,12 @@ export function createInterviewRouter({
     aiRateLimit,
     interviewController.startInterview,
   );
-  interviewRouter.get("/plan", requireAuth, plannerRateLimit, interviewPlanController.getPlan);
+  interviewRouter.get(
+    "/plan",
+    requireAuth,
+    plannerRateLimit,
+    interviewPlanController.getPlan,
+  );
   interviewRouter.get("/:id", requireAuth, interviewController.getInterview);
   interviewRouter.post(
     "/:id/questions",

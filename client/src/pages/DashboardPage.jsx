@@ -492,7 +492,7 @@ function DashboardPage() {
               <p className="eyebrow">Your baseline starts here</p>
               <h2>No completed sessions yet</h2>
               <p>
-                Complete one mock interview to unlock score trends, skill
+                Complete one practice session to see score trends, skill
                 breakdowns, and saved-session history.
               </p>
               <Link className="button button--secondary" to="/practice">

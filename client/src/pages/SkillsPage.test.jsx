@@ -39,8 +39,13 @@ describe("SkillsPage", () => {
       await screen.findByRole("heading", { name: "Node.js" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: /Focused practice/ }),
+      screen.getByRole("link", { name: /Practise Node.js next/ }),
     ).toHaveAttribute("href", "/practice?focusSkillKey=node-js");
+    expect(
+      screen.getByText(
+        /Focused practice adds evidence\. It does not predict readiness/,
+      ),
+    ).toBeVisible();
   });
 
   it("shows retryable profile failure", async () => {
@@ -51,5 +56,20 @@ describe("SkillsPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Skills could not be loaded.",
     );
+  });
+
+  it("uses practice guidance without internal-version language", async () => {
+    getSkillProfile.mockResolvedValueOnce({
+      evidenceSyncStatus: "ready",
+      recommendedAction: null,
+      skills: [],
+    });
+    renderPage();
+    expect(
+      await screen.findByText(
+        "Complete a practice session to start building your confidence-labelled skill view.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/V2 practice session/)).toBeNull();
   });
 });

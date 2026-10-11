@@ -24,9 +24,24 @@ vi.mock("../api/skillApi.js", () => ({ getSkillProfile }));
 
 const coachRoadmap = {
   actions: [
-    { description: "Build evidence.", label: "Start practice", to: "/practice", type: "collect_evidence" },
-    { description: "Add role context.", label: "Add Job Target", to: "/targets", type: "add_context" },
-    { description: "Confirm project facts.", label: "Confirm Project", to: "/projects", type: "confirm_project" },
+    {
+      description: "Build evidence.",
+      label: "Start practice",
+      to: "/practice",
+      type: "collect_evidence",
+    },
+    {
+      description: "Add role context.",
+      label: "Add Job Target",
+      to: "/targets",
+      type: "add_context",
+    },
+    {
+      description: "Confirm project facts.",
+      label: "Confirm Project",
+      to: "/projects",
+      type: "confirm_project",
+    },
   ],
   context: { kind: "overall", label: "Overall preparation" },
   evidenceSyncStatus: "ready",
@@ -98,16 +113,30 @@ describe("DashboardPage", () => {
     getCoachRoadmap.mockResolvedValue(coachRoadmap);
     getCoachTree.mockResolvedValue({
       context: { kind: "overall", label: "Overall preparation" },
-      edges: [], evidenceSyncStatus: "ready", nodes: [{ id: "context", kind: "context", label: "Overall preparation" }], omittedSkillCount: 0,
+      edges: [],
+      evidenceSyncStatus: "ready",
+      nodes: [{ id: "context", kind: "context", label: "Overall preparation" }],
+      omittedSkillCount: 0,
     });
     getSkillProfile.mockResolvedValue({ skills: [] });
     getInterviewPlan.mockResolvedValue({
-      adaptiveNotice: "Later questions adapt to your answers and are not prewritten.",
+      adaptiveNotice:
+        "Later questions adapt to your answers and are not prewritten.",
       context: null,
       openingFocus: { label: "Fundamentals", topicKey: "dsa-1" },
       rationale: { kind: "type_level" },
-      selection: { interviewType: "DSA", level: "intermediate", sessionPurpose: "standard" },
-      stages: [{ focus: { label: "Fundamentals", topicKey: "dsa-1" }, order: 1, type: "opening" }],
+      selection: {
+        interviewType: "DSA",
+        level: "intermediate",
+        sessionPurpose: "standard",
+      },
+      stages: [
+        {
+          focus: { label: "Fundamentals", topicKey: "dsa-1" },
+          order: 1,
+          type: "opening",
+        },
+      ],
     });
   });
 

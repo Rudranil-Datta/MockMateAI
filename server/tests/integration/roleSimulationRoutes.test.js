@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/app.js";
 import InterviewSession from "../../src/models/InterviewSession.js";
 import JobTarget from "../../src/models/JobTarget.js";
+import SkillEvidence from "../../src/models/SkillEvidence.js";
+import { createAiProviderService } from "../../src/services/aiProviderService.js";
 import useMongoTestDatabase from "../helpers/useMongoTestDatabase.js";
 
 useMongoTestDatabase();
@@ -56,21 +58,31 @@ function adaptiveDecision(input) {
   };
 }
 
-function createRoleApp() {
+function createRoleApp({
+  useRealMockProvider = false,
+  useRealV2Evaluator = false,
+} = {}) {
+  const mockProvider =
+    useRealMockProvider || useRealV2Evaluator
+      ? createAiProviderService({ aiProvider: "mock" })
+      : null;
   const aiProviderService = {
     evaluateAnswer: vi.fn().mockResolvedValue(feedback()),
-    evaluateV2Answer: vi.fn().mockImplementation(async ({ testedSkills }) => ({
-      ...feedback(),
-      skillEvidence: testedSkills.map(({ key }) => ({
-        evidenceStrength: "direct",
-        outcome: "partial",
-        reasonCode: "answer_quality",
-        skillKey: key,
+    evaluateV2Answer:
+      mockProvider?.evaluateV2Answer.bind(mockProvider) ||
+      vi.fn().mockImplementation(async ({ testedSkills }) => ({
+        ...feedback(),
+        skillEvidence: testedSkills.map(({ key }) => ({
+          evidenceStrength: "direct",
+          outcome: "partial",
+          reasonCode: "answer_quality",
+          skillKey: key,
+        })),
       })),
-    })),
-    generateAdaptiveQuestion: vi
-      .fn()
-      .mockImplementation(async (input) => adaptiveDecision(input)),
+    generateAdaptiveQuestion:
+      mockProvider && useRealMockProvider
+        ? mockProvider.generateAdaptiveQuestion.bind(mockProvider)
+        : vi.fn().mockImplementation(async (input) => adaptiveDecision(input)),
     generateQuestion: vi.fn(),
   };
   return { aiProviderService, app: createApp({ aiProviderService }) };
@@ -140,6 +152,66 @@ function startRole(app, cookie, jobTargetId, idempotencyKey = randomUUID()) {
 }
 
 describe("Role Simulation interview routes", () => {
+  it("uses real mock V2 evaluation and synchronizes owned evidence", async () => {
+    const { app } = createRoleApp({ useRealV2Evaluator: true });
+    const owner = await signup(app, { email: "role-real-v2@example.com" });
+    const target = await createTarget(owner.userId);
+    const started = await startRole(app, owner.cookie, target.id);
+
+    const answer = await request(app)
+      .post(`/api/interviews/${started.body.interview.id}/answers`)
+      .set("Cookie", owner.cookie)
+      .send({
+        idempotencyKey: randomUUID(),
+        questionId: started.body.question.id,
+        text: "I would validate API input, use clear ownership checks, and explain trade-offs.",
+      });
+
+    expect(answer.status).toBe(200);
+    expect(answer.body.feedback.overallScore).toBeTypeOf("number");
+    await expect(
+      SkillEvidence.countDocuments({ userId: owner.userId }),
+    ).resolves.toBeGreaterThan(0);
+  });
+
+  it("continues a real mock Role session after saved evidence", async () => {
+    const { app } = createRoleApp({ useRealMockProvider: true });
+    const owner = await signup(app, {
+      email: "role-real-continuation@example.com",
+    });
+    const target = await createTarget(owner.userId);
+    const started = await startRole(app, owner.cookie, target.id);
+
+    const answer = await request(app)
+      .post(`/api/interviews/${started.body.interview.id}/answers`)
+      .set("Cookie", owner.cookie)
+      .send({
+        idempotencyKey: randomUUID(),
+        questionId: started.body.question.id,
+        text: "I would validate API input, use clear ownership checks, and explain trade-offs.",
+      });
+    const next = await request(app)
+      .post(`/api/interviews/${started.body.interview.id}/questions`)
+      .set("Cookie", owner.cookie)
+      .send({ idempotencyKey: randomUUID() });
+
+    expect(answer.status).toBe(200);
+    expect(next.status).toBe(200);
+    expect(next.body.question).toMatchObject({
+      decisionType: "clarify",
+      order: 2,
+      parentQuestionId: started.body.question.id,
+      reasonCode: "partial_evidence",
+    });
+    expect(next.body.question.prompt).not.toBe(started.body.question.prompt);
+    await expect(
+      SkillEvidence.countDocuments({ userId: owner.userId }),
+    ).resolves.toBeGreaterThan(0);
+    const session = await InterviewSession.findById(started.body.interview.id);
+    expect(session.questions).toHaveLength(2);
+    expect(session.questions[0].answers[0].evaluationStatus).toBe("completed");
+  });
+
   it("starts from weighted target coverage and saves an immutable bounded snapshot", async () => {
     const { aiProviderService, app } = createRoleApp();
     const owner = await signup(app);

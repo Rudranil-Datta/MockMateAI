@@ -385,8 +385,8 @@ function InterviewResultPage() {
       <section aria-labelledby="answers-heading" className="saved-answers">
         <h2 id="answers-heading">Saved answers and feedback</h2>
         <p className="page-description">
-          AI feedback supports interview practice and may not be perfectly
-          accurate. It is not a hiring decision.
+          Use this feedback to guide your next practice step. It can be
+          imperfect and is not a hiring decision.
         </p>
         {interview.contextSnapshot ? (
           <p className="replay-context">

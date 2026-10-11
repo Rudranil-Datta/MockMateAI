@@ -51,6 +51,10 @@ services:
         value: /tmp/mockmateai/resumes
       - key: MAX_RESUME_SIZE_BYTES
         value: 5242880
+      - key: MAX_README_IMPORT_SIZE_BYTES
+        value: 262144
+      - key: README_IMPORT_UPLOAD_DIR
+        value: /tmp/mockmateai/readme-imports
       - key: AUDIO_UPLOAD_DIR
         value: /tmp/mockmateai/audio
       - key: MAX_AUDIO_SIZE_BYTES

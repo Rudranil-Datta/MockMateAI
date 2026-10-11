@@ -213,6 +213,18 @@ const projectStringList = (minItems, maxItems, minLength, maxLength) => ({
   type: "array",
 });
 
+const projectFactKeys = [
+  "name",
+  "summary",
+  "role",
+  "technologies",
+  "responsibilities",
+  "architecture",
+  "decisions",
+  "tradeoffs",
+  "claims",
+];
+
 const projectExtractionJsonSchema = {
   additionalProperties: false,
   properties: {
@@ -220,7 +232,7 @@ const projectExtractionJsonSchema = {
       items: {
         additionalProperties: false,
         properties: {
-          architecture: projectStringList(1, 10, 5, 300),
+          architecture: projectStringList(0, 10, 5, 300),
           claims: {
             items: {
               additionalProperties: false,
@@ -240,11 +252,34 @@ const projectExtractionJsonSchema = {
             type: "array",
           },
           decisions: projectStringList(0, 8, 5, 300),
-          name: { maxLength: 120, minLength: 2, type: "string" },
-          responsibilities: projectStringList(1, 10, 5, 300),
-          role: { maxLength: 120, minLength: 2, type: "string" },
-          summary: { maxLength: 1000, minLength: 20, type: "string" },
-          technologies: projectStringList(1, 15, 1, 50),
+          missingFields: {
+            items: {
+              enum: projectFactKeys,
+              type: "string",
+            },
+            maxItems: 9,
+            type: "array",
+          },
+          name: {
+            maxLength: 120,
+            minLength: 2,
+            nullable: true,
+            type: "string",
+          },
+          responsibilities: projectStringList(0, 10, 5, 300),
+          role: {
+            maxLength: 120,
+            minLength: 2,
+            nullable: true,
+            type: "string",
+          },
+          summary: {
+            maxLength: 1000,
+            minLength: 5,
+            nullable: true,
+            type: "string",
+          },
+          technologies: projectStringList(0, 15, 1, 50),
           tradeoffs: projectStringList(0, 8, 5, 300),
         },
         required: [
@@ -257,6 +292,7 @@ const projectExtractionJsonSchema = {
           "decisions",
           "tradeoffs",
           "claims",
+          "missingFields",
         ],
         type: "object",
       },
@@ -270,6 +306,48 @@ const projectExtractionJsonSchema = {
 
 function quotedList(items) {
   return items.length ? items.map((item) => `- ${item}`).join("\n") : "- None";
+}
+
+function toGeminiResponseJsonSchema(
+  value,
+  { omitArrayCardinality = false } = {},
+) {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      toGeminiResponseJsonSchema(item, { omitArrayCardinality }),
+    );
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const {
+    maxLength: _maxLength,
+    minLength: _minLength,
+    maxItems,
+    minItems,
+    nullable,
+    ...schema
+  } = value;
+  if (!omitArrayCardinality && maxItems !== undefined) {
+    schema.maxItems = maxItems;
+  }
+  if (!omitArrayCardinality && minItems !== undefined) {
+    schema.minItems = minItems;
+  }
+  const compatibleSchema = Object.fromEntries(
+    Object.entries(schema).map(([key, item]) => [
+      key,
+      toGeminiResponseJsonSchema(item, { omitArrayCardinality }),
+    ]),
+  );
+
+  if (nullable === true && typeof compatibleSchema.type === "string") {
+    compatibleSchema.type = [compatibleSchema.type, "null"];
+  }
+
+  return compatibleSchema;
 }
 
 export function buildQuestionPrompt({
@@ -354,13 +432,43 @@ export function buildJobTargetAnalysisPrompt({ company, description, title }) {
 
 export function buildProjectExtractionPrompt({ resumeContext }) {
   return [
-    "Extract up to five candidate project suggestions from this bounded resume context.",
+    "Extract up to five partial candidate project drafts from this bounded resume context.",
     `Resume context:\n${resumeContext}`,
     "Use only facts explicitly present. Do not infer metrics, ownership, architecture, decisions, or trade-offs.",
-    "If a required field is not supported, omit that project by returning fewer drafts, including zero.",
+    "Return every project field. Use null for unsupported text, [] for unsupported lists, and list every absent field in missingFields in project-field order.",
+    "Copy nonempty values exactly from the context. Do not infer, summarize, rename, or synthesize facts.",
+    "Return a draft only when at least one nonempty project identity, summary, technical, action, or claim value is explicitly supported.",
     "Claims need explicit resume evidence; otherwise return an empty claims list.",
     "Return JSON only with a drafts array. Do not include personal data, markdown, hidden reasoning, or extra fields.",
   ].join("\n\n");
+}
+
+export const geminiStructuredProfile = "structured_json_v1";
+
+function createStructuredRequest({
+  contents,
+  maxOutputTokens,
+  model,
+  responseJsonSchema,
+  omitArrayCardinality = false,
+  temperature,
+  timeoutMs,
+}) {
+  return {
+    config: {
+      abortSignal: AbortSignal.timeout(timeoutMs),
+      candidateCount: 1,
+      maxOutputTokens,
+      responseJsonSchema: toGeminiResponseJsonSchema(responseJsonSchema, {
+        omitArrayCardinality,
+      }),
+      responseMimeType: "application/json",
+      temperature,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+    contents,
+    model,
+  };
 }
 
 export function createGeminiProvider({
@@ -380,19 +488,16 @@ export function createGeminiProvider({
       input,
       { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
     ) {
-      const response = await requestContent({
-        config: {
-          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
-          candidateCount: 1,
+      const response = await requestContent(
+        createStructuredRequest({
+          contents: buildAdaptiveQuestionPrompt(input),
           maxOutputTokens: 500,
+          model,
           responseJsonSchema: adaptiveQuestionJsonSchema(input),
-          responseMimeType: "application/json",
           temperature: 0.1,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        contents: buildAdaptiveQuestionPrompt(input),
-        model,
-      });
+          timeoutMs: attemptTimeoutMs,
+        }),
+      );
       if (typeof response?.text !== "string") return null;
       try {
         return JSON.parse(response.text);
@@ -405,19 +510,16 @@ export function createGeminiProvider({
       input,
       { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
     ) {
-      const response = await requestContent({
-        config: {
-          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
-          candidateCount: 1,
+      const response = await requestContent(
+        createStructuredRequest({
+          contents: buildJobTargetAnalysisPrompt(input),
           maxOutputTokens: 1600,
+          model,
           responseJsonSchema: jobTargetAnalysisJsonSchema,
-          responseMimeType: "application/json",
           temperature: 0.1,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        contents: buildJobTargetAnalysisPrompt(input),
-        model,
-      });
+          timeoutMs: attemptTimeoutMs,
+        }),
+      );
 
       if (typeof response?.text !== "string") return null;
       try {
@@ -431,19 +533,17 @@ export function createGeminiProvider({
       input,
       { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
     ) {
-      const response = await requestContent({
-        config: {
-          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
-          candidateCount: 1,
+      const response = await requestContent(
+        createStructuredRequest({
+          contents: buildProjectExtractionPrompt(input),
           maxOutputTokens: 3000,
+          model,
+          omitArrayCardinality: true,
           responseJsonSchema: projectExtractionJsonSchema,
-          responseMimeType: "application/json",
           temperature: 0.1,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        contents: buildProjectExtractionPrompt(input),
-        model,
-      });
+          timeoutMs: attemptTimeoutMs,
+        }),
+      );
       if (typeof response?.text !== "string") return null;
       try {
         return JSON.parse(response.text);
@@ -456,19 +556,16 @@ export function createGeminiProvider({
       input,
       { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
     ) {
-      const response = await requestContent({
-        config: {
-          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
-          candidateCount: 1,
+      const response = await requestContent(
+        createStructuredRequest({
+          contents: buildQuestionPrompt(input),
           maxOutputTokens: 240,
+          model,
           responseJsonSchema: questionJsonSchema,
-          responseMimeType: "application/json",
           temperature: 0.2,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        contents: buildQuestionPrompt(input),
-        model,
-      });
+          timeoutMs: attemptTimeoutMs,
+        }),
+      );
 
       if (typeof response?.text !== "string") {
         return null;
@@ -485,19 +582,16 @@ export function createGeminiProvider({
       input,
       { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
     ) {
-      const response = await requestContent({
-        config: {
-          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
-          candidateCount: 1,
+      const response = await requestContent(
+        createStructuredRequest({
+          contents: buildEvaluationPrompt(input),
           maxOutputTokens: 600,
+          model,
           responseJsonSchema: evaluationJsonSchema,
-          responseMimeType: "application/json",
           temperature: 0.2,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        contents: buildEvaluationPrompt(input),
-        model,
-      });
+          timeoutMs: attemptTimeoutMs,
+        }),
+      );
 
       if (typeof response?.text !== "string") {
         return null;
@@ -514,19 +608,16 @@ export function createGeminiProvider({
       input,
       { timeoutMs: attemptTimeoutMs = timeoutMs } = {},
     ) {
-      const response = await requestContent({
-        config: {
-          abortSignal: AbortSignal.timeout(attemptTimeoutMs),
-          candidateCount: 1,
+      const response = await requestContent(
+        createStructuredRequest({
+          contents: buildV2EvaluationPrompt(input),
           maxOutputTokens: 700,
+          model,
           responseJsonSchema: v2EvaluationJsonSchema(input.testedSkills),
-          responseMimeType: "application/json",
           temperature: 0.2,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-        contents: buildV2EvaluationPrompt(input),
-        model,
-      });
+          timeoutMs: attemptTimeoutMs,
+        }),
+      );
       if (typeof response?.text !== "string") return null;
       try {
         return JSON.parse(response.text);

@@ -152,7 +152,8 @@ function TargetsPage() {
           <p className="eyebrow">Preparation workspace</p>
           <h1>Job Targets</h1>
           <p className="page-description">
-            Save a role to ground future Role Simulations.
+            Save a role you want to practise for. Sessions use its saved
+            analysis, not hiring predictions.
           </p>
         </div>
         <Link className="button button--secondary" to="/practice">
@@ -190,13 +191,19 @@ function TargetsPage() {
             />
             <Button
               isLoading={isSaving}
-              loadingLabel={editingId ? "Analyzing target..." : "Analyzing target..."}
+              loadingLabel={
+                editingId ? "Analyzing target..." : "Analyzing target..."
+              }
               type="submit"
             >
               {editingId ? "Save and reanalyze" : "Save and analyze"}
             </Button>
             {editingId ? (
-              <Button className="button--secondary" onClick={cancelEdit} type="button">
+              <Button
+                className="button--secondary"
+                onClick={cancelEdit}
+                type="button"
+              >
                 Cancel edit
               </Button>
             ) : null}
@@ -214,8 +221,12 @@ function TargetsPage() {
             items.map((target) => (
               <Card className="workspace-item" key={target.id}>
                 <div>
-                  <span className={`semantic-chip semantic-chip--${target.status === "ready" ? "success" : target.status === "analysis_failed" ? "error" : "attention"}`}>
-                    {target.status === "ready" ? "Ready for Role Simulation" : target.status.replaceAll("_", " ")}
+                  <span
+                    className={`semantic-chip semantic-chip--${target.status === "ready" ? "success" : target.status === "analysis_failed" ? "error" : "attention"}`}
+                  >
+                    {target.status === "ready"
+                      ? "Ready for Role Simulation"
+                      : target.status.replaceAll("_", " ")}
                   </span>
                   <h2>{target.title}</h2>
                   <p>{target.company || "Independent preparation"}</p>
@@ -223,10 +234,22 @@ function TargetsPage() {
                     <div className="target-analysis">
                       <p>{target.analysis.roleSummary}</p>
                       <p>
-                        Requirements: {target.analysis.requirements.map(({ label, priority }) => `${label} (${priority})`).join(", ")}
+                        Practice order:{" "}
+                        {target.analysis.requirements
+                          .map(
+                            ({ label, priority }) => `${label} (${priority})`,
+                          )
+                          .join(", ")}
                       </p>
                       <p>
-                        Weighted skills: {target.analysis.skills.map(({ label, weight }) => `${label} (${weight}/5)`).join(", ")}
+                        Skills to assess:{" "}
+                        {target.analysis.skills
+                          .map(({ label, weight }) => `${label} (${weight}/5)`)
+                          .join(", ")}
+                      </p>
+                      <p className="field-help">
+                        Higher-weight skills get more practice attention. This
+                        does not measure job eligibility.
                       </p>
                     </div>
                   ) : (
@@ -239,14 +262,22 @@ function TargetsPage() {
                 </div>
                 <div className="workspace-item-actions">
                   {target.status === "ready" ? (
-                    <Link
-                      className="text-link"
-                      to={`/practice?type=${encodeURIComponent("Role Simulation")}&targetId=${target.id}`}
-                    >
-                      Role Simulation
-                    </Link>
+                    <div>
+                      <Link
+                        className="text-link"
+                        to={`/practice?type=${encodeURIComponent("Role Simulation")}&targetId=${target.id}`}
+                      >
+                        Start Role Simulation
+                      </Link>
+                      <p className="field-help">
+                        Next: explain one saved skill, then defend a trade-off.
+                      </p>
+                    </div>
                   ) : null}
-                  <Button className="button--secondary" onClick={() => editTarget(target)}>
+                  <Button
+                    className="button--secondary"
+                    onClick={() => editTarget(target)}
+                  >
                     Edit
                   </Button>
                   <Button
@@ -256,7 +287,9 @@ function TargetsPage() {
                     loadingLabel="Reanalyzing…"
                     onClick={() => reanalyzeTarget(target)}
                   >
-                    {target.status === "analysis_failed" ? "Retry analysis" : "Reanalyze"}
+                    {target.status === "analysis_failed"
+                      ? "Retry analysis"
+                      : "Reanalyze"}
                   </Button>
                   <Button
                     className="button--secondary"

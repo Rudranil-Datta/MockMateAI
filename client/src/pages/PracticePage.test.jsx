@@ -111,13 +111,40 @@ function savedAnswerResult(overrides = {}) {
 }
 
 function interviewPlan(selection = {}) {
+  const isRoleSimulation = selection.interviewType === "Role Simulation";
+  const isProjectDefense = selection.interviewType === "Project Defense";
+
   return {
-    adaptiveNotice: "Later questions adapt to your answers and are not prewritten.",
-    context: null,
+    adaptiveNotice:
+      "Later questions adapt to your answers and are not prewritten.",
+    context: isRoleSimulation
+      ? { kind: "job_target", label: "Backend Engineer" }
+      : isProjectDefense
+        ? { kind: "candidate_project", label: "Payments Platform" }
+        : null,
     openingFocus: { label: "Fundamentals", topicKey: "dsa-1" },
-    rationale: { kind: "type_level" },
-    selection: { interviewType: selection.interviewType || "DSA", level: selection.level || "intermediate", sessionPurpose: selection.sessionPurpose || "standard", ...(selection.focusSkillKey ? { focusSkillKey: selection.focusSkillKey } : {}) },
-    stages: [{ focus: { label: "Fundamentals", topicKey: "dsa-1" }, order: 1, type: "opening" }],
+    rationale: {
+      kind: isRoleSimulation
+        ? "target_coverage"
+        : isProjectDefense
+          ? "project_coverage"
+          : "type_level",
+    },
+    selection: {
+      interviewType: selection.interviewType || "DSA",
+      level: selection.level || "intermediate",
+      sessionPurpose: selection.sessionPurpose || "standard",
+      ...(selection.focusSkillKey
+        ? { focusSkillKey: selection.focusSkillKey }
+        : {}),
+    },
+    stages: [
+      {
+        focus: { label: "Fundamentals", topicKey: "dsa-1" },
+        order: 1,
+        type: "opening",
+      },
+    ],
   };
 }
 
@@ -137,7 +164,17 @@ describe("PracticePage", () => {
     listJobTargets.mockResolvedValue([]);
     listProjects.mockResolvedValue([]);
     getSkillProfile.mockResolvedValue({ skills: [] });
-    getInterviewPlan.mockImplementation(({ interviewType, level, sessionPurpose, focusSkillKey }) => Promise.resolve(interviewPlan({ interviewType, level, sessionPurpose, focusSkillKey })));
+    getInterviewPlan.mockImplementation(
+      ({ interviewType, level, sessionPurpose, focusSkillKey }) =>
+        Promise.resolve(
+          interviewPlan({
+            interviewType,
+            level,
+            sessionPurpose,
+            focusSkillKey,
+          }),
+        ),
+    );
   });
 
   it("requires interview type and level before submission", () => {
@@ -153,15 +190,22 @@ describe("PracticePage", () => {
   it("keeps setup choices while a failed plan is retried before start", async () => {
     getInterviewPlan
       .mockRejectedValueOnce(new Error("Offline"))
-      .mockResolvedValueOnce(interviewPlan({ interviewType: "DSA", level: "intermediate" }));
+      .mockResolvedValueOnce(
+        interviewPlan({ interviewType: "DSA", level: "intermediate" }),
+      );
     startInterview.mockResolvedValueOnce(interviewStartResult());
     renderPracticePage();
 
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
     expect(await screen.findByText(/could not be loaded/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Start interview" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /DSA/i })).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Start interview" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /DSA/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByLabelText(/Intermediate/i)).toBeChecked();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry plan" }));
@@ -344,16 +388,25 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Start interview" })).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Start interview" }),
+      ).toBeEnabled();
     });
   });
 
   it("requires and preserves a confirmed Project for Project Defense", async () => {
     listProjects.mockResolvedValue([
       {
+        id: "partial-project-123",
+        name: "Incomplete Platform",
+        role: "Developer",
+        status: "partial",
+      },
+      {
         id: "project-123",
         name: "Payments Platform",
         role: "Backend Engineer",
+        status: "ready",
       },
     ]);
     startInterview
@@ -379,6 +432,12 @@ describe("PracticePage", () => {
     ).toBeDisabled();
 
     const projectSelect = await screen.findByLabelText("Choose Project");
+    expect(
+      screen.queryByRole("option", { name: /Incomplete Platform/ }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("option", { name: /Payments Platform/ }),
+    ).toBeVisible();
     fireEvent.change(projectSelect, { target: { value: "project-123" } });
     await startCurrentInterview();
     expect(await screen.findByText(/Question generation failed/)).toBeVisible();
@@ -409,7 +468,9 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Start interview" })).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Start interview" }),
+      ).toBeEnabled();
     });
   });
 
@@ -582,10 +643,10 @@ describe("PracticePage", () => {
     expect(
       await screen.findByRole("heading", { name: "Priority improvement" }),
     ).toBeVisible();
+    expect(screen.getByText("Explain the error boundary first.")).toBeVisible();
     expect(
-      screen.getByText("Explain the error boundary first."),
+      screen.getByRole("heading", { name: "Tested skills" }),
     ).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Tested skills" })).toBeVisible();
     expect(screen.getByText("Error Handling")).toBeVisible();
     expect(screen.queryByText("targeted_retest")).not.toBeInTheDocument();
   });

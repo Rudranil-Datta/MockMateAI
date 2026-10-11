@@ -92,7 +92,7 @@ describe("InterviewResultPage", () => {
       screen.getByText("Compare chaining with open addressing."),
     ).toBeVisible();
     expect(
-      screen.getByText(/AI feedback supports interview practice/),
+      screen.getByText(/Use this feedback to guide your next practice step/),
     ).toBeVisible();
     expect(
       screen.getByRole("link", { name: "View dashboard" }),

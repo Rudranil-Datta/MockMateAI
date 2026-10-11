@@ -28,16 +28,33 @@ async function createTarget(userId, overrides = {}) {
   return JobTarget.create({
     analysis: {
       requirements: [
-        { evidenceTerms: [], key: "backend", label: "Backend", priority: "required" },
+        {
+          evidenceTerms: [],
+          key: "backend",
+          label: "Backend",
+          priority: "required",
+        },
       ],
-      roleSummary: "Build reliable backend services with Node.js and clear trade-offs.",
+      roleSummary:
+        "Build reliable backend services with Node.js and clear trade-offs.",
       skills: [
-        { key: "node-js", label: "Node.js", sourceRequirementKeys: ["backend"], weight: 5 },
-        { key: "api-design", label: "API design", sourceRequirementKeys: ["backend"], weight: 3 },
+        {
+          key: "node-js",
+          label: "Node.js",
+          sourceRequirementKeys: ["backend"],
+          weight: 5,
+        },
+        {
+          key: "api-design",
+          label: "API design",
+          sourceRequirementKeys: ["backend"],
+          weight: 3,
+        },
       ],
     },
     analysisRequestId: randomUUID(),
-    description: "Private target source text must never enter Coach output. ".repeat(3),
+    description:
+      "Private target source text must never enter Coach output. ".repeat(3),
     status: "ready",
     title: "Backend Engineer",
     userId,
@@ -103,7 +120,13 @@ describe("Coach roadmap route", () => {
       "node-js",
       "api-design",
     ]);
-    expect(JSON.stringify(response.body)).not.toContain("Private target source text");
+    expect(response.body.skills.map((skill) => skill.ranking)).toEqual([
+      { priority: 1, reason: "target_weight_then_evidence" },
+      { priority: 2, reason: "target_weight_then_evidence" },
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain(
+      "Private target source text",
+    );
     expect(bulkWrite).not.toHaveBeenCalled();
     expect(updateOne).not.toHaveBeenCalled();
   });
@@ -114,15 +137,21 @@ describe("Coach roadmap route", () => {
     const other = await signup(app, "coach-other@example.com");
     const foreign = await createTarget(other.userId);
 
-    const unauthenticated = await request(app).get("/api/coach/roadmap?context=overall");
+    const unauthenticated = await request(app).get(
+      "/api/coach/roadmap?context=overall",
+    );
     const malformed = await request(app)
-      .get("/api/coach/roadmap?context=target&targetId=invalid&projectId=also-invalid")
+      .get(
+        "/api/coach/roadmap?context=target&targetId=invalid&projectId=also-invalid",
+      )
       .set("Cookie", owner.cookie);
     const foreignResponse = await request(app)
       .get(`/api/coach/roadmap?context=target&targetId=${foreign.id}`)
       .set("Cookie", owner.cookie);
     const missingResponse = await request(app)
-      .get(`/api/coach/roadmap?context=target&targetId=${new mongoose.Types.ObjectId()}`)
+      .get(
+        `/api/coach/roadmap?context=target&targetId=${new mongoose.Types.ObjectId()}`,
+      )
       .set("Cookie", owner.cookie);
 
     expect(unauthenticated.status).toBe(401);
@@ -152,7 +181,14 @@ describe("Coach roadmap route", () => {
       "responsibilities",
       "technology-choices",
     ]);
-    expect(response.body.actions[0].to).toBe("/practice?type=Project%20Defense");
+    expect(response.body.skills.map((skill) => skill.ranking)).toEqual([
+      { priority: 1, reason: "project_coverage_attention" },
+      { priority: 2, reason: "project_coverage_attention" },
+      { priority: 3, reason: "project_coverage_attention" },
+    ]);
+    expect(response.body.actions[0].to).toBe(
+      "/practice?type=Project%20Defense",
+    );
     expect(JSON.stringify(response.body)).not.toContain("Private project");
   });
 
@@ -211,9 +247,15 @@ describe("Coach roadmap route", () => {
     expect(response.status).toBe(200);
     expect(response.body.nodes.length).toBeLessThanOrEqual(25);
     expect(response.body.edges.length).toBeLessThanOrEqual(24);
-    expect(response.body.nodes.some((node) => node.label === "Backend")).toBe(true);
-    expect(response.body.nodes.some((node) => node.label === "Node.js")).toBe(true);
-    expect(JSON.stringify(response.body)).not.toContain("Private target source text");
+    expect(response.body.nodes.some((node) => node.label === "Backend")).toBe(
+      true,
+    );
+    expect(response.body.nodes.some((node) => node.label === "Node.js")).toBe(
+      true,
+    );
+    expect(JSON.stringify(response.body)).not.toContain(
+      "Private target source text",
+    );
     expect(bulkWrite).not.toHaveBeenCalled();
     expect(updateOne).not.toHaveBeenCalled();
   });
@@ -225,16 +267,38 @@ describe("Coach roadmap route", () => {
     const foreign = await createTarget(other.userId);
     const project = await createProject(owner.userId);
 
-    const overall = await request(app).get("/api/coach/tree?context=overall").set("Cookie", owner.cookie);
-    const projectTree = await request(app).get(`/api/coach/tree?context=project&projectId=${project.id}`).set("Cookie", owner.cookie);
-    const unauthenticated = await request(app).get("/api/coach/tree?context=overall");
-    const malformed = await request(app).get("/api/coach/tree?context=target&targetId=invalid&projectId=also-invalid").set("Cookie", owner.cookie);
-    const foreignResponse = await request(app).get(`/api/coach/tree?context=target&targetId=${foreign.id}`).set("Cookie", owner.cookie);
-    const missingResponse = await request(app).get(`/api/coach/tree?context=target&targetId=${new mongoose.Types.ObjectId()}`).set("Cookie", owner.cookie);
+    const overall = await request(app)
+      .get("/api/coach/tree?context=overall")
+      .set("Cookie", owner.cookie);
+    const projectTree = await request(app)
+      .get(`/api/coach/tree?context=project&projectId=${project.id}`)
+      .set("Cookie", owner.cookie);
+    const unauthenticated = await request(app).get(
+      "/api/coach/tree?context=overall",
+    );
+    const malformed = await request(app)
+      .get(
+        "/api/coach/tree?context=target&targetId=invalid&projectId=also-invalid",
+      )
+      .set("Cookie", owner.cookie);
+    const foreignResponse = await request(app)
+      .get(`/api/coach/tree?context=target&targetId=${foreign.id}`)
+      .set("Cookie", owner.cookie);
+    const missingResponse = await request(app)
+      .get(
+        `/api/coach/tree?context=target&targetId=${new mongoose.Types.ObjectId()}`,
+      )
+      .set("Cookie", owner.cookie);
 
     expect(overall.status).toBe(200);
     expect(projectTree.status).toBe(200);
-    expect(projectTree.body.nodes.map((node) => node.label)).toEqual(expect.arrayContaining(["Architecture", "Responsibilities", "Technology choices"]));
+    expect(projectTree.body.nodes.map((node) => node.label)).toEqual(
+      expect.arrayContaining([
+        "Architecture",
+        "Responsibilities",
+        "Technology choices",
+      ]),
+    );
     expect(unauthenticated.status).toBe(401);
     expect(malformed.status).toBe(400);
     expect(foreignResponse.status).toBe(404);

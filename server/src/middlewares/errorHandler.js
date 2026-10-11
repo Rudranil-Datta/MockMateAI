@@ -3,7 +3,10 @@ import {
   getRequestLogPath,
   markRequestFailureLogged,
 } from "./requestLogger.js";
-import { isProviderErrorCategory } from "../utils/AppError.js";
+import {
+  isProviderErrorCategory,
+  isSafeProviderDiagnostics,
+} from "../utils/AppError.js";
 
 export function notFoundHandler(request, _response, next) {
   const error = new Error("Route not found.");
@@ -47,6 +50,9 @@ export function errorHandler(error, request, response, _next) {
     durationMs: getRequestDurationMs(request),
     ...(isProviderErrorCategory(error.errorCategory)
       ? { errorCategory: error.errorCategory }
+      : {}),
+    ...(isSafeProviderDiagnostics(error.providerDiagnostics)
+      ? { providerDiagnostics: error.providerDiagnostics }
       : {}),
   });
 

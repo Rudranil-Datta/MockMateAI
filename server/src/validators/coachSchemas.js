@@ -38,7 +38,9 @@ export function validateCoachContextQuery(query) {
   const input = queryObject(query);
   const context = contextValue(input.context);
   const idField = context === "target" ? "targetId" : "projectId";
-  const allowed = new Set(context === "overall" ? ["context"] : ["context", idField]);
+  const allowed = new Set(
+    context === "overall" ? ["context"] : ["context", idField],
+  );
   const unexpected = Object.keys(input).filter((key) => !allowed.has(key));
   if (unexpected.length) {
     invalid({ request: "Coach context contains unsupported fields." });

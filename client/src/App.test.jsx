@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 
 const getAnalyticsSummary = vi.hoisted(() => vi.fn());
+const getInterviewPlan = vi.hoisted(() => vi.fn());
 const interviewApi = vi.hoisted(() => ({
   completeInterview: vi.fn(),
   generateNextQuestion: vi.fn(),
@@ -17,6 +18,7 @@ const listResumes = vi.hoisted(() => vi.fn());
 
 vi.mock("./api/analyticsApi.js", () => ({ getAnalyticsSummary }));
 vi.mock("./api/interviewApi.js", () => interviewApi);
+vi.mock("./api/interviewPlanApi.js", () => ({ getInterviewPlan }));
 vi.mock("./api/resumeApi.js", () => ({ listResumes }));
 vi.mock("./hooks/useAuth.js", () => ({
   default: () => ({
@@ -112,6 +114,7 @@ const completedInterview = {
 describe("critical client journey", () => {
   beforeEach(() => {
     getAnalyticsSummary.mockReset();
+    getInterviewPlan.mockReset();
     Object.values(interviewApi).forEach((mock) => mock.mockReset());
     listResumes.mockReset();
 
@@ -119,6 +122,25 @@ describe("critical client journey", () => {
       .mockResolvedValueOnce(emptyAnalytics)
       .mockResolvedValueOnce(populatedAnalytics);
     listResumes.mockResolvedValue([]);
+    getInterviewPlan.mockResolvedValue({
+      adaptiveNotice:
+        "Later questions adapt to your answers and are not prewritten.",
+      context: null,
+      openingFocus: { label: "Fundamentals", topicKey: "dsa-1" },
+      rationale: { kind: "type_level" },
+      selection: {
+        interviewType: "DSA",
+        level: "intermediate",
+        sessionPurpose: "standard",
+      },
+      stages: [
+        {
+          focus: { label: "Fundamentals", topicKey: "dsa-1" },
+          order: 1,
+          type: "opening",
+        },
+      ],
+    });
     interviewApi.startInterview.mockResolvedValue({
       interview: {
         id: interviewId,
@@ -170,11 +192,13 @@ describe("critical client journey", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Start a mock interview" }),
+      await screen.findByRole("heading", { name: "Start interview practice" }),
     ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /DSA/i }));
     fireEvent.click(screen.getByLabelText(/Intermediate/i));
-    fireEvent.click(screen.getByRole("button", { name: "Start interview" }));
+    const startButton = screen.getByRole("button", { name: "Start interview" });
+    await waitFor(() => expect(startButton).toBeEnabled());
+    fireEvent.click(startButton);
 
     expect(await screen.findByText("Explain stacks.")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Your answer"), {

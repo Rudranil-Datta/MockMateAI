@@ -21,15 +21,20 @@ const masteryLabels = new Set([
   "capable",
   "strong",
 ]);
+const rankingReasons = new Set([
+  "overall_recommended",
+  "target_weight_then_evidence",
+  "project_coverage_attention",
+]);
 const skillKey = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function exactObject(value, keys) {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.keys(value).length === keys.length &&
-      keys.every((key) => Object.hasOwn(value, key)),
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key)),
   );
 }
 
@@ -42,7 +47,11 @@ function boundedText(value, minimum, maximum) {
 }
 
 function safePath(value) {
-  if (!boundedText(value, 1, 300) || !value.startsWith("/") || value.startsWith("//")) {
+  if (
+    !boundedText(value, 1, 300) ||
+    !value.startsWith("/") ||
+    value.startsWith("//")
+  ) {
     return false;
   }
   const url = new URL(value, "https://mockmateai.local");
@@ -65,43 +74,51 @@ function isSkill(value) {
       "evidenceCount",
       "masteryLabel",
       "masteryScore",
+      "ranking",
       "skillKey",
       "skillLabel",
     ]) &&
-      confidenceValues.has(value.confidence) &&
-      Number.isInteger(value.evidenceCount) &&
-      value.evidenceCount >= 0 &&
-      value.evidenceCount <= 20 &&
-      (value.masteryLabel === null || masteryLabels.has(value.masteryLabel)) &&
-      (value.masteryScore === null ||
-        (Number.isInteger(value.masteryScore) &&
-          value.masteryScore >= 0 &&
-          value.masteryScore <= 100)) &&
-      typeof value.skillKey === "string" &&
-      skillKey.test(value.skillKey) &&
-      boundedText(value.skillLabel, 2, 80) &&
-      (value.evidenceCount === 0
-        ? value.confidence === "no_evidence" &&
-          value.masteryLabel === null &&
-          value.masteryScore === null
-        : value.confidence !== "no_evidence" &&
-          value.masteryLabel !== null &&
-          value.masteryScore !== null),
+    confidenceValues.has(value.confidence) &&
+    Number.isInteger(value.evidenceCount) &&
+    value.evidenceCount >= 0 &&
+    value.evidenceCount <= 20 &&
+    (value.masteryLabel === null || masteryLabels.has(value.masteryLabel)) &&
+    (value.masteryScore === null ||
+      (Number.isInteger(value.masteryScore) &&
+        value.masteryScore >= 0 &&
+        value.masteryScore <= 100)) &&
+    typeof value.skillKey === "string" &&
+    skillKey.test(value.skillKey) &&
+    boundedText(value.skillLabel, 2, 80) &&
+    exactObject(value.ranking, ["priority", "reason"]) &&
+    Number.isInteger(value.ranking.priority) &&
+    value.ranking.priority >= 1 &&
+    value.ranking.priority <= 12 &&
+    rankingReasons.has(value.ranking.reason) &&
+    (value.evidenceCount === 0
+      ? value.confidence === "no_evidence" &&
+        value.masteryLabel === null &&
+        value.masteryScore === null
+      : value.confidence !== "no_evidence" &&
+        value.masteryLabel !== null &&
+        value.masteryScore !== null),
   );
 }
 
 function isAction(value) {
   return Boolean(
     exactObject(value, ["description", "label", "to", "type"]) &&
-      actionTypes.has(value.type) &&
-      boundedText(value.label, 2, 80) &&
-      boundedText(value.description, 2, 200) &&
-      safePath(value.to),
+    actionTypes.has(value.type) &&
+    boundedText(value.label, 2, 80) &&
+    boundedText(value.description, 2, 200) &&
+    safePath(value.to),
   );
 }
 
 function malformed() {
-  const error = new Error("Coach returned an unexpected response. Please try again.");
+  const error = new Error(
+    "Coach returned an unexpected response. Please try again.",
+  );
   error.code = "COACH_MALFORMED_RESPONSE";
   return error;
 }
@@ -123,13 +140,21 @@ export async function getCoachRoadmap({
   signal,
   targetId,
 } = {}) {
-  const roadmap = await apiRequest(`coach/roadmap?${queryFor({
-    context,
-    projectId,
-    targetId,
-  })}`, { signal });
+  const roadmap = await apiRequest(
+    `coach/roadmap?${queryFor({
+      context,
+      projectId,
+      targetId,
+    })}`,
+    { signal },
+  );
   if (
-    !exactObject(roadmap, ["actions", "context", "evidenceSyncStatus", "skills"]) ||
+    !exactObject(roadmap, [
+      "actions",
+      "context",
+      "evidenceSyncStatus",
+      "skills",
+    ]) ||
     !exactObject(roadmap.context, ["kind", "label"]) ||
     !contextKinds.has(roadmap.context.kind) ||
     !boundedText(roadmap.context.label, 2, 160) ||

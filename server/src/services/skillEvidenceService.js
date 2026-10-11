@@ -167,7 +167,9 @@ export function createSkillEvidenceService({
       bySkill.set(item.skillKey, entries);
     }
     const skills = [...bySkill.entries()]
-      .map(([skillKey, entries]) => profileSkill(skillKey, entries, currentTime))
+      .map(([skillKey, entries]) =>
+        profileSkill(skillKey, entries, currentTime),
+      )
       .sort(
         (left, right) =>
           left.masteryScore - right.masteryScore ||

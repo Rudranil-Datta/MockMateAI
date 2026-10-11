@@ -23,7 +23,10 @@ function projectFacts(project) {
   const value = project.toObject?.() ?? project;
   return {
     architecture: value.architecture,
-    claims: value.claims.map(({ evidence, text }) => ({ evidence, text })),
+    claims: (value.claims || []).map(({ evidence, text }) => ({
+      evidence,
+      text,
+    })),
     decisions: value.decisions,
     name: value.name,
     responsibilities: value.responsibilities,
@@ -58,19 +61,23 @@ function toProject(project) {
   const value = project.toObject?.() ?? project;
   return {
     id: project.id || value._id?.toString(),
-    name: value.name,
-    summary: value.summary,
-    role: value.role,
-    technologies: value.technologies,
-    responsibilities: value.responsibilities,
-    architecture: value.architecture,
-    decisions: value.decisions,
-    tradeoffs: value.tradeoffs,
-    claims: value.claims,
+    name: value.name ?? null,
+    summary: value.summary ?? null,
+    role: value.role ?? null,
+    technologies: value.technologies || [],
+    responsibilities: value.responsibilities || [],
+    architecture: value.architecture || [],
+    decisions: value.decisions || [],
+    tradeoffs: value.tradeoffs || [],
+    claims: value.claims || [],
+    status: value.status || "ready",
     ...(value.sourceResumeId
       ? { sourceResumeId: value.sourceResumeId.toString() }
       : {}),
-    confirmedAt: iso(value.confirmedAt),
+    ...(value.confirmedAt ? { confirmedAt: iso(value.confirmedAt) } : {}),
+    ...(value.partialConfirmedAt
+      ? { partialConfirmedAt: iso(value.partialConfirmedAt) }
+      : {}),
     createdAt: iso(value.createdAt),
     updatedAt: iso(value.updatedAt),
   };
@@ -85,6 +92,7 @@ export function createProjectService({
   candidateProjectModel = CandidateProject,
   now = Date.now,
   resumeService,
+  readmeImportService,
 } = {}) {
   const extractionEntries = new Map();
   let sequence = 0;
@@ -107,12 +115,22 @@ export function createProjectService({
   }
 
   return {
+    async importReadmeDraft({ file }) {
+      if (!readmeImportService)
+        throw new AppError(
+          "README_IMPORT_UNAVAILABLE",
+          "README import is temporarily unavailable.",
+          { status: 503 },
+        );
+      return readmeImportService.importDraft({ file });
+    },
     async getConfirmedProjectSnapshot({ projectId, userId }) {
       const project = await candidateProjectModel.findOne(
         getOwnedResourceFilter(projectId, userId),
       );
       if (!project) throw notFound();
-      if (!project.confirmedAt) throw notReady();
+      if ((project.status || "ready") !== "ready" || !project.confirmedAt)
+        throw notReady();
       try {
         await project.validate();
       } catch {
@@ -197,6 +215,23 @@ export function createProjectService({
       return toProject(project);
     },
 
+    async createPartialProject({ sourceResumeId, userId, ...facts }) {
+      if (sourceResumeId)
+        await resumeService.assertOwnedCompletedResume({
+          resumeId: sourceResumeId,
+          userId,
+        });
+      return toProject(
+        await candidateProjectModel.create({
+          ...facts,
+          partialConfirmedAt: new Date(now()),
+          ...(sourceResumeId ? { sourceResumeId } : {}),
+          status: "partial",
+          userId,
+        }),
+      );
+    },
+
     async listProjects({ userId }) {
       const projects = await candidateProjectModel
         .find({ userId })
@@ -226,9 +261,41 @@ export function createProjectService({
           $set: {
             ...facts,
             confirmedAt: new Date(now()),
+            status: "ready",
             ...(sourceResumeId ? { sourceResumeId } : {}),
           },
           ...(!sourceResumeId ? { $unset: { sourceResumeId: "" } } : {}),
+        },
+        { returnDocument: "after", runValidators: true },
+      );
+      if (!project) throw notFound();
+      return toProject(project);
+    },
+
+    async updatePartialProject({
+      projectId,
+      sourceResumeId,
+      userId,
+      ...facts
+    }) {
+      if (sourceResumeId)
+        await resumeService.assertOwnedCompletedResume({
+          resumeId: sourceResumeId,
+          userId,
+        });
+      const project = await candidateProjectModel.findOneAndUpdate(
+        getOwnedResourceFilter(projectId, userId),
+        {
+          $set: {
+            ...facts,
+            partialConfirmedAt: new Date(now()),
+            status: "partial",
+            ...(sourceResumeId ? { sourceResumeId } : {}),
+          },
+          $unset: {
+            confirmedAt: "",
+            ...(!sourceResumeId ? { sourceResumeId: "" } : {}),
+          },
         },
         { returnDocument: "after", runValidators: true },
       );

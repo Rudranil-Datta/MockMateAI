@@ -14,7 +14,10 @@ import {
   validateQuestionInput,
   validateQuestionOutput,
 } from "../validators/aiSchemas.js";
-import { createGeminiProvider } from "./geminiProvider.js";
+import {
+  createGeminiProvider,
+  geminiStructuredProfile,
+} from "./geminiProvider.js";
 import { createMockAiProvider } from "./mockAiProvider.js";
 
 const defaultQuestionCacheTtlMs = 60_000;
@@ -28,6 +31,17 @@ const networkErrorCodes = new Set([
   "ECONNRESET",
   "ENETUNREACH",
   "ENOTFOUND",
+]);
+const safeProviderSdkSignals = new Set([
+  "AbortError",
+  "FAILED_PRECONDITION",
+  "INVALID_ARGUMENT",
+  "NOT_FOUND",
+  "PERMISSION_DENIED",
+  "RESOURCE_EXHAUSTED",
+  "TimeoutError",
+  "UNAUTHENTICATED",
+  "UNAVAILABLE",
 ]);
 
 function cacheKey({ interviewType, level }) {
@@ -59,6 +73,30 @@ function hasErrorSignal(chain, predicate) {
 
 function errorStatus(error) {
   return Number(error.status ?? error.statusCode);
+}
+
+function safeProviderStatusClass(chain) {
+  const status = chain.map(errorStatus).find(Number.isInteger);
+  if (status >= 400 && status <= 499) return "4xx";
+  if (status >= 500 && status <= 599) return "5xx";
+  return "unknown";
+}
+
+function safeProviderSdkSignal(chain) {
+  const signal = chain
+    .flatMap((item) => [item.code, item.name])
+    .find((value) => safeProviderSdkSignals.has(value));
+  return signal || "unknown";
+}
+
+function createSafeProviderDiagnostics(error, operation) {
+  const chain = getErrorChain(error);
+  return {
+    operation,
+    profile: geminiStructuredProfile,
+    sdkSignal: safeProviderSdkSignal(chain),
+    statusClass: safeProviderStatusClass(chain),
+  };
 }
 
 function classifyProviderError(error) {
@@ -129,19 +167,24 @@ function classifyProviderError(error) {
   return "provider_unknown";
 }
 
-function copyAppErrorWithCategory(error, errorCategory) {
+function copyAppErrorWithCategory(error, errorCategory, providerDiagnostics) {
   return new AppError(error.code, error.message, {
     errorCategory,
     expose: error.expose,
     fields: error.fields,
+    providerDiagnostics,
     status: error.status,
   });
 }
 
-function normalizeProviderError(error) {
+function normalizeProviderError(error, providerDiagnostics) {
   if (error instanceof AppError) {
     if (error.errorCategory) {
-      return error;
+      return copyAppErrorWithCategory(
+        error,
+        error.errorCategory,
+        providerDiagnostics,
+      );
     }
 
     const categoryByCode = {
@@ -152,7 +195,7 @@ function normalizeProviderError(error) {
     };
     const errorCategory = categoryByCode[error.code];
     return errorCategory
-      ? copyAppErrorWithCategory(error, errorCategory)
+      ? copyAppErrorWithCategory(error, errorCategory, providerDiagnostics)
       : error;
   }
 
@@ -162,7 +205,7 @@ function normalizeProviderError(error) {
     return new AppError(
       "AI_QUOTA_EXCEEDED",
       "AI practice is temporarily unavailable. Your saved work is safe; try again later.",
-      { errorCategory, expose: true, status: 429 },
+      { errorCategory, expose: true, providerDiagnostics, status: 429 },
     );
   }
 
@@ -170,14 +213,14 @@ function normalizeProviderError(error) {
     return new AppError(
       "AI_PROVIDER_TIMEOUT",
       "AI practice is taking longer than expected. Please try again.",
-      { errorCategory, expose: true, status: 504 },
+      { errorCategory, expose: true, providerDiagnostics, status: 504 },
     );
   }
 
   return new AppError(
     "AI_PROVIDER_UNAVAILABLE",
     "AI practice is temporarily unavailable. Please try again.",
-    { errorCategory, expose: true, status: 502 },
+    { errorCategory, expose: true, providerDiagnostics, status: 502 },
   );
 }
 
@@ -247,19 +290,32 @@ export function createAiProviderService({
     timeoutMs,
   });
   const questionCache = new Map();
+  const getProviderDiagnostics = (error, operation) =>
+    aiProvider === "gemini"
+      ? createSafeProviderDiagnostics(error, operation)
+      : undefined;
 
-  async function executeProviderOperation(operation, { retryUnavailable }) {
+  async function executeProviderOperation(
+    operationName,
+    operation,
+    { retryInvalidResponse = false, retryUnavailable },
+  ) {
     const startedAt = monotonicNow();
 
     try {
       return await operation(timeoutMs);
     } catch (error) {
-      const normalizedError = normalizeProviderError(error);
+      const normalizedError = normalizeProviderError(
+        error,
+        getProviderDiagnostics(error, operationName),
+      );
 
-      if (
-        !retryUnavailable ||
-        normalizedError.errorCategory !== "provider_unavailable"
-      ) {
+      if (!(
+        (retryUnavailable &&
+          normalizedError.errorCategory === "provider_unavailable") ||
+        (retryInvalidResponse &&
+          normalizedError.errorCategory === "provider_invalid_response")
+      )) {
         throw normalizedError;
       }
 
@@ -283,7 +339,10 @@ export function createAiProviderService({
       try {
         return await operation(remainingTimeoutMs);
       } catch (retryError) {
-        throw normalizeProviderError(retryError);
+        throw normalizeProviderError(
+          retryError,
+          getProviderDiagnostics(retryError, operationName),
+        );
       }
     }
   }
@@ -292,6 +351,7 @@ export function createAiProviderService({
     async generateAdaptiveQuestion(input) {
       const validatedInput = validateAdaptiveQuestionInput(input);
       return executeProviderOperation(
+        "adaptive_question",
         async (attemptTimeoutMs) =>
           validateAdaptiveQuestionOutput(
             await provider.generateAdaptiveQuestion(validatedInput, {
@@ -299,7 +359,7 @@ export function createAiProviderService({
             }),
             validatedInput,
           ),
-        { retryUnavailable: false },
+        { retryUnavailable: true },
       );
     },
 
@@ -307,26 +367,29 @@ export function createAiProviderService({
       const validatedInput = validateJobTargetAnalysisInput(input);
 
       return executeProviderOperation(
+        "job_target_analysis",
         async (attemptTimeoutMs) =>
           validateJobTargetAnalysisOutput(
             await provider.analyzeJobTarget(validatedInput, {
               timeoutMs: attemptTimeoutMs,
             }),
           ),
-        { retryUnavailable: false },
+        { retryUnavailable: true },
       );
     },
 
     async extractProjectDrafts(input) {
       const validatedInput = validateProjectExtractionInput(input);
       return executeProviderOperation(
+        "project_extraction",
         async (attemptTimeoutMs) =>
           validateProjectExtractionOutput(
             await provider.extractProjectDrafts(validatedInput, {
               timeoutMs: attemptTimeoutMs,
             }),
+            validatedInput.resumeContext,
           ),
-        { retryUnavailable: false },
+        { retryInvalidResponse: true, retryUnavailable: true },
       );
     },
 
@@ -347,6 +410,7 @@ export function createAiProviderService({
       }
 
       const question = await executeProviderOperation(
+        "question_generation",
         async (attemptTimeoutMs) =>
           validateQuestionOutput(
             await provider.generateQuestion(validatedInput, {
@@ -370,6 +434,7 @@ export function createAiProviderService({
       const validatedInput = validateEvaluationInput(input);
 
       return executeProviderOperation(
+        "v1_evaluation",
         async (attemptTimeoutMs) =>
           validateEvaluationOutput(
             await provider.evaluateAnswer(validatedInput, {
@@ -383,6 +448,7 @@ export function createAiProviderService({
     async evaluateV2Answer(input, { retryUnavailable = false } = {}) {
       const validatedInput = validateV2EvaluationInput(input);
       return executeProviderOperation(
+        "v2_evaluation",
         async (attemptTimeoutMs) =>
           validateV2EvaluationOutput(
             await provider.evaluateV2Answer(validatedInput, {

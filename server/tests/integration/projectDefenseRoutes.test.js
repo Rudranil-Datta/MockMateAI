@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/app.js";
 import CandidateProject from "../../src/models/CandidateProject.js";
 import InterviewSession from "../../src/models/InterviewSession.js";
+import SkillEvidence from "../../src/models/SkillEvidence.js";
+import { createAiProviderService } from "../../src/services/aiProviderService.js";
 import useMongoTestDatabase from "../helpers/useMongoTestDatabase.js";
 
 useMongoTestDatabase();
@@ -56,18 +58,23 @@ function adaptiveDecision(input) {
       };
 }
 
-function createProjectApp() {
+function createProjectApp({ useRealV2Evaluator = false } = {}) {
+  const mockProvider = useRealV2Evaluator
+    ? createAiProviderService({ aiProvider: "mock" })
+    : null;
   const aiProviderService = {
     evaluateAnswer: vi.fn().mockResolvedValue(feedback()),
-    evaluateV2Answer: vi.fn().mockImplementation(async ({ testedSkills }) => ({
-      ...feedback(),
-      skillEvidence: testedSkills.map(({ key }) => ({
-        evidenceStrength: "direct",
-        outcome: "partial",
-        reasonCode: "answer_quality",
-        skillKey: key,
+    evaluateV2Answer:
+      mockProvider?.evaluateV2Answer.bind(mockProvider) ||
+      vi.fn().mockImplementation(async ({ testedSkills }) => ({
+        ...feedback(),
+        skillEvidence: testedSkills.map(({ key }) => ({
+          evidenceStrength: "direct",
+          outcome: "partial",
+          reasonCode: "answer_quality",
+          skillKey: key,
+        })),
       })),
-    })),
     generateAdaptiveQuestion: vi
       .fn()
       .mockImplementation(async (input) => adaptiveDecision(input)),
@@ -115,6 +122,28 @@ function startDefense(app, cookie, projectId, idempotencyKey = randomUUID()) {
 }
 
 describe("Project Defense interview routes", () => {
+  it("uses real mock V2 evaluation and synchronizes owned evidence", async () => {
+    const { app } = createProjectApp({ useRealV2Evaluator: true });
+    const owner = await signup(app, { email: "project-real-v2@example.com" });
+    const project = await createProject(owner.userId);
+    const started = await startDefense(app, owner.cookie, project.id);
+
+    const answer = await request(app)
+      .post(`/api/interviews/${started.body.interview.id}/answers`)
+      .set("Cookie", owner.cookie)
+      .send({
+        idempotencyKey: randomUUID(),
+        questionId: started.body.question.id,
+        text: "I chose bounded retries, explicit idempotency, and monitored payment failures.",
+      });
+
+    expect(answer.status).toBe(200);
+    expect(answer.body.feedback.overallScore).toBeTypeOf("number");
+    await expect(
+      SkillEvidence.countDocuments({ userId: owner.userId }),
+    ).resolves.toBeGreaterThan(0);
+  });
+
   it("opens on architecture using confirmed facts-only coverage and snapshot", async () => {
     const { aiProviderService, app } = createProjectApp();
     const owner = await signup(app);
@@ -183,6 +212,28 @@ describe("Project Defense interview routes", () => {
     expect(
       Buffer.byteLength(JSON.stringify(session.contextSnapshot), "utf8"),
     ).toBeLessThanOrEqual(16 * 1024);
+  });
+
+  it("creates a Project Defense snapshot with a 600-character ready fact", async () => {
+    const { app } = createProjectApp();
+    const owner = await signup(app, { email: "project-long-fact@example.com" });
+    const longFact = "x".repeat(600);
+    const project = await createProject(owner.userId, {
+      architecture: [longFact],
+      claims: [{ evidence: longFact, text: longFact }],
+      decisions: [longFact],
+      responsibilities: [longFact],
+      tradeoffs: [longFact],
+    });
+
+    const response = await startDefense(app, owner.cookie, project.id);
+
+    expect(response.status).toBe(201);
+    await expect(
+      InterviewSession.findById(response.body.interview.id).lean(),
+    ).resolves.toMatchObject({
+      contextSnapshot: { facts: { architecture: [longFact] } },
+    });
   });
 
   it("rejects foreign, missing, and unconfirmed projects before provider work", async () => {

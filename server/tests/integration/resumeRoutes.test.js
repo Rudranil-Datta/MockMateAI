@@ -137,6 +137,7 @@ describe("resume routes", () => {
       .set("Cookie", cookie);
     const failingApp = createApp({
       resumeService: {
+        assertOwnedCompletedResume: vi.fn(),
         listOwnedResumes: vi
           .fn()
           .mockRejectedValue(new Error("Private database list detail")),
