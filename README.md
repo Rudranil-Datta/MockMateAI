@@ -1,226 +1,141 @@
 <div align="center">
-  <img src="client/public/favicon.svg" width="88" alt="MockMateAI logo" />
-  <h1>MockMateAI</h1>
-  <p><strong>Practice interviews. Understand your performance. Improve with every session.</strong></p>
-  <p>An AI-powered interview preparation platform for students, freshers, and professionals.</p>
+  <img src="client/public/logo.png" width="180" alt="MockMateAI learning assistant logo" />
+
+# MockMateAI
+
+**AI-assisted interview practice that turns each answer into a clearer next step.**
+
+Practice for DSA, HR, System Design, role-specific interviews, and project defenses in one focused workspace.
+
+[Open the live demo](https://mockmateai-web-rudranil-datta.onrender.com) · [Run locally](#run-locally) · [Explore the workflow](#how-it-works)
 </div>
 
 ---
 
-## What is MockMateAI?
+## Make interview practice measurable
 
-MockMateAI recreates a focused interview-practice experience in one web
-application. Users can choose an interview track and difficulty, answer
-AI-generated questions by text or voice, receive structured feedback, and track
-their progress over time.
+MockMateAI is a full-stack interview-preparation platform for students and early-career professionals. It provides structured practice, evidence-based feedback, and focused follow-up guidance—without presenting AI feedback as a hiring decision.
 
-The project is designed to make useful interview practice more accessible and
-self-paced. AI feedback is presented as learning guidance, not as a hiring
-decision or a substitute for professional assessment.
+| Practice with purpose                                                           | Learn from evidence                                                                                | Keep control                                                                             |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Choose a core interview track, level, Job Target, or confirmed project context. | Review structured feedback, saved sessions, skill evidence, replay, and next-step recommendations. | Your data is owner-scoped; project facts are used only after your explicit confirmation. |
 
-## Highlights
+## What you can do
 
-| Feature                       | What it provides                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Three interview tracks        | Practice **DSA**, **HR**, or **System Design** questions at an appropriate level.                                                     |
-| AI-generated questions        | Receive questions based on the selected track, level, and optional resume context.                                                    |
-| Text and voice answers        | Type an answer or submit a short voice response for transcription and evaluation.                                                     |
-| Resume-informed practice      | Upload a supported resume to create more relevant practice questions.                                                                 |
-| Confirmed project workspace   | Turn bounded resume suggestions into editable drafts and save only facts the user explicitly confirms.                                |
-| Structured feedback           | Review scores for accuracy, clarity, and confidence, plus strengths, improvements, and a practical next step.                         |
-| Saved interview results       | Complete sessions and revisit saved questions, answers, feedback, and final scores.                                                   |
-| Progress dashboard            | View interview history, score summaries, and simple progress trends.                                                                  |
-| Secure application boundaries | Keep AI and database credentials on the backend with authentication, ownership checks, validation, upload limits, and request quotas. |
+- **Start a focused interview.** Practise DSA, HR, System Design, Role Simulation, or Project Defense with a bounded session flow.
+- **Answer your way.** Use dependable text input or supported short voice input, then receive structured feedback with practical improvement guidance.
+- **Prepare in context.** Save a Job Target, review resume-assisted project drafts, and explicitly confirm the facts that may shape contextual practice.
+- **See a useful next step.** Use the dashboard, preparation coach, targeted practice, and session planner to choose what to practise next.
+- **Build a learning record.** Return to completed sessions, feedback, replay timelines, and derived skill evidence without losing the dependable text-first flow.
 
 ## How it works
 
-1. Create an account or sign in.
-2. Choose DSA, HR, or System Design and select a level.
-3. Optionally upload a resume for bounded question context.
-4. Receive an interview question.
-5. Answer using text or a short voice recording.
-6. Review structured AI-assisted feedback.
-7. Complete the session and track the result from the dashboard.
+1. Create an account and select an interview type and level.
+2. Optionally add a Job Target or confirm project facts for relevant contextual practice.
+3. Respond to a bounded set of interview questions.
+4. Review clear feedback, tested skills, and one practical next action.
+5. Revisit saved results and use the dashboard to plan the next session.
+
+## Built with responsible AI boundaries
+
+MockMateAI treats AI as a controlled learning assistant—not an autonomous decision-maker.
+
+- Gemini is called only by the backend through a provider-neutral adapter boundary.
+- Requests and provider output are validated before data is saved or rendered.
+- Sensitive credentials never reach the browser; protected data access is scoped to the signed-in user.
+- Resume-assisted project drafts stay editable and do not become interview context until the user confirms them.
+- Skill mastery is derived from stored categorical evidence rather than written directly by an AI model.
+- Failures preserve valid work and provide a safe retry or recovery path where supported.
+
+## Architecture
+
+```text
+React client
+    │  validated API requests and safe public responses
+    ▼
+Node.js + Express API
+    │  authentication · validation · bounded service orchestration
+    ├──────────────────────────────► MongoDB (owned application data)
+    └──────────────────────────────► Gemini adapter (structured AI requests)
+```
+
+The project is intentionally a modular monolith: simple to run and deploy, while keeping UI, route, controller, service, data-access, validation, and external-provider responsibilities separate.
 
 ## Technology
 
-- **Client:** React, React Router, and Vite
-- **API:** Node.js and Express
-- **Database:** MongoDB with Mongoose
-- **AI:** Gemini Developer API, called only from the backend
-- **Testing:** Vitest, Testing Library, and Supertest
+| Layer          | Technology                                                             |
+| -------------- | ---------------------------------------------------------------------- |
+| Client         | React, React Router, Vite                                              |
+| API            | Node.js, Express                                                       |
+| Data           | MongoDB, Mongoose                                                      |
+| AI integration | Backend-only Gemini Developer API through a provider-neutral interface |
+| Quality        | Vitest, Testing Library, Supertest, Oxc tooling, Prettier              |
+| Deployment     | Render static web service and Node web service                         |
 
 ## Run locally
 
 ### Prerequisites
 
-Before starting, install or obtain:
+- Node.js `22.16.x` and npm
+- A reachable MongoDB database
+- A Gemini API key for live AI-backed practice
 
-- Git
-- Node.js 22 or newer and npm
-- Your own reachable MongoDB connection string
-- Your own Gemini API key
-
-Use development credentials and a test database for local demos. Never commit
-real credentials to the repository.
-
-### 1. Clone the project
+### Setup
 
 ```bash
 git clone https://github.com/Rudranil-Datta/MockMateAI.git
 cd MockMateAI
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
-```
-
-### 3. Create local environment files
-
-```bash
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-Open `server/.env` and provide at least:
+Configure the required server-side values in `server/.env`:
 
-| Variable         | Required value                                                                     |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| `MONGODB_URI`    | Your MongoDB connection string. The database must be reachable from your machine.  |
-| `GEMINI_API_KEY` | Your Gemini Developer API key. It remains on the server.                           |
-| `AUTH_SECRET`    | A private random secret used to sign authentication tokens. Use at least 32 bytes. |
+| Variable         | Purpose                                           |
+| ---------------- | ------------------------------------------------- |
+| `MONGODB_URI`    | Connection string for your MongoDB database       |
+| `GEMINI_API_KEY` | Server-only credential for Gemini requests        |
+| `AUTH_SECRET`    | Private secret used to sign authentication tokens |
 
-Generate a suitable local authentication secret with Node.js:
+Keep these values private. Do not place database credentials, API keys, or authentication secrets in `client/.env`, because `VITE_` values are available to the browser.
 
-```bash
-node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-```
-
-Paste the generated output into `AUTH_SECRET`. Keep the existing local defaults
-for `CLIENT_ORIGIN`, `PORT`, and the other bounded settings unless your setup
-requires different values.
-
-The default `client/.env` points the browser to
-`http://localhost:4444/api`. Never place MongoDB credentials, authentication
-secrets, or Gemini keys in the client environment file because `VITE_` values
-are visible in the browser.
-
-### 4. Start the API
-
-In the first terminal, from the project root:
+Start the API and client in separate terminals:
 
 ```bash
 npm run dev:server
 ```
 
-### 5. Start the client
-
-In a second terminal, from the project root:
-
 ```bash
 npm run dev:client
 ```
 
-Open:
+Then open <http://localhost:5173>. The API health endpoint is available at <http://localhost:4444/health>.
 
-- **Application:** `http://localhost:5173`
-- **API health check:** `http://localhost:4444/health`
-- **API dependency readiness:** `http://localhost:4444/ready`
+## Quality checks
 
-Stop both processes with `Ctrl+C` when the demo is finished.
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-## Suggested demo journey
+The project uses focused deterministic tests for application behaviour and provider adapters. Live AI availability, quota, browser/device support, and network conditions remain external dependencies, so they are handled with bounded requests and clear recovery states rather than invented results.
 
-For a clear end-to-end demonstration:
+## Live demo
 
-1. Sign up with a new account.
-2. Start a text-based interview in one of the three supported tracks.
-3. Submit an answer and review its structured feedback.
-4. Complete the interview and open the saved result.
-5. Return to the dashboard to show interview history and progress.
-6. Optionally demonstrate resume-informed questions or one short voice answer.
+Try the deployed application at [mockmateai-web-rudranil-datta.onrender.com](https://mockmateai-web-rudranil-datta.onrender.com).
 
-Use synthetic resume content and non-sensitive demo data. Live AI usage may be
-subject to the quota and availability of the Gemini account associated with the
-configured API key.
+The demo is hosted on Render's free tier, so the first request after inactivity may take a moment while the service wakes up.
 
-## V1 deployment and handoff
+## Project status
 
-V1 is deployed as a demo/staging application:
+MockMateAI has an implemented interview-practice baseline and an active context-aware preparation extension. The product continues to prioritise verified behaviour, privacy, accessible UI, and a dependable text-first practice path over unbounded feature expansion.
 
-- **Application:** <https://mockmateai-web-rudranil-datta.onrender.com>
-- **API health:** <https://mockmateai-api-rudranil-datta.onrender.com/health>
-- **API readiness:** <https://mockmateai-api-rudranil-datta.onrender.com/ready>
+## Contributing
 
-The Render API runs `npm run start --workspace=server`. The static client uses
-same-origin `/api` requests through the Render rewrite. `/health` confirms the
-API process is alive; `/ready` also checks MongoDB availability. Free Render
-instances can sleep after inactivity, so the first request may take longer.
+Issues and improvements are welcome. Please keep changes focused, preserve the ownership and validation boundaries, avoid committing secrets, and include relevant tests for changed behaviour.
 
-Production configuration uses these server variable names without exposing
-their values:
+## License
 
-`MONGODB_URI`, `MONGODB_DB_NAME`, `GEMINI_API_KEY`, `AUTH_SECRET`, `NODE_ENV`,
-`PORT`, `CLIENT_ORIGIN`, `TRUST_PROXY`, `MONGODB_READINESS_TIMEOUT_MS`,
-`AI_PROVIDER`, `GEMINI_MODEL`, `GEMINI_TRANSCRIPTION_MODEL`,
-`AI_REQUEST_TIMEOUT_MS`, `QUESTION_CACHE_TTL_MS`,
-`AI_REQUESTS_PER_USER_PER_HOUR`, `AI_REQUESTS_PER_IP_PER_HOUR`,
-`AI_REQUESTS_PER_DAY`, `AUTH_REQUESTS_PER_IP_PER_15_MINUTES`,
-`UPLOADS_PER_USER_PER_HOUR`, `UPLOADS_PER_IP_PER_HOUR`,
-`JSON_BODY_LIMIT_BYTES`, `MAX_AUDIO_SIZE_BYTES`, `AUDIO_UPLOAD_DIR`,
-`MAX_RESUME_SIZE_BYTES`, and `RESUME_UPLOAD_DIR`.
-
-The client uses only `VITE_API_BASE_URL`. `OPENAI_API_KEY` remains an optional
-future-provider placeholder and is not required for Gemini-only V1.
-
-### Recovery and rollback
-
-If a provider request fails, the application preserves the active interview,
-selected setup, and saved answer so the user can retry explicitly. Question
-generation and typed evaluation may retry `provider_unavailable` once within
-the existing 20-second server budget; other provider categories and voice stay
-single-attempt.
-
-For an application regression, redeploy known-good commit `7bef53a` in Render,
-then verify the frontend, `/health`, `/ready`, login, one text evaluation, and
-dashboard persistence. V1 introduced no release-time database migration, so
-application rollback does not require a schema rollback. Never delete or edit
-Atlas data as part of rollback without a separately approved recovery plan.
-
-### Known V1 limits
-
-- Deployment is demo/staging assurance, not production-scale assurance.
-- Gemini availability and quota remain external dependencies; no fallback
-  provider or invented feedback is used.
-- Rate limits and question cache are in one process and reset after sleep,
-  restart, or redeployment.
-- Raw resume and audio uploads use ephemeral processing and are not retained as
-  downloadable files.
-- Real-device voice smoke, second-browser authentication smoke, and broader
-  load, soak, reconnect, concurrency, outage, and device coverage are Phase 2
-  work scheduled for October 11–13, 2026. Typed practice remains the supported
-  demonstration baseline.
-- Rehearsal was skipped under the approved shortened schedule.
-
-## V2 planning status
-
-V1 remains complete under the documented demo/staging scope. V2 Days 1–8 are
-complete: contracts, owned Job Targets, confirmed Candidate Projects, adaptive
-provider/session contracts, deterministic branching, and Job Target-weighted
-Role Simulation and confirmed-project Project Defense foundations are
-implemented, including grounded claim/fact-aware Project Defense follow-ups.
-Day 9 remains unapproved. V2 continues
-through separately approved days or phases; planning documents do not authorize
-provider calls, deployment, commits, or pushes.
-
-- [V2 implementation plan](project_memory/V2_IMPLEMENTATION_PLAN.md)
-- [V2 implementation timeline](project_memory/V2_IMPLEMENTATION_TIMELINE.md)
-- [V2 success criteria](project_memory/V2_SUCCESS_CRITERIA.md)
-- [V2 Day 1 contract freeze](project_memory/V2_DAY1_CONTRACTS.md)
-
-The planned cohesive core adds bounded adaptive interviews, Role Simulation,
-Project Defense, user-confirmed project context, persistent skill evidence,
-targeted practice, replay/comparison, and a mandatory UI upgrade while
-preserving the V1 modular monolith and dependable text journey.
+This repository is provided for academic and demonstration purposes. Contact the repository owner before reusing it outside that context.

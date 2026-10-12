@@ -3,6 +3,9 @@ node_modules/
 dist/
 coverage/
 
+# Local academic-report workspace
+/report/
+
 # Local secrets and environment overrides
 .env
 .env.*

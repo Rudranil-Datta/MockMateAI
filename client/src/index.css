@@ -2741,3 +2741,23 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep the mobile drawer and Coach setup sequence aligned after base styles. */
+@media (max-width: 760px) {
+  .primary-nav {
+    background: rgb(13 20 38 / 98%);
+    border-bottom-color: var(--border-subtle);
+  }
+  .profile-link {
+    border-top-color: var(--border-subtle);
+  }
+  .setup-steps {
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .setup-steps li {
+    align-items: flex-start;
+    min-width: 0;
+  }
+}

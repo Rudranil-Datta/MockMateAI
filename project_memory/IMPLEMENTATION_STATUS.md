@@ -8,6 +8,35 @@ V1 day numbering follows [IMPLEMENTATION_TIMELINE.md](IMPLEMENTATION_TIMELINE.md
 
 ## Current Day Execution Plan
 
+### README-01 public README refresh
+
+**Status:** Complete — documentation-only public README refresh completed and
+verified on 2026-10-12. No application, dependency, configuration,
+deployment, commit, or push change is included.
+
+| ID         | Authority      | Required result                                                                                                                       | Boundary/risk control                                                                                                        | Verification                                                                                        | Status |
+| ---------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------ |
+| README-01A | User direction | The root README presents MockMateAI clearly to public visitors and uses the supplied product logo instead of the prior favicon image. | `README.md` only; reference the committed image, retain truthful product boundaries, and do not expose configuration values. | Logo is tracked; Markdown reference is valid; Prettier, delivery validation, and diff check passed. | Passed |
+
+**Manual tasks for user:** None.
+
+### UI-COACH-02 corrective mobile navigation and step alignment
+
+**Status:** Partial — source repair and local verification completed on 2026-10-12;
+remote deployment confirmation remains user-owned.
+Scope is CSS-only: correct the mobile navigation surface and make the four
+Preparation Coach steps a deliberate single-column sequence. No API, state,
+persistence, provider, dependency, deployment, commit, or push work is included.
+
+| ID           | Authority                                                | Required result                                                                                                      | Boundary/risk control                                                              | Verification                                                                                                                          | Status         |
+| ------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| UI-COACH-02A | User-supplied mobile screenshots; UI accessibility rules | The open mobile navigation has a dark, high-contrast surface with legible inactive and active links.                 | Final responsive CSS override only; preserve navigation, focus, and menu behavior. | Final mobile rule overrides the earlier white drawer; AppShell/Dashboard/Coach tests `11/11`, lint, and production build passed.      | Passed locally |
+| UI-COACH-02B | User-supplied mobile screenshots; responsive UI rules    | Job Target, Confirmed Project, Practice evidence, and Review and refine appear as aligned full-width rows on mobile. | Final responsive CSS override only; preserve labels and completion states.         | Final mobile rule overrides the later four-column default; AppShell/Dashboard/Coach tests `11/11`, lint, and production build passed. | Passed locally |
+
+**Manual tasks for user:** Commit/push/deploy the current source, then refresh the
+phone browser without using a cached page and confirm the dark navigation drawer
+and vertically aligned four-step sequence.
+
 ### UI-COACH-01 dashboard Coach responsive polish
 
 **Status:** Complete — user approved CSS-only repair on 2026-10-12. No API,
